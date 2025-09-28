@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import logo from '../../assets/flavorcore-logo.png';
 
 interface LoginScreenProps {
   onLogin: () => void;
@@ -23,7 +24,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         {/* === LOGO SECTION === */}
         <div className="text-center mb-8">
           <img 
-            src="/src/assets/flavorcore-logo.png" 
+            src={logo}  // Changed from "/src/assets/flavorcore-logo.png"
             alt="FlavorCore Logo" 
             className="h-20 mx-auto mb-4 object-contain"
             onError={(e) => {
