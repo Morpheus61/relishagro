@@ -32,7 +32,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               e.currentTarget.src = "https://via.placeholder.com/150?text=FlavorCore";
             }}
           />
-          <h1 className="text-2xl font-bold text-gray-800">FlavorCore</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Relish Agro</h1>
           <p className="text-gray-600 mt-1">Agricultural Management System</p>
         </div>
 
