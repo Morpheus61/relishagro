@@ -1,11 +1,11 @@
 // src/components/shared/OnboardingScreen.tsx
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
-import { ArrowLeft, CheckCircle, Camera, Fingerprint, IdCard } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Camera, Fingerprint, IdCard, RotateCcw, X } from 'lucide-react';
 
 interface OnboardingScreenProps {
   navigateToScreen: (screen: string) => void;
@@ -28,6 +28,17 @@ export function OnboardingScreen({ navigateToScreen }: OnboardingScreenProps) {
   const [verifyLater, setVerifyLater] = useState(false);
   const [verificationMethod, setVerificationMethod] = useState<'fingerprint' | 'otp' | null>(null);
 
+  // Camera State
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+
+  // Refs
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -39,7 +50,6 @@ export function OnboardingScreen({ navigateToScreen }: OnboardingScreenProps) {
     }
 
     if (verifyLater) {
-      // Save for later verification
       setAadhaarVerified(true);
       alert("Aadhaar details recorded. Verification will be completed when network is available.");
       return;
@@ -55,8 +65,6 @@ export function OnboardingScreen({ navigateToScreen }: OnboardingScreenProps) {
       const payload = {
         aadhaar: formData.aadhaar,
         method: verificationMethod,
-        // For OTP: send mobile number
-        // For fingerprint: capture template (simulated here)
         mobile: formData.mobile,
       };
 
@@ -85,11 +93,85 @@ export function OnboardingScreen({ navigateToScreen }: OnboardingScreenProps) {
     }
   };
 
+  const startCamera = async (facing: 'user' | 'environment' = facingMode) => {
+    try {
+      setCameraError(null);
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: facing
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      
+      setFacingMode(facing);
+      setShowCamera(true);
+    } catch (error) {
+      console.error('Camera access error:', error);
+      setCameraError(`Unable to access ${facing === 'user' ? 'front' : 'back'} camera. Please ensure camera permissions are granted.`);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
+    setCameraError(null);
+  };
+
+  const switchCamera = () => {
+    const newFacing = facingMode === 'user' ? 'environment' : 'user';
+    startCamera(newFacing);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      if (context) {
+        // Flip horizontally for front camera (mirror effect)
+        if (facingMode === 'user') {
+          context.scale(-1, 1);
+          context.drawImage(video, -canvas.width, 0);
+        } else {
+          context.drawImage(video, 0, 0);
+        }
+        
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setCapturedImage(imageDataUrl);
+        setPhotoTaken(true);
+        stopCamera();
+      }
+    }
+  };
+
+  const retakePhoto = () => {
+    setCapturedImage(null);
+    setPhotoTaken(false);
+    startCamera();
+  };
+
   const handlePhotoCapture = () => {
-    // Simulate photo capture
-    setTimeout(() => {
-      setPhotoTaken(true);
-    }, 1500);
+    startCamera('user'); // Start with front camera by default
   };
 
   const handleSubmit = () => {
@@ -102,6 +184,13 @@ export function OnboardingScreen({ navigateToScreen }: OnboardingScreenProps) {
 
   const canSubmit = formData.firstName && formData.lastName && formData.mobile && 
                    formData.role && (aadhaarVerified || verifyLater) && photoTaken && consentGiven;
+
+  // Clean up camera on component unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -271,25 +360,86 @@ export function OnboardingScreen({ navigateToScreen }: OnboardingScreenProps) {
         <Card className="p-4">
           <h2 className="text-lg mb-4">Capture Face</h2>
           <div className="space-y-4">
-            <div className="text-center">
-              {photoTaken ? (
-                <div className="w-32 h-32 mx-auto bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle size={48} className="text-green-600" />
+            {/* Camera Error */}
+            {cameraError && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-red-600 text-sm">{cameraError}</p>
+              </div>
+            )}
+
+            {/* Camera View */}
+            {showCamera && (
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full max-w-md mx-auto rounded-lg"
+                  style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+                />
+                
+                {/* Camera Controls */}
+                <div className="flex gap-3 mt-4 justify-center">
+                  <Button onClick={capturePhoto} className="bg-green-600 hover:bg-green-700">
+                    <Camera size={16} className="mr-2" />
+                    Capture
+                  </Button>
+                  
+                  <Button onClick={switchCamera} variant="outline" title="Switch Camera">
+                    <RotateCcw size={16} className="mr-2" />
+                    {facingMode === 'user' ? 'Back' : 'Front'}
+                  </Button>
+                  
+                  <Button onClick={stopCamera} variant="outline">
+                    <X size={16} className="mr-2" />
+                    Cancel
+                  </Button>
                 </div>
-              ) : (
+                
+                {/* Camera Mode Indicator */}
+                <div className="text-center mt-2">
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    {facingMode === 'user' ? '📱 Front Camera' : '📷 Back Camera'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Captured Photo Preview */}
+            {capturedImage && (
+              <div className="text-center">
+                <img 
+                  src={capturedImage} 
+                  alt="Captured face" 
+                  className="w-32 h-32 mx-auto rounded-full object-cover border-4 border-green-500"
+                />
+                <div className="flex gap-3 mt-4 justify-center">
+                  <Button onClick={retakePhoto} variant="outline">
+                    Retake Photo
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Photo Status */}
+            <div className="text-center">
+              {!photoTaken && !showCamera ? (
                 <div className="w-32 h-32 mx-auto bg-gray-200 rounded-full flex items-center justify-center">
                   <Camera size={48} className="text-gray-400" />
                 </div>
-              )}
+              ) : null}
             </div>
             
-            <Button 
-              onClick={handlePhotoCapture}
-              disabled={photoTaken}
-              className="w-full"
-            >
-              {photoTaken ? 'Photo Captured' : 'Take Photo'}
-            </Button>
+            {/* Action Button */}
+            {!photoTaken && !showCamera && (
+              <Button 
+                onClick={handlePhotoCapture}
+                className="w-full"
+              >
+                <Camera size={16} className="mr-2" />
+                Start Camera
+              </Button>
+            )}
             
             {photoTaken && (
               <div className="flex items-center justify-center gap-2 text-green-600">
@@ -298,6 +448,9 @@ export function OnboardingScreen({ navigateToScreen }: OnboardingScreenProps) {
               </div>
             )}
           </div>
+
+          {/* Hidden canvas for photo capture */}
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
         </Card>
 
         {/* Submit */}
