@@ -23,11 +23,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
     try {
       // ✅ Connect to Supabase for real authentication
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_id: staffId.trim() })
-      });
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ staff_id: staffId.trim() })
+});
 
       const data = await response.json();
 
@@ -55,19 +55,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
         {/* Logo */}
         <div className="text-center mb-6">
-          <div className="flex justify-center mb-2">
-            <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
-            </div>
-            <div className="ml-1 flex items-center">
-              <div className="w-2 h-2 bg-orange-500 rounded-full mr-1"></div>
-              <div className="w-2 h-2 bg-orange-500 rounded-full mr-1"></div>
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-purple-800">FlavorCore</h1>
-        </div>
-
+  <img 
+    src="/flavorcore-logo.png" 
+    alt="FlavorCore" 
+    className="w-12 h-12 mx-auto mb-2"
+  />
+  <h1 className="text-2xl font-bold text-purple-800">FlavorCore</h1>
+</div>
         {/* Title */}
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-800">Relish Agro</h2>
