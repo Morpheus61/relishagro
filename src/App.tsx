@@ -1,6 +1,6 @@
 // src/App.tsx
 import { useEffect, useState } from 'react';
-import { createClient, Session } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 // === Use named imports ===
 import { LoginScreen } from './components/shared/LoginScreen';
@@ -15,7 +15,7 @@ const supabase = createClient(
 );
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<any>(null);
   const [userRole, setUserRole] = useState<'admin' | 'harvestflow_manager' | 'flavorcore_manager' | 'staff' | null>(null);
 
   useEffect(() => {
@@ -27,7 +27,6 @@ export default function App() {
       }
     });
 
-    // ✅ Fixed: Destructure `subscription`, not `listener`
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         const role = session.user?.user_metadata?.role || 'staff';
@@ -40,7 +39,7 @@ export default function App() {
     });
 
     return () => {
-      subscription.unsubscribe(); // ✅ Correct property
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -51,8 +50,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50">
       {userRole === 'admin' && <DashboardScreen session={session} />}
-      {userRole === 'harvestflow_manager' && <HarvestFlowDashboard />} {/* ✅ Removed session */}
-      {userRole === 'flavorcore_manager' && <FlavorCoreDashboard />}   {/* ✅ Removed session */}
+      {userRole === 'harvestflow_manager' && <HarvestFlowDashboard />}
+      {userRole === 'flavorcore_manager' && <FlavorCoreDashboard />}
       {userRole === 'staff' && <DashboardScreen session={session} />}
     </div>
   );

@@ -1,65 +1,80 @@
 // src/components/shared/LoginScreen.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import logo from '../../assets/flavorcore-logo.png';
 
 interface LoginScreenProps {
-  onLogin: () => void;
+  onLogin: (userId: string, role: string) => void;
 }
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
-  const [manualId, setManualId] = useState('');
+  const [staffId, setStaffId] = useState('');
 
   const handleLogin = () => {
-    if (manualId.trim()) {
-      onLogin();
+    if (!staffId.trim()) return;
+
+    // Simulate login with Staff ID
+    let role: string;
+    if (staffId.startsWith('Admin-')) {
+      role = 'admin';
+    } else if (staffId.startsWith('HarvestFlow-')) {
+      role = 'harvestflow_manager';
+    } else if (staffId.startsWith('FlavorCore-')) {
+      role = 'flavorcore_manager';
+    } else if (staffId.startsWith('HarvestSup-')) {
+      role = 'harvest_supervisor';
+    } else if (staffId.startsWith('FlavorSup-')) {
+      role = 'flavorcore_supervisor';
+    } else if (staffId.startsWith('Staff-')) {
+      role = 'staff';
+    } else {
+      alert('Invalid Staff ID format');
+      return;
     }
+
+    onLogin(staffId, role);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
-        
-        {/* === LOGO SECTION === */}
-        <div className="text-center mb-8">
-          <img 
-            src={logo}  // Changed from "/src/assets/flavorcore-logo.png"
-            alt="FlavorCore Logo" 
-            className="h-20 mx-auto mb-4 object-contain"
-            onError={(e) => {
-              console.warn("Logo failed to load");
-              e.currentTarget.src = "https://via.placeholder.com/150?text=FlavorCore";
-            }}
-          />
-          <h1 className="text-2xl font-bold text-gray-800">Relish Agro</h1>
-          <p className="text-gray-600 mt-1">Agricultural Management System</p>
-        </div>
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-purple-900 text-white p-4">
+        <h1 className="text-xl text-center">RelishAgro</h1>
+      </div>
 
-        {/* === LOGIN FORM === */}
-        <div className="space-y-6">
+      <div className="p-6 space-y-6">
+        {/* Login Form */}
+        <div className="space-y-4">
+          <h2 className="text-lg mb-4">Login</h2>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Staff ID</label>
+            <label className="block text-sm mb-1">Staff ID</label>
             <Input
-              value={manualId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setManualId(e.target.value)}
-              placeholder="Enter your ID"
-              className="w-full"
+              placeholder="Enter your ID (e.g. Admin-Motty)"
+              value={staffId}
+              onChange={(e) => setStaffId(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
             />
           </div>
-
           <Button 
-            onClick={handleLogin} 
-            disabled={!manualId.trim()}
-            className="w-full bg-purple-700 hover:bg-purple-800 text-white py-3 text-lg"
+            onClick={handleLogin}
+            disabled={!staffId}
+            className="w-full bg-purple-700 hover:bg-purple-800"
           >
             Login
           </Button>
         </div>
 
-        {/* === FOOTER === */}
-        <div className="mt-8 pt-6 border-t border-gray-200 text-center text-xs text-gray-500">
-          <p>Powered by RelishAgro • Version 1.0</p>
+        {/* Usage Guide */}
+        <div className="bg-blue-50 border-blue-200 p-4 rounded-md">
+          <h3 className="text-sm font-medium mb-2">Login ID Format</h3>
+          <ul className="text-xs space-y-1 text-blue-700">
+            <li><strong>Admin:</strong> Admin-Motty</li>
+            <li><strong>HarvestFlow Manager:</strong> HarvestFlow-Regu</li>
+            <li><strong>FlavorCore Manager:</strong> FlavorCore-Raja</li>
+            <li><strong>Harvest Supervisor:</strong> HarvestSup-Johnson</li>
+            <li><strong>FlavorCore Supervisor:</strong> FlavorSup-George</li>
+            <li><strong>Worker:</strong> Staff-001</li>
+          </ul>
         </div>
       </div>
     </div>
