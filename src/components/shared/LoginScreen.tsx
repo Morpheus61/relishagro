@@ -2,6 +2,14 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { createClient } from '@supabase/supabase-js';
+
+
+// Initialize Supabase client
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 interface LoginScreenProps {
   onLogin: (userId: string, role: string) => void;
@@ -22,20 +30,21 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setError('');
 
     try {
-      // ✅ Connect to Supabase for real authentication
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ staff_id: staffId.trim() })
-});
+      // Direct Supabase query
+      const { data: user, error: dbError } = await supabase
+        .from('staff_users')
+        .select('*')
+        .eq('staff_id', staffId.trim())
+        .single();
 
-      const data = await response.json();
-
-      if (response.ok && data.authenticated) {
-        onLogin(data.user.id, data.user.role);
-      } else {
-        setError(data.error || 'Invalid Staff ID or network error');
+      if (dbError || !user) {
+        setError('Invalid Staff ID');
+        return;
       }
+
+      // Success
+      onLogin(user.staff_id, user.role);
+      
     } catch (err) {
       setError('Login failed. Please check your connection.');
       console.error('Login error:', err);
