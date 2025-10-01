@@ -1,47 +1,32 @@
-import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useState } from 'react';
+import { supabase } from './lib/supabase'; // Use centralized instance
 import { LoginScreen } from './components/shared/LoginScreen';
 import { DashboardScreen } from './components/shared/DashboardScreen';
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
-
 export default function App() {
-  const [session, setSession] = useState<any>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        const role = session.user?.user_metadata?.role || 'staff';
-        setUserRole(role);
-        setSession(session);
-      }
-    });
+  const handleLogin = (id: string, role: string) => {
+    console.log('Login successful:', { id, role }); // Debug log
+    setUserId(id);
+    setUserRole(role);
+  };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        const role = session.user?.user_metadata?.role || 'staff';
-        setUserRole(role);
-        setSession(session);
-      } else {
-        setSession(null);
-        setUserRole(null);
-      }
-    });
+  const handleLogout = () => {
+    setUserId(null);
+    setUserRole(null);
+  };
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  if (!session) {
-    return <LoginScreen onLogin={() => {}} />;
+  if (!userId || !userRole) {
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   return (
-    <DashboardScreen session={session} />
+    <DashboardScreen 
+      userId={userId}
+      userRole={userRole}
+      onLogout={handleLogout}
+    />
   );
 }
