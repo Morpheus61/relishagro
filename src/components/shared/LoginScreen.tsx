@@ -66,7 +66,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           <img 
   src={flavorCoreLogo}
   alt="FlavorCore" 
-  className="w-24 h-24 mx-auto mb-3 object-contain"
+  className="w-32 h-32 mx-auto mb-3 object-contain"
 />
           <h1 className="text-2xl font-bold text-purple-800">FlavorCore</h1>
         </div>
