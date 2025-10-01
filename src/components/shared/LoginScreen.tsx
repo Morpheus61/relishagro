@@ -64,10 +64,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         {/* Logo - FIXED PATH */}
         <div className="text-center mb-6">
           <img 
-            src={flavorCoreLogo}  // ✅ Using imported logo from assets
-            alt="FlavorCore" 
-            className="w-12 h-12 mx-auto mb-2 object-contain"
-          />
+  src={flavorCoreLogo}
+  alt="FlavorCore" 
+  className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 mx-auto mb-3 object-contain"
+/>
           <h1 className="text-2xl font-bold text-purple-800">FlavorCore</h1>
         </div>
 
