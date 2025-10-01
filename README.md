@@ -1,4 +1,8 @@
-# 🌱 RelishAgro – Digital Transformation for R F Plantations
+# 🌱 RelishAgro – FlavorCore Agricultural Excellence Platform
+
+> **FlavorCore-powered agricultural worker management system with UIDAI compliance and biometric authentication.**
+
+A Progressive Web App (PWA) to digitize agricultural operations from worker onboarding to field management. Built with offline resilience, biometric security (face recognition & fingerprint), UIDAI compliance, and comprehensive audit trails for Indian agricultural sector.RelishAgro – Digital Transformation for R F Plantations
 
 > **RelishAgro is not just an app — it’s the digital transformation of R F Plantations.**
 
@@ -20,15 +24,16 @@ A Progressive Web App (PWA) to digitize plantation operations from field harvest
 
 ## 🏗️ Tech Stack
 
-| Layer | Technology |
-|------|------------|
-| **Frontend** | React + Vite PWA |
-| **Backend** | FastAPI (Python) |
-| **Database** | Supabase (PostgreSQL) |
-| **Auth** | Supabase Auth + JWT |
-| **Face Recognition** | OpenCV (Lightweight Haar Cascades) |
-| **Offline Support** | IndexedDB + Background Sync |
-| **Hosting** | Vercel (Frontend), Railway (Backend) |
+| Layer | Technology | Details |
+|------|------------|---------|
+| **Frontend** | React 18 + TypeScript + Vite | PWA with offline support |
+| **UI Framework** | Tailwind CSS + Custom Components | Responsive design |
+| **Backend** | Supabase (PostgreSQL) | Real-time database |
+| **Authentication** | Supabase Auth + Direct DB Query | Role-based access control |
+| **Biometric** | Web Camera API + Fingerprint Scanner | Face capture & fingerprint |
+| **Compliance** | UIDAI Regulation Framework | 5-point consent system |
+| **Offline Support** | Service Worker + PWA | Background sync |
+| **Deployment** | Vercel (Frontend) + Railway (Backend) | Auto-deployment |
 
 ---
 
@@ -36,6 +41,37 @@ A Progressive Web App (PWA) to digitize plantation operations from field harvest
 
 Create `.env.local`:
 
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials:
+# VITE_SUPABASE_URL=your_supabase_url
+# VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```env
 VITE_SUPABASE_URL=https://engzyfgdgqhuatymkshk.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZ3p5ZmdkZ3FodWF0eW1rc2hrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MzQ5OTQsImV4cCI6MjA3MzIxMDk5NH0.MKnrO7Zi7bfqGq8yl0taItXcU8rnl0zhsqXr7htOrEY
+## 🔐 Security & UIDAI Compliance
+
+### UIDAI Compliance Framework
+- **5-Point Consent System**: Comprehensive informed consent for biometric data collection
+- **AES-256-GCM Encryption**: Military-grade encryption for all biometric data
+- **Complete Audit Logging**: Full transaction history and compliance tracking
+- **Data Minimization**: Only necessary data collected per UIDAI guidelines
+- **Right to Deletion**: User data removal capability with proper audit trails
+
+### Security Features
+- **Role-based Access Control**: Three-tier access (Admin/Manager/Operator)
+- **Supabase Authentication**: Secure login with direct database verification
+- **Biometric Privacy**: Local processing with encrypted storage
+- **PWA Security**: HTTPS enforcement and secure service worker implementation
