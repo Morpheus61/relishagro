@@ -1,9 +1,8 @@
-// src/components/shared/LoginScreen.tsx
 import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { createClient } from '@supabase/supabase-js';
-
+import flavorCoreLogo from '../../assets/flavorcore-logo.png'; // ✅ Import your logo
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -62,15 +61,16 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   return (
     <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        {/* Logo */}
+        {/* Logo - FIXED PATH */}
         <div className="text-center mb-6">
-  <img 
-    src="/flavorcore-logo.png" 
-    alt="FlavorCore" 
-    className="w-12 h-12 mx-auto mb-2"
-  />
-  <h1 className="text-2xl font-bold text-purple-800">FlavorCore</h1>
-</div>
+          <img 
+            src={flavorCoreLogo}  // ✅ Using imported logo from assets
+            alt="FlavorCore" 
+            className="w-12 h-12 mx-auto mb-2 object-contain"
+          />
+          <h1 className="text-2xl font-bold text-purple-800">FlavorCore</h1>
+        </div>
+
         {/* Title */}
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-800">Relish Agro</h2>
@@ -115,7 +115,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         </div>
 
         {/* Footer */}
-        <div className="mt-6 pt-4 border-t border-gray-200 text-center">
+        <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
             Powered by RelishAgro • Version 1.0
           </p>
