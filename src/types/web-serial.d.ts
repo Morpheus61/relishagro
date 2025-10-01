@@ -1,8 +1,6 @@
-// src/types/web-serial.d.ts
-
 interface SerialPort {
   readonly readable: ReadableStream<Uint8Array>;
-  readonly writable: WritableStream<Uint8Array>;
+  readonly writable: WritableStream<WritableStreamChunkType>;
   open(options: SerialOptions): Promise<void>;
   close(): Promise<void>;
   getInfo(): SerialPortInfo;
@@ -10,11 +8,6 @@ interface SerialPort {
 
 interface SerialOptions {
   baudRate: number;
-  dataBits?: 7 | 8;
-  stopBits?: 1 | 2;
-  parity?: 'none' | 'even' | 'odd';
-  bufferSize?: number;
-  flowControl?: 'none' | 'hardware';
 }
 
 interface SerialPortInfo {
@@ -28,8 +21,3 @@ interface Navigator {
     requestPort(options: { filters: Array<{ usbVendorId: number; usbProductId: number }> }): Promise<SerialPort>;
   };
 }
-
-declare var SerialPort: {
-  prototype: SerialPort;
-  new(): SerialPort;
-};

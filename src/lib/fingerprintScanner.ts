@@ -6,18 +6,26 @@ export class FingerprintScanner {
 
   async connect(): Promise<boolean> {
     try {
-      // Request port (MARC11 L1 / MFS110)
-      this.port = await navigator.serial.requestPort({
-        filters: [
-          { usbVendorId: 0x04d8, usbProductId: 0xf372 }, // Common MFS110
-          { usbVendorId: 0x10c4, usbProductId: 0xea60 }  // MARC11 L1
-        ]
-      });
+      // Request access to serial port (MARC11 L1 / MFS110)
+      const ports = await navigator.serial.getPorts();
+      let selectedPort = ports[0];
 
-      // Open with correct baud rate
+      if (!selectedPort) {
+        // Prompt user to select a port
+        this.port = await navigator.serial.requestPort({
+          filters: [
+            { usbVendorId: 0x04d8, usbProductId: 0xf372 }, // MFS110
+            { usbVendorId: 0x10c4, usbProductId: 0xea60 }  // MARC11 L1
+          ]
+        });
+      } else {
+        this.port = selectedPort;
+      }
+
+      // Open connection
       await this.port.open({ baudRate: 9600 });
 
-      // Start reading
+      // Start reading responses
       this.reader = this.port.readable.getReader();
 
       return true;
@@ -33,9 +41,9 @@ export class FingerprintScanner {
     }
 
     try {
-      // Send command packet (replace with actual MFS110/MARC11 command)
+      // Send "capture" command (replace with actual MFS110/MARC11 protocol)
       const encoder = new TextEncoder();
-      const command = encoder.encode("CAPTURE\n"); // Replace with binary packet later
+      const command = encoder.encode("CAPTURE\n"); // Replace with real binary packet
       const writer = this.port.writable.getWriter();
       await writer.write(command);
       writer.releaseLock();
