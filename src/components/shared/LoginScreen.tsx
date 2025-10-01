@@ -1,14 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { createClient } from '@supabase/supabase-js';
-import flavorCoreLogo from '../../assets/flavorcore-logo.png'; // ✅ Import your logo
-
-// Initialize Supabase client
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import flavorCoreLogo from '../../assets/flavorcore-logo.png';
 
 interface LoginScreenProps {
   onLogin: (userId: string, role: string) => void;
@@ -29,20 +23,25 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setError('');
 
     try {
-      // Direct Supabase query
       const { data: user, error: dbError } = await supabase
-        .from('staff_users')
+        .from('person_records')
         .select('*')
-        .eq('staff_id', staffId.trim())
+        .eq('staff_id', staffId.trim()) // Query by staff_id column
         .single();
 
       if (dbError || !user) {
         setError('Invalid Staff ID');
+        console.error('Database error:', dbError);
         return;
       }
 
-      // Success
-      onLogin(user.staff_id, user.role);
+      if (user.status !== 'active') {
+        setError('Account is not active');
+        return;
+      }
+
+      // Success - pass the UUID id and person_type
+      onLogin(user.id, user.person_type);
       
     } catch (err) {
       setError('Login failed. Please check your connection.');
@@ -61,28 +60,25 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   return (
     <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        {/* Logo - FIXED PATH */}
         <div className="text-center mb-6">
           <img 
-  src={flavorCoreLogo}
-  alt="FlavorCore" 
-  className="w-32 h-32 mx-auto mb-3 object-contain"
-/>
+            src={flavorCoreLogo}
+            alt="FlavorCore" 
+            className="w-32 h-32 mx-auto mb-3 object-contain"
+          />
         </div>
 
-        {/* Title */}
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-800">Relish Agro</h2>
           <p className="text-sm text-gray-600">Agricultural Management System</p>
         </div>
 
-        {/* Login Form */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Staff ID</label>
             <Input
               type="text"
-              placeholder="Enter your ID"
+              placeholder="Admin-Motty"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);
@@ -113,7 +109,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </Button>
         </div>
 
-        {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
             Powered by RelishAgro • Version 1.0
