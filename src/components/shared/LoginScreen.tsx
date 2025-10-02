@@ -78,7 +78,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">Staff ID</label>
             <Input
               type="text"
-              placeholder="Admin-Motty"
+              placeholder="Enter your Staff ID"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);
