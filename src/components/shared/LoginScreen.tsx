@@ -26,7 +26,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       const { data: user, error: dbError } = await supabase
         .from('person_records')
         .select('*')
-        .eq('staff_id', staffId.trim()) // Query by staff_id column
+        .eq('staff_id', staffId.trim())
         .single();
 
       if (dbError || !user) {
@@ -40,8 +40,34 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         return;
       }
 
-      // Success - pass the UUID id and person_type
-      onLogin(user.id, user.person_type);
+      // ✅ FIXED: Determine role from staff_id prefix AND database
+      let role = user.person_type || 'staff';
+      
+      // Override with staff_id prefix logic for proper routing
+      if (staffId.startsWith('Admin-')) {
+        role = 'admin';
+      } else if (staffId.startsWith('HarvestFlow-')) {
+        role = 'harvestflow_manager';
+      } else if (staffId.startsWith('FlavorCore-')) {
+        if (staffId.includes('Supervisor')) {
+          role = 'supervisor';
+        } else {
+          role = 'flavorcore_manager';
+        }
+      } else if (staffId.startsWith('Harvest-')) {
+        role = 'harvesting';
+      }
+
+      const displayName = user.full_name || staffId.trim();
+
+      console.log('✅ LoginScreen passing to App:', { 
+        displayName, 
+        role,
+        staffId: staffId.trim() 
+      });
+      
+      // Pass the readable name and determined role
+      onLogin(displayName, role);
       
     } catch (err) {
       setError('Login failed. Please check your connection.');
@@ -64,7 +90,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           <img 
             src={flavorCoreLogo}
             alt="FlavorCore" 
-            className="w-32 h-32 mx-auto mb-3 object-contain"
+            className="-46 h-46 mx-auto mb-3 object-contain"
           />
         </div>
 
@@ -111,7 +137,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
-            Powered by RelishAgro • Version 1.0
+            🔒 Secure Access • Contact Admin for Staff ID
           </p>
         </div>
       </div>
