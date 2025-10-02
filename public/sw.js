@@ -51,37 +51,22 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - implement caching strategies
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
+  // Only cache GET requests
+  if (event.request.method !== 'GET') return;
 
-  // Handle static assets with cache-first strategy
   event.respondWith(
-    caches.match(request)
-      .then((response) => {
-        if (response) {
-          console.log('[SW] Serving from cache:', request.url);
-          return response;
-        }
-
-        // Fetch from network and cache
-        return fetch(request)
-          .then((response) => {
-            // Only cache successful responses
-            if (response.status === 200) {
-              const responseClone = response.clone();
-              caches.open(STATIC_CACHE)
-                .then((cache) => {
-                  cache.put(request, responseClone);
-                });
-            }
-            return response;
-          })
-          .catch(() => {
-            // Return offline page for navigation requests
-            if (request.destination === 'document') {
-              return caches.match('/');
-            }
-          });
-      })
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request).then(fetchedResponse => {
+        // Cache fetched response only if valid
+        if (!fetchedResponse || fetchedResponse.status !== 200) return fetchedResponse;
+        
+        const responseToCache = fetchedResponse.clone();
+        caches.open('static-cache').then(cache => {
+          cache.put(event.request, responseToCache);
+        });
+        return fetchedResponse;
+      });
+    })
   );
 });
 
