@@ -25,13 +25,30 @@ interface Stats {
   activeSessions: number;
 }
 
+interface SystemParams {
+  // HarvestFlow Daily Jobs
+  hf_daily_work_start: string;
+  hf_daily_work_end: string;
+  hf_daily_wage: number;
+  
+  // HarvestFlow Harvest Period
+  hf_harvest_segment1_start: string;
+  hf_harvest_segment1_end: string;
+  hf_harvest_segment2_start: string;
+  hf_harvest_segment2_end: string;
+  
+  // FlavorCore
+  fc_work_start: string;
+  fc_work_end: string;
+  fc_wage_frequency: string;
+}
+
 export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardProps) {
   const [activeSection, setActiveSection] = useState<string>('dashboard');
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, pendingApprovals: 0, activeSessions: 0 });
   const [loading, setLoading] = useState(true);
   
-  // Form state
   const [newUser, setNewUser] = useState({
     roleType: '',
     staffId: '',
@@ -40,9 +57,23 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
     designation: ''
   });
 
+  const [systemParams, setSystemParams] = useState<SystemParams>({
+    hf_daily_work_start: '08:00',
+    hf_daily_work_end: '17:00',
+    hf_daily_wage: 500,
+    hf_harvest_segment1_start: '07:00',
+    hf_harvest_segment1_end: '10:00',
+    hf_harvest_segment2_start: '11:00',
+    hf_harvest_segment2_end: '15:00',
+    fc_work_start: '08:00',
+    fc_work_end: '17:00',
+    fc_wage_frequency: 'monthly'
+  });
+
   useEffect(() => {
     loadUsers();
     loadStats();
+    loadSystemParams();
   }, []);
 
   const loadUsers = async () => {
@@ -63,12 +94,10 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
 
   const loadStats = async () => {
     try {
-      // Total users
       const { count: userCount } = await supabase
         .from('person_records')
         .select('*', { count: 'exact', head: true });
 
-      // Pending approvals from onboarding_pending
       const { count: approvalCount } = await supabase
         .from('onboarding_pending')
         .select('*', { count: 'exact', head: true })
@@ -77,10 +106,26 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
       setStats({
         totalUsers: userCount || 0,
         pendingApprovals: approvalCount || 0,
-        activeSessions: 0 // This would need session tracking implementation
+        activeSessions: 0
       });
     } catch (error) {
       console.error('Error loading stats:', error);
+    }
+  };
+
+  const loadSystemParams = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_parameters')
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setSystemParams(data);
+      }
+    } catch (error) {
+      console.error('Error loading system parameters:', error);
     }
   };
 
@@ -130,6 +175,21 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
       loadStats();
     } catch (error: any) {
       console.error('Error deleting user:', error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const saveSystemParams = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_parameters')
+        .update(systemParams)
+        .eq('id', (await supabase.from('system_parameters').select('id').single()).data?.id);
+
+      if (error) throw error;
+      alert('System parameters saved successfully');
+    } catch (error: any) {
+      console.error('Error saving parameters:', error);
       alert(`Error: ${error.message}`);
     }
   };
@@ -247,40 +307,136 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
         return (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-2xl font-bold mb-6">System Parameters</h3>
-            <p className="text-gray-600 mb-4">Connect this to a system_parameters table in your database</p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-lg font-semibold mb-4">Harvest Parameters</h4>
-                <div className="space-y-4">
+            {/* HarvestFlow Parameters */}
+            <div className="mb-8">
+              <h4 className="text-xl font-semibold mb-4 text-orange-700">HarvestFlow Parameters</h4>
+              
+              <div className="bg-orange-50 p-4 rounded-lg mb-4">
+                <h5 className="font-semibold mb-3">Daily Jobs (Non-Harvest Period)</h5>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Daily Harvest Target (kg)</label>
-                    <Input type="number" placeholder="500" />
+                    <label className="block text-sm font-medium mb-2">Work Start Time</label>
+                    <Input 
+                      type="time" 
+                      value={systemParams.hf_daily_work_start}
+                      onChange={(e) => setSystemParams({...systemParams, hf_daily_work_start: e.target.value})}
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Working Hours</label>
-                    <Input type="text" placeholder="8:00 AM - 5:00 PM" />
+                    <label className="block text-sm font-medium mb-2">Work End Time</label>
+                    <Input 
+                      type="time" 
+                      value={systemParams.hf_daily_work_end}
+                      onChange={(e) => setSystemParams({...systemParams, hf_daily_work_end: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Daily Wage (₹)</label>
+                    <Input 
+                      type="number" 
+                      value={systemParams.hf_daily_wage}
+                      onChange={(e) => setSystemParams({...systemParams, hf_daily_wage: parseFloat(e.target.value)})}
+                    />
                   </div>
                 </div>
               </div>
-              
-              <div>
-                <h4 className="text-lg font-semibold mb-4">Processing Parameters</h4>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Drying Temperature (°C)</label>
-                    <Input type="number" placeholder="45" />
+
+              <div className="bg-orange-50 p-4 rounded-lg">
+                <h5 className="font-semibold mb-3">Harvest Period (Two Segments)</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="border-r pr-4">
+                    <p className="text-sm font-medium mb-2">Segment 1</p>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs mb-1">Start Time</label>
+                        <Input 
+                          type="time" 
+                          value={systemParams.hf_harvest_segment1_start}
+                          onChange={(e) => setSystemParams({...systemParams, hf_harvest_segment1_start: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs mb-1">End Time</label>
+                        <Input 
+                          type="time" 
+                          value={systemParams.hf_harvest_segment1_end}
+                          onChange={(e) => setSystemParams({...systemParams, hf_harvest_segment1_end: e.target.value})}
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Drying Duration (hours)</label>
-                    <Input type="number" placeholder="24" />
+                    <p className="text-sm font-medium mb-2">Segment 2</p>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs mb-1">Start Time</label>
+                        <Input 
+                          type="time" 
+                          value={systemParams.hf_harvest_segment2_start}
+                          onChange={(e) => setSystemParams({...systemParams, hf_harvest_segment2_start: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs mb-1">End Time</label>
+                        <Input 
+                          type="time" 
+                          value={systemParams.hf_harvest_segment2_end}
+                          onChange={(e) => setSystemParams({...systemParams, hf_harvest_segment2_end: e.target.value})}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
+                <p className="text-xs text-gray-600 mt-2">Note: Wages for harvest period are configured per staff based on daily wage or per-kg rates</p>
+              </div>
+            </div>
+
+            {/* FlavorCore Parameters */}
+            <div className="mb-8">
+              <h4 className="text-xl font-semibold mb-4 text-purple-700">FlavorCore Parameters</h4>
+              
+              <div className="bg-purple-50 p-4 rounded-lg mb-4">
+                <h5 className="font-semibold mb-3">Working Hours</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Work Start Time</label>
+                    <Input 
+                      type="time" 
+                      value={systemParams.fc_work_start}
+                      onChange={(e) => setSystemParams({...systemParams, fc_work_start: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Work End Time</label>
+                    <Input 
+                      type="time" 
+                      value={systemParams.fc_work_end}
+                      onChange={(e) => setSystemParams({...systemParams, fc_work_end: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h5 className="font-semibold mb-3">Wage Frequency</h5>
+                <select 
+                  className="w-full p-3 border rounded-lg"
+                  value={systemParams.fc_wage_frequency}
+                  onChange={(e) => setSystemParams({...systemParams, fc_wage_frequency: e.target.value})}
+                >
+                  <option value="daily">Per Day</option>
+                  <option value="weekly">Per Week</option>
+                  <option value="monthly">Per Month</option>
+                </select>
               </div>
             </div>
             
-            <div className="flex gap-4 mt-6">
-              <Button className="bg-green-600 hover:bg-green-700 text-white">
+            <div className="flex gap-4">
+              <Button 
+                onClick={saveSystemParams}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
                 Save Parameters
               </Button>
               <Button 
@@ -297,7 +453,7 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
         return (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-2xl font-bold mb-6">Pending Approvals</h3>
-            <p className="text-gray-600 mb-4">Connect this to onboarding_pending table</p>
+            <p className="text-gray-600 mb-4">Real-time approval workflows will be loaded from database</p>
             <Button 
               onClick={() => setActiveSection('dashboard')}
               className="mt-6 bg-gray-500 hover:bg-gray-600 text-white"
