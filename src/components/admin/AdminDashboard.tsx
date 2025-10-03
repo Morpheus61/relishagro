@@ -49,11 +49,20 @@ interface SystemParams {
   fc_wage_frequency: string;
 }
 
+interface JobType {
+  id: string;
+  job_name: string;
+  category: string;
+  unit_of_measurement: string;
+  expected_output_per_worker: number;
+}
+
 export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardProps) {
   const [activeSection, setActiveSection] = useState<string>('dashboard');
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, pendingApprovals: 0, activeSessions: 0 });
   const [loading, setLoading] = useState(true);
+  const [jobTypes, setJobTypes] = useState<JobType[]>([]);
   
   const [newUser, setNewUser] = useState({
     roleType: '',
@@ -61,6 +70,13 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
     firstName: '',
     lastName: '',
     designation: ''
+  });
+
+  const [newJobType, setNewJobType] = useState({
+    jobName: '',
+    category: '',
+    unitOfMeasurement: '',
+    expectedOutput: ''
   });
 
   const [systemParams, setSystemParams] = useState<SystemParams>({
@@ -80,6 +96,7 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
     loadUsers();
     loadStats();
     loadSystemParams();
+    loadJobTypes();
   }, []);
 
   const loadUsers = async () => {
@@ -132,6 +149,66 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
       }
     } catch (error) {
       console.error('Error loading system parameters:', error);
+    }
+  };
+
+  const loadJobTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_job_types')
+        .select('*')
+        .order('job_name');
+
+      if (error) throw error;
+      setJobTypes(data || []);
+    } catch (error) {
+      console.error('Error loading job types:', error);
+    }
+  };
+
+  const handleCreateJobType = async () => {
+    if (!newJobType.jobName) {
+      alert('Please enter job name');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('daily_job_types')
+        .insert({
+          job_name: newJobType.jobName,
+          category: newJobType.category,
+          unit_of_measurement: newJobType.unitOfMeasurement,
+          expected_output_per_worker: parseFloat(newJobType.expectedOutput) || null
+        });
+
+      if (error) throw error;
+
+      alert('Job type created successfully');
+      setNewJobType({ jobName: '', category: '', unitOfMeasurement: '', expectedOutput: '' });
+      loadJobTypes();
+    } catch (error: any) {
+      console.error('Error creating job type:', error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const handleDeleteJobType = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this job type?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('daily_job_types')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      alert('Job type deleted successfully');
+      loadJobTypes();
+    } catch (error: any) {
+      console.error('Error deleting job type:', error);
+      alert(`Error: ${error.message}`);
     }
   };
 
@@ -349,6 +426,92 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-2xl font-bold mb-6">System Parameters</h3>
             
+            {/* Job Types Management */}
+            <div className="mb-8">
+              <h4 className="text-xl font-semibold mb-4 text-orange-700">Define Job Types</h4>
+              <p className="text-sm text-gray-600 mb-4">Job types must be defined before they can be assigned to staff</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <h5 className="font-semibold mb-3">Add New Job Type</h5>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Job Name *</label>
+                      <Input 
+                        type="text" 
+                        placeholder="Weeding, Pruning, etc."
+                        value={newJobType.jobName}
+                        onChange={(e) => setNewJobType({...newJobType, jobName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Category</label>
+                      <Input 
+                        type="text" 
+                        placeholder="Maintenance, Harvest, etc."
+                        value={newJobType.category}
+                        onChange={(e) => setNewJobType({...newJobType, category: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Unit of Measurement</label>
+                      <Input 
+                        type="text" 
+                        placeholder="kg, area, hours, etc."
+                        value={newJobType.unitOfMeasurement}
+                        onChange={(e) => setNewJobType({...newJobType, unitOfMeasurement: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Expected Output per Worker</label>
+                      <Input 
+                        type="number" 
+                        placeholder="100"
+                        value={newJobType.expectedOutput}
+                        onChange={(e) => setNewJobType({...newJobType, expectedOutput: e.target.value})}
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleCreateJobType}
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      Add Job Type
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <h5 className="font-semibold mb-3">Existing Job Types ({jobTypes.length})</h5>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {jobTypes.map((job) => (
+                      <div key={job.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <div>
+                          <span className="font-medium">{job.job_name}</span>
+                          <p className="text-xs text-gray-600">
+                            {job.category && `Category: ${job.category}`}
+                            {job.unit_of_measurement && ` | Unit: ${job.unit_of_measurement}`}
+                          </p>
+                          {job.expected_output_per_worker && (
+                            <p className="text-xs text-gray-500">Expected: {job.expected_output_per_worker}</p>
+                          )}
+                        </div>
+                        <Button 
+                          onClick={() => handleDeleteJobType(job.id)}
+                          className="bg-red-500 text-white text-xs px-3 py-1"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    ))}
+                    {jobTypes.length === 0 && (
+                      <p className="text-gray-500 text-sm">No job types defined yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* HarvestFlow Parameters */}
             <div className="mb-8">
               <h4 className="text-xl font-semibold mb-4 text-orange-700">HarvestFlow Parameters</h4>
               
@@ -432,6 +595,7 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
               </div>
             </div>
 
+            {/* FlavorCore Parameters */}
             <div className="mb-8">
               <h4 className="text-xl font-semibold mb-4 text-purple-700">FlavorCore Parameters</h4>
               
@@ -569,45 +733,45 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <Button
                   onClick={() => setActiveSection('hf-staff')}
-                  className="h-auto py-4 bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-300"
+                  className="h-auto py-4 bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">👥</div>
-                    <div className="font-semibold">Staff List</div>
-                    <div className="text-sm">View all field staff</div>
+                    <div className="font-semibold text-orange-800">Staff List</div>
+                    <div className="text-sm text-orange-700">View all field staff</div>
                   </div>
                 </Button>
 
                 <Button
                   onClick={() => setActiveSection('hf-attendance')}
-                  className="h-auto py-4 bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300"
+                  className="h-auto py-4 bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">📋</div>
-                    <div className="font-semibold">Daily Attendance</div>
-                    <div className="text-sm">Check-in records</div>
+                    <div className="font-semibold text-blue-800">Daily Attendance</div>
+                    <div className="text-sm text-blue-700">Check-in records</div>
                   </div>
                 </Button>
 
                 <Button
                   onClick={() => setActiveSection('hf-jobs')}
-                  className="h-auto py-4 bg-green-100 hover:bg-green-200 text-green-900 border border-green-300"
+                  className="h-auto py-4 bg-green-100 hover:bg-green-200 text-green-800 border border-green-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">✅</div>
-                    <div className="font-semibold">Job Completion</div>
-                    <div className="text-sm">Task tracking</div>
+                    <div className="font-semibold text-green-800">Job Completion</div>
+                    <div className="text-sm text-green-700">Task tracking</div>
                   </div>
                 </Button>
 
                 <Button
                   onClick={() => setActiveSection('hf-harvest')}
-                  className="h-auto py-4 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 border border-yellow-300"
+                  className="h-auto py-4 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">🌾</div>
-                    <div className="font-semibold">Harvest Data</div>
-                    <div className="text-sm">Daily yields</div>
+                    <div className="font-semibold text-yellow-800">Harvest Data</div>
+                    <div className="text-sm text-yellow-700">Daily yields</div>
                   </div>
                 </Button>
               </div>
@@ -615,23 +779,23 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Button
                   onClick={() => setActiveSection('hf-dispatch')}
-                  className="h-auto py-4 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300"
+                  className="h-auto py-4 bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">🚚</div>
-                    <div className="font-semibold">Dispatch Records</div>
-                    <div className="text-sm">Outbound shipments</div>
+                    <div className="font-semibold text-purple-800">Dispatch Records</div>
+                    <div className="text-sm text-purple-700">Outbound shipments</div>
                   </div>
                 </Button>
 
                 <Button
                   onClick={() => setActiveSection('hf-wages')}
-                  className="h-auto py-4 bg-red-100 hover:bg-red-200 text-red-900 border border-red-300"
+                  className="h-auto py-4 bg-red-100 hover:bg-red-200 text-red-800 border border-red-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">💰</div>
-                    <div className="font-semibold">Wages & Money</div>
-                    <div className="text-sm">Financial tracking</div>
+                    <div className="font-semibold text-red-800">Wages & Money</div>
+                    <div className="text-sm text-red-700">Financial tracking</div>
                   </div>
                 </Button>
               </div>
@@ -645,34 +809,34 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Button
                   onClick={() => setActiveSection('fc-processing')}
-                  className="h-auto py-4 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300"
+                  className="h-auto py-4 bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">⚗️</div>
-                    <div className="font-semibold">Processing Status</div>
-                    <div className="text-sm">Current batches</div>
+                    <div className="font-semibold text-purple-800">Processing Status</div>
+                    <div className="text-sm text-purple-700">Current batches</div>
                   </div>
                 </Button>
 
                 <Button
                   onClick={() => setActiveSection('fc-inventory')}
-                  className="h-auto py-4 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border border-indigo-300"
+                  className="h-auto py-4 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">📦</div>
-                    <div className="font-semibold">Inventory Levels</div>
-                    <div className="text-sm">Stock management</div>
+                    <div className="font-semibold text-indigo-800">Inventory Levels</div>
+                    <div className="text-sm text-indigo-700">Stock management</div>
                   </div>
                 </Button>
 
                 <Button
                   onClick={() => setActiveSection('fc-quality')}
-                  className="h-auto py-4 bg-pink-100 hover:bg-pink-200 text-pink-900 border border-pink-300"
+                  className="h-auto py-4 bg-pink-100 hover:bg-pink-200 text-pink-800 border border-pink-300"
                 >
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <div className="text-2xl mb-2">⭐</div>
-                    <div className="font-semibold">Quality Metrics</div>
-                    <div className="text-sm">Product grades</div>
+                    <div className="font-semibold text-pink-800">Quality Metrics</div>
+                    <div className="text-sm text-pink-700">Product grades</div>
                   </div>
                 </Button>
               </div>
