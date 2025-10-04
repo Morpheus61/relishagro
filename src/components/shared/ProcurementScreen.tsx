@@ -5,6 +5,7 @@ import { Card } from '../ui/card';
 import { Input } from '../ui/input';        // ✅ Import Input
 import { Textarea } from '../ui/textarea';  // ✅ Import Textarea
 import { ArrowLeft } from 'lucide-react';   // ✅ Only used icon
+import { supabase } from '../../lib/supabase';
 
 interface ProcurementScreenProps {
   navigateToScreen: (screen: string) => void;
@@ -31,13 +32,49 @@ export function ProcurementScreen({ navigateToScreen }: ProcurementScreenProps) 
     }
   };
 
-  const handleSubmit = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      alert('Procurement request submitted successfully!');
-      navigateToScreen('dashboard');
-    }, 2000);
-  };
+  const handleSubmit = async () => {
+  if (!requestDetails.description || !requestDetails.estimatedCost) {
+    alert('Please fill required fields');
+    return;
+  }
+
+  setIsSubmitting(true);
+  
+  try {
+    const { data, error } = await supabase
+      .from('provision_requests')  // ✅ Correct for provisions/procurement
+      .insert({
+        request_type: requestType === 'goods' ? 'provisions' : 'wages',
+        description: requestDetails.description,
+        amount: parseFloat(requestDetails.estimatedCost),
+        vendor: requestDetails.vendor || null,
+        requested_date: requestDetails.date || null,
+        receipt_images: uploadedReceipts.length > 0 ? uploadedReceipts : null,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    alert('Request submitted successfully! Pending admin approval.');
+    
+    // Reset form
+    setRequestDetails({
+      description: '',
+      estimatedCost: '',
+      vendor: '',
+      date: ''
+    });
+    setUploadedReceipts([]);
+    
+    navigateToScreen('dashboard');
+  } catch (error: any) {
+    console.error('Submission error:', error);
+    alert(`Failed to submit: ${error.message}`);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-50">

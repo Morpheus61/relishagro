@@ -6,6 +6,7 @@ import { Card } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { ArrowLeft, CheckCircle, Camera, Fingerprint, IdCard, RotateCcw, X } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface OnboardingScreenProps {
   navigateToScreen: (screen: string) => void;
@@ -246,7 +247,7 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
     }
   };
 
-  // Helper: Hash string using Web Crypto API
+   // Helper: Hash string using Web Crypto API
   async function hashString(text: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
@@ -256,15 +257,60 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
       .join('');
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!canSubmit) {
+      alert('Please complete all required fields');
+      return;
+    }
+
     setIsSubmitting(true);
-    setTimeout(() => {
-      alert('Worker registered successfully! Pending admin approval.');
+    
+    try {
+      const { data, error } = await supabase
+        .from('onboarding_requests')
+        .insert({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          mobile: formData.mobile,
+          address: formData.address,
+          role: formData.role,
+          aadhaar: formData.aadhaar,
+          face_image: capturedImage,
+          consent_given_at: formData.consentGivenAt,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      alert('Worker registration submitted! Pending admin approval.');
+      
+      // Reset form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        mobile: '',
+        address: '',
+        role: '',
+        aadhaar: '',
+        consentGivenAt: null
+      });
+      setPhotoTaken(false);
+      setCapturedImage(null);
+      setAadhaarVerified(false);
+      setConsentGiven(false);
+      
       navigateToScreen('dashboard');
-    }, 2000);
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      alert(`Failed to submit: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const canSubmit = formData.firstName && formData.lastName && formData.mobile && 
+    const canSubmit = formData.firstName && formData.lastName && formData.mobile && 
                    formData.role && (aadhaarVerified || verifyLater) && photoTaken && consentGiven;
 
   // Clean up camera on unmount
