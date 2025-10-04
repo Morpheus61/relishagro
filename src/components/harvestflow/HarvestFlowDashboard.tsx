@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { supabase } from '../../lib/supabase';
+import { OnboardingScreen } from '../shared/OnboardingScreen';
+import { ProcurementScreen } from '../shared/ProcurementScreen';
 
 interface HarvestFlowDashboardProps {
   userId: string;
@@ -24,7 +26,8 @@ interface Job {
 }
 
 export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlowDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'daily' | 'harvest' | 'wages'>('daily');
+  // ✅ UPDATED: Added new tabs for onboarding, procurement, attendance, planning, equipment
+  const [activeTab, setActiveTab] = useState<'daily' | 'harvest' | 'wages' | 'onboarding' | 'procurement' | 'attendance' | 'planning' | 'equipment'>('daily');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,13 +79,20 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
 
   const loadJobs = async () => {
     try {
+      // ✅ FIXED: Changed from 'daily_jobs' to 'daily_job_types' (correct table name)
       const { data, error } = await supabase
-        .from('daily_jobs')
-        .select('id, name, category')
-        .order('name');
+        .from('daily_job_types')
+        .select('id, job_name, category')
+        .order('job_name');
 
       if (error) throw error;
-      setJobs(data || []);
+      // ✅ FIXED: Map job_name to name for consistency
+      const mappedJobs = data?.map(job => ({
+        id: job.id,
+        name: job.job_name,
+        category: job.category
+      })) || [];
+      setJobs(mappedJobs);
     } catch (error) {
       console.error('Error loading jobs:', error);
     }
@@ -109,14 +119,16 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
     }
 
     try {
+      // ✅ FIXED: Updated to use correct table and field names
       const { error } = await supabase
-        .from('activity_logs')
+        .from('hf_daily_jobs')
         .insert({
-          job_id: dailyWork.jobId,
-          date: new Date().toISOString().split('T')[0],
-          workers_involved: dailyWork.selectedWorkers.length,
-          notes: `Area: ${dailyWork.area}`,
-          recorded_by: userId
+          job_type_id: dailyWork.jobId,
+          assignment_date: new Date().toISOString().split('T')[0],
+          assigned_workers: dailyWork.selectedWorkers,
+          area_notes: dailyWork.area,
+          assigned_by: userId,
+          status: 'assigned'
         });
 
       if (error) throw error;
@@ -135,7 +147,7 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
     }
 
     try {
-      const lotId = `LOT-${harvestJob.crop.toUpperCase()}-${Date.now()}`;
+      const lotId = `LOT-${harvestJob.crop.toUpperCase().replace(/\s+/g, '')}-${Date.now()}`;
       
       const { error } = await supabase
         .from('lots')
@@ -143,7 +155,9 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
           lot_id: lotId,
           crop: harvestJob.crop,
           date_harvested: new Date().toISOString().split('T')[0],
-          created_by: userId
+          created_by: userId,
+          status: 'harvesting',
+          assigned_workers: harvestJob.selectedWorkers
         });
 
       if (error) throw error;
@@ -170,48 +184,101 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
     alert(`Calculated Wage: ₹${totalWage.toFixed(2)}`);
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="bg-orange-600 text-white p-6 rounded-lg shadow-lg mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">HarvestFlow Manager Dashboard</h1>
-            <p className="text-orange-100">Farm Operations Management</p>
+  // ✅ NEW: Navigation handler for screens
+  const handleNavigateToScreen = (screen: string) => {
+    if (screen === 'dashboard') {
+      setActiveTab('daily');
+    }
+  };
+
+  // ✅ NEW: Render content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'onboarding':
+        return (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <OnboardingScreen 
+              navigateToScreen={handleNavigateToScreen} 
+              user={userId} 
+            />
           </div>
-          <Button onClick={onLogout} className="bg-orange-700 hover:bg-orange-800">
-            Logout
-          </Button>
-        </div>
-      </div>
+        );
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6 mx-4">
-        <h2 className="text-2xl font-bold text-gray-800">Welcome, {userId}</h2>
-        <p className="text-gray-600">Role: <span className="font-semibold">{userRole}</span></p>
-      </div>
+      case 'procurement':
+        return (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <ProcurementScreen 
+              navigateToScreen={handleNavigateToScreen} 
+              user={userId} 
+            />
+          </div>
+        );
 
-      <div className="p-4 space-y-6">
-        <div className="flex space-x-4 border-b bg-white p-2 rounded-t-lg">
-          <button
-            className={`px-4 py-2 font-medium rounded ${activeTab === 'daily' ? 'bg-orange-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-            onClick={() => setActiveTab('daily')}
-          >
-            Daily Work
-          </button>
-          <button
-            className={`px-4 py-2 font-medium rounded ${activeTab === 'harvest' ? 'bg-orange-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-            onClick={() => setActiveTab('harvest')}
-          >
-            Harvesting
-          </button>
-          <button
-            className={`px-4 py-2 font-medium rounded ${activeTab === 'wages' ? 'bg-orange-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-            onClick={() => setActiveTab('wages')}
-          >
-            Wages
-          </button>
-        </div>
+      case 'attendance':
+        return (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
+              <h2 className="text-xl font-bold mb-4">📋 Daily Attendance</h2>
+              <p className="text-gray-600 mb-4">Face recognition attendance system coming soon...</p>
+              <div className="space-y-4">
+                <p className="text-sm text-orange-600">
+                  🚧 This feature will include:
+                </p>
+                <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                  <li>Face recognition check-in/check-out</li>
+                  <li>Manual attendance entry (backup)</li>
+                  <li>Daily attendance reports</li>
+                  <li>Worker location tracking</li>
+                </ul>
+              </div>
+            </Card>
+          </div>
+        );
 
-        {activeTab === 'daily' && (
+      case 'planning':
+        return (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
+              <h2 className="text-xl font-bold mb-4">📊 Harvest Planning</h2>
+              <p className="text-gray-600 mb-4">Seasonal planning and management tools</p>
+              <div className="space-y-4">
+                <p className="text-sm text-orange-600">
+                  🚧 This feature will include:
+                </p>
+                <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                  <li>Seasonal crop planning calendar</li>
+                  <li>Weather integration for planning</li>
+                  <li>Resource allocation planning</li>
+                  <li>Harvest forecasting</li>
+                </ul>
+              </div>
+            </Card>
+          </div>
+        );
+
+      case 'equipment':
+        return (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
+              <h2 className="text-xl font-bold mb-4">🚜 Equipment Management</h2>
+              <p className="text-gray-600 mb-4">Farm equipment tracking and maintenance</p>
+              <div className="space-y-4">
+                <p className="text-sm text-orange-600">
+                  🚧 This feature will include:
+                </p>
+                <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                  <li>Equipment inventory tracking</li>
+                  <li>Maintenance scheduling</li>
+                  <li>Usage logs and reports</li>
+                  <li>Equipment allocation to workers</li>
+                </ul>
+              </div>
+            </Card>
+          </div>
+        );
+
+      case 'daily':
+        return (
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-bold mb-4">Assign Daily Work</h2>
@@ -267,9 +334,10 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
               )}
             </Card>
           </div>
-        )}
+        );
 
-        {activeTab === 'harvest' && (
+      case 'harvest':
+        return (
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-bold mb-4">Assign Harvest Job</h2>
@@ -322,9 +390,10 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
               )}
             </Card>
           </div>
-        )}
+        );
 
-        {activeTab === 'wages' && (
+      case 'wages':
+        return (
           <div className="space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-bold mb-4">Wage Calculation</h2>
@@ -399,7 +468,145 @@ export function HarvestFlowDashboard({ userId, userRole, onLogout }: HarvestFlow
               )}
             </Card>
           </div>
-        )}
+        );
+
+      default:
+        return renderTabContent();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="bg-orange-600 text-white p-6 rounded-lg shadow-lg mb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">HarvestFlow Manager Dashboard</h1>
+            <p className="text-orange-100">Farm Operations Management</p>
+          </div>
+          <Button onClick={onLogout} className="bg-orange-700 hover:bg-orange-800">
+            Logout
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6 mx-4">
+        <h2 className="text-2xl font-bold text-gray-800">Welcome, {userId}</h2>
+        <p className="text-gray-600">Role: <span className="font-semibold">{userRole}</span></p>
+      </div>
+
+      <div className="p-4 space-y-6">
+        {/* ✅ UPDATED: Enhanced tab navigation with all features */}
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {/* Core Operations */}
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'daily' 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => setActiveTab('daily')}
+            >
+              📋 Daily Work
+            </button>
+            
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'harvest' 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => setActiveTab('harvest')}
+            >
+              🌾 Harvesting
+            </button>
+            
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'wages' 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => setActiveTab('wages')}
+            >
+              💰 Wages
+            </button>
+
+            {/* Staff Management */}
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'onboarding' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+              onClick={() => setActiveTab('onboarding')}
+            >
+              👥 Staff Onboarding
+            </button>
+
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'attendance' 
+                  ? 'bg-purple-600 text-white' 
+                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              }`}
+              onClick={() => setActiveTab('attendance')}
+            >
+              📋 Attendance
+            </button>
+
+            {/* Administrative */}
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'procurement' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+              }`}
+              onClick={() => setActiveTab('procurement')}
+            >
+              🛒 Procurement
+            </button>
+
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'planning' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+              }`}
+              onClick={() => setActiveTab('planning')}
+            >
+              📊 Planning
+            </button>
+
+            <button
+              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                activeTab === 'equipment' 
+                  ? 'bg-gray-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => setActiveTab('equipment')}
+            >
+              🚜 Equipment
+            </button>
+          </div>
+
+          {/* ✅ UPDATED: Tab indicators */}
+          <div className="text-sm text-gray-500 mb-4">
+            Active Section: <span className="font-medium text-orange-600">
+              {activeTab === 'daily' && '📋 Daily Work Assignment'}
+              {activeTab === 'harvest' && '🌾 Harvest Management'}
+              {activeTab === 'wages' && '💰 Wage Calculation'}
+              {activeTab === 'onboarding' && '👥 Staff Onboarding'}
+              {activeTab === 'attendance' && '📋 Daily Attendance'}
+              {activeTab === 'procurement' && '🛒 Procurement Requests'}
+              {activeTab === 'planning' && '📊 Harvest Planning'}
+              {activeTab === 'equipment' && '🚜 Equipment Management'}
+            </span>
+          </div>
+        </div>
+
+        {/* ✅ UPDATED: Render the appropriate content */}
+        {renderTabContent()}
       </div>
     </div>
   );
