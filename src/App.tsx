@@ -1,101 +1,255 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LoginScreen } from './components/shared/LoginScreen';
 import { AdminDashboard } from './components/admin/AdminDashboard';
-import { FlavorCoreDashboard } from './components/flavorcore/FlavorCoreDashboard';
 import { HarvestFlowDashboard } from './components/harvestflow/HarvestFlowDashboard';
-import { HarvestingDashboard } from './components/harvesting/HarvestingDashboard';
+import { FlavorCoreManagerDashboard } from './components/flavorcore/FlavorCoreManagerDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
+import { MobileNav } from './components/shared/MobileNav';
+import api from './lib/api';
+import { initOfflineDB, setupAutoSync } from './lib/offlineSync';
+import { requestNotificationPermission } from './lib/pushNotifications';
 
 interface User {
   id: string;
+  staff_id: string;
+  full_name: string;
   role: string;
 }
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentRoute, setCurrentRoute] = useState('dashboard');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleLogin = (userId: string, role: string) => {
-    console.log('🔍 App.tsx received login:', { userId, role });
-    setUser({ id: userId, role: role });
+  useEffect(() => {
+    initializeApp();
+  }, []);
+
+  const initializeApp = async () => {
+    try {
+      // Initialize offline database
+      await initOfflineDB();
+      
+      // Setup automatic sync
+      setupAutoSync();
+      
+      // Request notification permissions
+      await requestNotificationPermission();
+      
+      // Check if user is already logged in
+      const token = localStorage.getItem('auth_token');
+      const userData = localStorage.getItem('user_data');
+      
+      if (token && userData) {
+        setCurrentUser(JSON.parse(userData));
+        setIsLoggedIn(true);
+      }
+    } catch (error) {
+      console.error('Failed to initialize app:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = async (staffId: string) => {
+    try {
+      const response = await api.login(staffId);
+      
+      if (response.success) {
+        const userData: User = {
+          id: response.user.id,
+          staff_id: response.user.staff_id,
+          full_name: response.user.full_name,
+          role: response.user.role,
+        };
+        
+        setCurrentUser(userData);
+        setIsLoggedIn(true);
+        setCurrentRoute('dashboard');
+      } else {
+        alert('Login failed: ' + (response.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      alert('Login failed: ' + (error.message || 'Network error'));
+    }
   };
 
   const handleLogout = () => {
-    setUser(null);
+    api.clearAuth();
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    setCurrentRoute('dashboard');
   };
 
-  // ✅ ROLE-BASED DASHBOARD ROUTING
+  const handleNavigate = (route: string) => {
+    setCurrentRoute(route);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center">
+        <div className="text-center text-white">
+          <img
+            src="/flavorcore-logo.png"
+            alt="FlavorCore"
+            className="w-24 h-24 mx-auto mb-4 animate-pulse"
+          />
+          <p className="text-xl font-semibold">Loading FlavorCore...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn || !currentUser) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  // Render appropriate dashboard based on user role
   const renderDashboard = () => {
-    if (!user) return null;
-
-    console.log('🎯 Routing user to dashboard:', { role: user.role });
-
-    switch (user.role.toLowerCase()) {
+    switch (currentUser.role) {
       case 'admin':
         return (
-          <AdminDashboard 
-            userId={user.id} 
-            userRole={user.role} 
-            onLogout={handleLogout} 
-          />
-        );
-      
-      case 'flavorcore_manager':
-      case 'flavorcore-manager':
-        return (
-          <FlavorCoreDashboard 
-            userId={user.id} 
-            userRole={user.role} 
-            onLogout={handleLogout} 
+          <AdminDashboard
+            userId={currentUser.id}
+            userRole={currentUser.role}
+            onLogout={handleLogout}
           />
         );
       
       case 'harvestflow_manager':
-      case 'harvestflow-manager':
         return (
-          <HarvestFlowDashboard 
-            userId={user.id} 
-            userRole={user.role} 
-            onLogout={handleLogout} 
+          <HarvestFlowDashboard
+            userId={currentUser.id}
+            userRole={currentUser.role}
+            onLogout={handleLogout}
           />
         );
       
-      case 'supervisor':
+      case 'flavorcore_manager':
+  return (
+    <FlavorCoreManagerDashboard  // Changed from FlavorCoreDashboard
+      userId={currentUser.id}
+      userRole={currentUser.role}
+      onLogout={handleLogout}
+    />
+  );
+      
       case 'flavorcore_supervisor':
         return (
-          <SupervisorDashboard 
-            userId={user.id} 
-            userRole={user.role} 
-            onLogout={handleLogout} 
-          />
-        );
-      
-      case 'harvesting':
-      case 'staff':
-        return (
-          <HarvestingDashboard 
-            userId={user.id} 
-            userRole={user.role} 
-            onLogout={handleLogout} 
+          <SupervisorDashboard
+            userId={currentUser.id}
+            userRole={currentUser.role}
+            onLogout={handleLogout}
           />
         );
       
       default:
-        console.warn('🚨 Unknown role, using generic dashboard:', user.role);
         return (
-          <HarvestingDashboard 
-            userId={user.id} 
-            userRole={user.role} 
-            onLogout={handleLogout} 
-          />
+          <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+            <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+              <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+              <p className="text-gray-600 mb-4">
+                Your role ({currentUser.role}) does not have dashboard access.
+              </p>
+              <button
+                onClick={handleLogout}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
         );
     }
   };
 
-  if (!user) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile Navigation */}
+      <MobileNav
+        userRole={currentUser.role}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        currentRoute={currentRoute}
+      />
 
-  return renderDashboard();
+      {/* Main Content */}
+      <div className="pl-0 md:pl-0">
+        {renderDashboard()}
+      </div>
+
+      {/* Install PWA Prompt */}
+      <InstallPrompt />
+    </div>
+  );
+}
+
+// PWA Install Prompt Component
+function InstallPrompt() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowPrompt(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+      console.log('PWA installed');
+    }
+    
+    setDeferredPrompt(null);
+    setShowPrompt(false);
+  };
+
+  if (!showPrompt) return null;
+
+  return (
+    <div className="fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-2xl max-w-sm z-50 border-2 border-purple-600">
+      <div className="flex items-start gap-3">
+        <img
+          src="/flavorcore-logo.png"
+          alt="FlavorCore"
+          className="w-12 h-12 rounded-lg"
+        />
+        <div className="flex-1">
+          <h3 className="font-bold text-gray-900 mb-1">Install FlavorCore App</h3>
+          <p className="text-sm text-gray-600 mb-3">
+            Install our app for offline access and a better experience!
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleInstall}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700"
+            >
+              Install
+            </button>
+            <button
+              onClick={() => setShowPrompt(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
+            >
+              Later
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default App;

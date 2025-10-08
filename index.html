@@ -1,27 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" href="/flavorcore-logo.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Relish Agro - FlavorCore</title>
-  
-  <!-- PWA Meta Tags -->
-  <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#7c3aed" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="FlavorCore" />
-  
-  <!-- Apple Touch Icons -->
-  <link rel="apple-touch-icon" href="/flavorcore-logo.png" />
-  <link rel="apple-touch-icon" sizes="152x152" href="/flavorcore-logo.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/flavorcore-logo.png" />
-  <link rel="apple-touch-icon" sizes="167x167" href="/flavorcore-logo.png" />
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/flavorcore-logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#7C3AED" />
+    <meta name="description" content="FlavorCore - Complete production management system for HarvestFlow and FlavorCore operations at RelishAgro" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FlavorCore" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/flavorcore-logo.png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <title>FlavorCore - RelishAgro Management</title>
+    
+    <!-- Face API via CDN (for biometric auth) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

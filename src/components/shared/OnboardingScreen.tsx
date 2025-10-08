@@ -5,7 +5,19 @@ import { Input } from '../ui/input';
 import { Card } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
-import { ArrowLeft, CheckCircle, Camera, Fingerprint, IdCard, RotateCcw, X } from 'lucide-react';
+import { 
+  Camera, 
+  User, 
+  Check, 
+  AlertCircle, 
+  Loader, 
+  CreditCard,
+  ArrowLeft,
+  Fingerprint,
+  CheckCircle,
+  RotateCcw,
+  X
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface OnboardingScreenProps {
@@ -21,7 +33,7 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
     address: '',
     role: '',
     aadhaar: '',
-    consentGivenAt: null as string | null // ✅ Fixed: Add missing field
+    consentGivenAt: null as string | null
   });
   const [aadhaarVerified, setAadhaarVerified] = useState(false);
   const [photoTaken, setPhotoTaken] = useState(false);
@@ -190,7 +202,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
         return;
       }
 
-      // Dynamically import only when needed
       const { SecureFingerprintScanner } = await import('../../lib/secureFingerprintScanner');
       const scanner = new SecureFingerprintScanner();
 
@@ -232,13 +243,13 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
       const result = await response.json();
 
       if (response.ok && result.success) {
-        setFingerprintTemplate(new Uint8Array([1, 2, 3])); // Mock success
+        setFingerprintTemplate(new Uint8Array([1, 2, 3]));
         setPhotoTaken(true);
         alert('✅ Fingerprint captured and securely stored!');
       } else {
         throw new Error(result.message || 'Fingerprint registration failed');
       }
-    } catch (err: unknown) { // ✅ Fixed: 'err' is of type 'unknown'
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error('Fingerprint error:', message);
       alert(`Fingerprint capture failed: ${message}`);
@@ -247,7 +258,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
     }
   };
 
-   // Helper: Hash string using Web Crypto API
   async function hashString(text: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
@@ -286,7 +296,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
 
       alert('Worker registration submitted! Pending admin approval.');
       
-      // Reset form
       setFormData({
         firstName: '',
         lastName: '',
@@ -310,10 +319,9 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
     }
   };
 
-    const canSubmit = formData.firstName && formData.lastName && formData.mobile && 
+  const canSubmit = formData.firstName && formData.lastName && formData.mobile && 
                    formData.role && (aadhaarVerified || verifyLater) && photoTaken && consentGiven;
 
-  // Clean up camera on unmount
   useEffect(() => {
     return () => {
       stopCamera();
@@ -493,14 +501,12 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
         <Card className="p-4">
           <h2 className="text-lg mb-4">Capture Face</h2>
           <div className="space-y-4">
-            {/* Camera Error */}
             {cameraError && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3">
                 <p className="text-red-600 text-sm">{cameraError}</p>
               </div>
             )}
 
-            {/* Camera View */}
             {showCamera && (
               <div className="relative">
                 <video
@@ -511,7 +517,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
                   style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
                 />
                 
-                {/* Camera Controls */}
                 <div className="flex gap-3 mt-4 justify-center">
                   <Button onClick={capturePhoto} className="bg-green-600 hover:bg-green-700">
                     <Camera size={16} className="mr-2" />
@@ -529,7 +534,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
                   </Button>
                 </div>
                 
-                {/* Camera Mode Indicator */}
                 <div className="text-center mt-2">
                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                     {facingMode === 'user' ? '📱 Front Camera' : '📷 Back Camera'}
@@ -538,7 +542,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
               </div>
             )}
 
-            {/* Captured Photo Preview */}
             {capturedImage && (
               <div className="text-center">
                 <img 
@@ -554,7 +557,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
               </div>
             )}
 
-            {/* Photo Status */}
             <div className="text-center">
               {!photoTaken && !showCamera ? (
                 <div className="w-32 h-32 mx-auto bg-gray-200 rounded-full flex items-center justify-center">
@@ -563,7 +565,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
               ) : null}
             </div>
             
-            {/* Action Button */}
             {!photoTaken && !showCamera && (
               <Button 
                 onClick={handlePhotoCapture}
@@ -582,7 +583,6 @@ export function OnboardingScreen({ navigateToScreen, user }: OnboardingScreenPro
             )}
           </div>
 
-          {/* Hidden canvas for photo capture */}
           <canvas ref={canvasRef} style={{ display: 'none' }} />
         </Card>
 
