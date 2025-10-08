@@ -8,16 +8,21 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/flavorcore-logo.png",
+      "src": "/icons/flavorcore-logo-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/flavorcore-logo.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     }
   ],
   "categories": ["business", "productivity"],
