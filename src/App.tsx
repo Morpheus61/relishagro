@@ -56,7 +56,7 @@ function App() {
     try {
       const response = await api.login(staffId);
       
-      if (response.success) {
+      if (response.authenticated && response.user) {
         const userData: User = {
           id: response.user.id,
           staff_id: response.user.staff_id,
