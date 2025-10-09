@@ -28,19 +28,13 @@ function App() {
 
   const initializeApp = async () => {
     try {
-      // Initialize offline database
       await initOfflineDB();
-      
-      // Setup automatic sync
       setupAutoSync();
-      
-      // Request notification permissions
       await requestNotificationPermission();
-      
-      // Check if user is already logged in
+
       const token = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('user_data');
-      
+
       if (token && userData) {
         setCurrentUser(JSON.parse(userData));
         setIsLoggedIn(true);
@@ -55,7 +49,7 @@ function App() {
   const handleLogin = async (staffId: string) => {
     try {
       const response = await api.login(staffId);
-      
+
       if (response.authenticated && response.user) {
         const userData: User = {
           id: response.user.id,
@@ -63,7 +57,7 @@ function App() {
           full_name: response.user.full_name,
           role: response.user.role,
         };
-        
+
         setCurrentUser(userData);
         setIsLoggedIn(true);
         setCurrentRoute('dashboard');
@@ -106,7 +100,6 @@ function App() {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  // Render appropriate dashboard based on user role
   const renderDashboard = () => {
     switch (currentUser.role) {
       case 'admin':
@@ -117,7 +110,7 @@ function App() {
             onLogout={handleLogout}
           />
         );
-      
+
       case 'harvestflow_manager':
         return (
           <HarvestFlowDashboard
@@ -126,16 +119,16 @@ function App() {
             onLogout={handleLogout}
           />
         );
-      
+
       case 'flavorcore_manager':
-  return (
-    <FlavorCoreManagerDashboard  // Changed from FlavorCoreDashboard
-      userId={currentUser.id}
-      userRole={currentUser.role}
-      onLogout={handleLogout}
-    />
-  );
-      
+        return (
+          <FlavorCoreManagerDashboard
+            userId={currentUser.id}
+            userRole={currentUser.role}
+            onLogout={handleLogout}
+          />
+        );
+
       case 'flavorcore_supervisor':
         return (
           <SupervisorDashboard
@@ -144,7 +137,7 @@ function App() {
             onLogout={handleLogout}
           />
         );
-      
+
       default:
         return (
           <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -167,16 +160,18 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Navigation */}
-      <MobileNav
-        userRole={currentUser.role}
-        onNavigate={handleNavigate}
-        onLogout={handleLogout}
-        currentRoute={currentRoute}
-      />
+      {/* Mobile Navigation: ONLY on small screens */}
+      <div className="md:hidden">
+        <MobileNav
+          userRole={currentUser.role}
+          onNavigate={handleNavigate}
+          onLogout={handleLogout}
+          currentRoute={currentRoute}
+        />
+      </div>
 
       {/* Main Content */}
-      <div className="pl-0 md:pl-0">
+      <div className="md:pl-0">
         {renderDashboard()}
       </div>
 
@@ -208,11 +203,11 @@ function InstallPrompt() {
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
+
     if (outcome === 'accepted') {
       console.log('PWA installed');
     }
-    
+
     setDeferredPrompt(null);
     setShowPrompt(false);
   };
@@ -225,7 +220,7 @@ function InstallPrompt() {
         <img
           src="/flavorcore-logo.png"
           alt="FlavorCore"
-          className="w-12 h-12 rounded-lg"
+          className="w-16 h-16"
         />
         <div className="flex-1">
           <h3 className="font-bold text-gray-900 mb-1">Install FlavorCore App</h3>
