@@ -64,7 +64,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         staffId: staffId.trim() 
       });
       
-      onLogin(displayName, role);
+      onLogin(staffId.trim(), role);
       
     } catch (err) {
       setError('Login failed. Please check your connection.');
