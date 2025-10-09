@@ -1,32 +1,28 @@
 /**
  * API Client for Railway Python Backend
- * Base URL: https://relishagro-backend.up.railway.app
+ * Base URL: https://relishagrobackend-production.up.railway.app
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagro-backend.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
 
 class ApiClient {
   private token: string | null = null;
 
   constructor() {
-    // Load token from localStorage on initialization
     this.token = localStorage.getItem('auth_token');
   }
 
-  // Set authentication token
   setToken(token: string) {
     this.token = token;
     localStorage.setItem('auth_token', token);
   }
 
-  // Clear authentication
   clearAuth() {
     this.token = null;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
   }
 
-  // Generic request method
   private async request(endpoint: string, options: RequestInit = {}) {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -47,8 +43,6 @@ class ApiClient {
     return response.json();
   }
 
-  // ==================== AUTHENTICATION ====================
-
   async login(staffId: string) {
     const response = await this.request('/api/auth/login', {
       method: 'POST',
@@ -63,8 +57,6 @@ class ApiClient {
     return response;
   }
 
-  // ==================== WORKERS/STAFF ====================
-
   async getWorkers() {
     return this.request('/api/workers');
   }
@@ -73,13 +65,9 @@ class ApiClient {
     return this.request(`/api/workers/${id}`);
   }
 
-  // ==================== JOB TYPES ====================
-
   async getJobTypes() {
     return this.request('/api/job-types');
   }
-
-  // ==================== DAILY WORK ====================
 
   async assignDailyWork(data: {
     job_type_id: string;
@@ -93,8 +81,6 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
-
-  // ==================== LOTS ====================
 
   async createLot(data: {
     lot_id: string;
@@ -156,8 +142,6 @@ class ApiClient {
     });
   }
 
-  // ==================== RFID/BAGS ====================
-
   async addBagToLot(lotId: string, bagData: {
     bagId: string;
     tagId: string;
@@ -184,8 +168,6 @@ class ApiClient {
     });
   }
 
-  // ==================== DISPATCH ====================
-
   async dispatchLot(data: {
     lot_id: string;
     driver_name: string;
@@ -211,8 +193,6 @@ class ApiClient {
     });
   }
 
-  // ==================== DRYING SAMPLES ====================
-
   async recordDryingSample(sample: {
     id: string;
     lot_id: string;
@@ -227,21 +207,15 @@ class ApiClient {
     });
   }
 
-  // ==================== QR LABELS ====================
-
   async generateQRLabel(lotId: string) {
     return this.request(`/api/qr/generate/${lotId}`, {
       method: 'POST',
     });
   }
 
-  // ==================== SUPERVISOR ====================
-
   async getSupervisorLots(supervisorId: string) {
     return this.request(`/api/supervisor/${supervisorId}/lots`);
   }
-
-  // ==================== PROVISIONS ====================
 
   async getPendingProvisions() {
     return this.request('/api/provisions/pending');
@@ -259,8 +233,6 @@ class ApiClient {
       body: JSON.stringify({ reason }),
     });
   }
-
-  // ==================== ONBOARDING ====================
 
   async getPendingOnboarding() {
     return this.request('/api/onboarding/pending');
@@ -282,8 +254,6 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
-
-  // ==================== ATTENDANCE ====================
 
   async submitAttendanceOverride(data: {
     worker_id: string;
@@ -319,8 +289,6 @@ class ApiClient {
     });
   }
 
-  // ==================== BIOMETRIC AUTH ====================
-
   async registerFace(data: {
     user_id: string;
     face_descriptor: number[];
@@ -339,8 +307,6 @@ class ApiClient {
     });
   }
 
-  // ==================== BATCH SYNC ====================
-
   async syncAttendanceBatch(records: any[]) {
     return this.request('/api/sync/attendance/batch', {
       method: 'POST',
@@ -355,8 +321,6 @@ class ApiClient {
     });
   }
 
-  // ==================== YIELD DATA ====================
-
   async getYieldData(params?: {
     dateFrom?: string;
     dateTo?: string;
@@ -367,6 +331,5 @@ class ApiClient {
   }
 }
 
-// Export singleton instance
 const api = new ApiClient();
 export default api;

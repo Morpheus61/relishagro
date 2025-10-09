@@ -40,10 +40,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         return;
       }
 
-      // ✅ FIXED: Determine role from staff_id prefix AND database
       let role = user.person_type || 'staff';
       
-      // Override with staff_id prefix logic for proper routing
       if (staffId.startsWith('Admin-')) {
         role = 'admin';
       } else if (staffId.startsWith('HarvestFlow-')) {
@@ -66,7 +64,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         staffId: staffId.trim() 
       });
       
-      // Pass the readable name and determined role
       onLogin(displayName, role);
       
     } catch (err) {
@@ -104,7 +101,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">Staff ID</label>
             <Input
               type="text"
-              placeholder="Enter your Staff ID"
+              placeholder="e.g., Admin-Motty"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);
@@ -114,6 +111,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               className={`w-full ${error ? 'border-red-500' : ''}`}
               disabled={isLoading}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter your assigned Staff ID (not your name)
+            </p>
             {error && (
               <p className="text-red-500 text-xs mt-1">{error}</p>
             )}
