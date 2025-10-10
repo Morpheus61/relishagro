@@ -40,21 +40,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         return;
       }
 
-      let role = user.person_type || 'staff';
-      
-      if (staffId.startsWith('Admin-')) {
-        role = 'admin';
-      } else if (staffId.startsWith('HarvestFlow-')) {
-        role = 'harvestflow_manager';
-      } else if (staffId.startsWith('FlavorCore-')) {
-        if (staffId.includes('Supervisor')) {
-          role = 'supervisor';
-        } else {
-          role = 'flavorcore_manager';
-        }
-      } else if (staffId.startsWith('Harvest-')) {
-        role = 'harvesting';
-      }
+      // Derive role from staff_id prefix (override person_type)
+let role = user.person_type || 'staff';
+
+if (staffId.startsWith('Admin-')) {
+  role = 'admin';
+} else if (staffId.startsWith('HF-')) {
+  role = 'harvestflow_manager';
+} else if (staffId.startsWith('FC-')) {
+  role = 'flavorcore_manager';
+} else if (staffId.startsWith('SUP-')) {
+  role = 'flavorcore_supervisor';
+} else if (staffId.startsWith('VEN-')) {
+  role = 'vendor';
+} else if (staffId.startsWith('DRI-')) {
+  role = 'driver';
+}
 
       const displayName = user.full_name || staffId.trim();
 
@@ -101,7 +102,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">Staff ID</label>
             <Input
               type="text"
-              placeholder="e.g., Admin-Motty"
+              placeholder="Enter your Staff ID"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);

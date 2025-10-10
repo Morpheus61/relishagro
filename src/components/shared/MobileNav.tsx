@@ -89,7 +89,7 @@ export function MobileNav({ userRole, onNavigate, onLogout, currentRoute }: Mobi
             <img
               src="/flavorcore-logo.png"
               alt="FlavorCore"
-              className="w-12 h-12 rounded-lg bg-white p-1"
+              className="w-16 h-16 bg-white p-1"
             />
             <div>
               <h2 className="text-xl font-bold">FlavorCore</h2>

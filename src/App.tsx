@@ -101,61 +101,96 @@ function App() {
   }
 
   const renderDashboard = () => {
-    switch (currentUser.role) {
-      case 'admin':
-        return (
-          <AdminDashboard
-            userId={currentUser.id}
-            userRole={currentUser.role}
-            onLogout={handleLogout}
-          />
-        );
+    // Desktop Navigation (visible only on md+ screens)
+    const DesktopNav = () => (
+      <div className="hidden md:block bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap gap-2">
+          {[
+            { label: 'Dashboard', route: 'dashboard' },
+            { label: 'Onboarding', route: 'onboarding' },
+            { label: 'Attendance', route: 'attendance' },
+            { label: 'Procurement', route: 'procurement' },
+            { label: 'Daily Work', route: 'daily-work' },
+            { label: 'Harvest Jobs', route: 'harvest-jobs' },
+            { label: 'Lot Management', route: 'lot-management' },
+            { label: 'Dispatch', route: 'dispatch' },
+            { label: 'Wages', route: 'wages' },
+          ].map((item) => (
+            <button
+              key={item.route}
+              onClick={() => handleNavigate(item.route)}
+              className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                currentRoute === item.route
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
 
-      case 'harvestflow_manager':
-        return (
-          <HarvestFlowDashboard
-            userId={currentUser.id}
-            userRole={currentUser.role}
-            onLogout={handleLogout}
-          />
-        );
-
-      case 'flavorcore_manager':
-        return (
-          <FlavorCoreManagerDashboard
-            userId={currentUser.id}
-            userRole={currentUser.role}
-            onLogout={handleLogout}
-          />
-        );
-
-      case 'flavorcore_supervisor':
-        return (
-          <SupervisorDashboard
-            userId={currentUser.id}
-            userRole={currentUser.role}
-            onLogout={handleLogout}
-          />
-        );
-
-      default:
-        return (
-          <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-            <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-              <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-              <p className="text-gray-600 mb-4">
-                Your role ({currentUser.role}) does not have dashboard access.
-              </p>
-              <button
-                onClick={handleLogout}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        );
-    }
+    return (
+      <>
+        <DesktopNav />
+        {/* Main Dashboard Content */}
+        {(() => {
+          switch (currentUser.role) {
+            case 'admin':
+              return (
+                <AdminDashboard
+                  userId={currentUser.id}
+                  userRole={currentUser.role}
+                  onLogout={handleLogout}
+                />
+              );
+            case 'harvestflow_manager':
+              return (
+                <HarvestFlowDashboard
+                  userId={currentUser.id}
+                  userRole={currentUser.role}
+                  onLogout={handleLogout}
+                />
+              );
+            case 'flavorcore_manager':
+              return (
+                <FlavorCoreManagerDashboard
+                  userId={currentUser.id}
+                  userRole={currentUser.role}
+                  onLogout={handleLogout}
+                />
+              );
+            case 'flavorcore_supervisor':
+              return (
+                <SupervisorDashboard
+                  userId={currentUser.id}
+                  userRole={currentUser.role}
+                  onLogout={handleLogout}
+                />
+              );
+            default:
+              return (
+                <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+                  <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+                    <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+                    <p className="text-gray-600 mb-4">
+                      Your role ({currentUser.role}) does not have dashboard access.
+                    </p>
+                    <button
+                      onClick={handleLogout}
+                      className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              );
+          }
+        })()}
+      </>
+    );
   };
 
   return (
