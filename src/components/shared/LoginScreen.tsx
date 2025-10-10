@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { supabase } from '../../lib/supabase';
 import flavorCoreLogo from '../../assets/flavorcore-logo.png';
 import api from '../../lib/api';
 
