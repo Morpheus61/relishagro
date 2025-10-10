@@ -362,19 +362,19 @@ class ApiClient {
     });
   }
 
-  async syncAttendanceBatch(records: SyncAttendanceBatchData) {
-    return this.request('/api/sync/attendance/batch', {
-      method: 'POST',
-      body: JSON.stringify({ records }),
-    });
-  }
+  async syncAttendanceBatch(records: any[]) {
+  return this.request('/api/sync/attendance/batch', {
+    method: 'POST',
+    body: JSON.stringify({ records }),
+  });
+}
 
-  async syncGPSBatch(locations: SyncGPSBatchData) {
-    return this.request('/api/sync/gps/batch', {
-      method: 'POST',
-      body: JSON.stringify({ locations }),
-    });
-  }
+async syncGPSBatch(locations: any[]) {
+  return this.request('/api/sync/gps/batch', {
+    method: 'POST',
+    body: JSON.stringify({ locations }),
+  });
+}
 
   async getYieldData(params?: YieldDataParams) {
     const queryParams = new URLSearchParams(params as any).toString();
