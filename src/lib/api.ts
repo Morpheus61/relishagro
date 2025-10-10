@@ -44,7 +44,7 @@ class ApiClient {
   }
 
   async login(staffId: string) {
-    const response = await this.request('/api/auth/login', {
+    const response = await this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ staff_id: staffId }),
     });
@@ -58,15 +58,15 @@ class ApiClient {
   }
 
   async getWorkers() {
-    return this.request('/api/workers');
+    return this.request('/workers');
   }
 
   async getWorkerById(id: string) {
-    return this.request(`/api/workers/${id}`);
+    return this.request(`/workers/${id}`);
   }
 
   async getJobTypes() {
-    return this.request('/api/job-types');
+    return this.request('/job-types');
   }
 
   async assignDailyWork(data: {
@@ -76,7 +76,7 @@ class ApiClient {
     assigned_by: string;
     date: string;
   }) {
-    return this.request('/api/daily-work/assign', {
+    return this.request('/daily-work/assign', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -91,39 +91,39 @@ class ApiClient {
     created_by: string;
     status: string;
   }) {
-    return this.request('/api/lots/create', {
+    return this.request('/lots/create', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async updateLotStatus(lotId: string, status: string) {
-    return this.request(`/api/lots/${lotId}/status`, {
+    return this.request(`/lots/${lotId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
   }
 
   async updateLot(lotId: string, data: any) {
-    return this.request(`/api/lots/${lotId}`, {
+    return this.request(`/lots/${lotId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async getLotsForApproval() {
-    return this.request('/api/lots/pending-approval');
+    return this.request('/lots/pending-approval');
   }
 
   async approveLot(lotId: string, data: { approved_by: string; notes?: string }) {
-    return this.request(`/api/lots/${lotId}/approve`, {
+    return this.request(`/lots/${lotId}/approve`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async rejectLot(lotId: string, data: { rejected_by: string; reason: string }) {
-    return this.request(`/api/lots/${lotId}/reject`, {
+    return this.request(`/lots/${lotId}/reject`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -136,7 +136,7 @@ class ApiClient {
     completed_by: string;
     completion_time: string;
   }) {
-    return this.request('/api/lots/complete', {
+    return this.request('/lots/complete', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -148,7 +148,7 @@ class ApiClient {
     weight: number;
     timestamp: number;
   }) {
-    return this.request(`/api/lots/${lotId}/bags`, {
+    return this.request(`/lots/${lotId}/bags`, {
       method: 'POST',
       body: JSON.stringify(bagData),
     });
@@ -162,7 +162,7 @@ class ApiClient {
     scanned_by: string;
     timestamp: string;
   }) {
-    return this.request('/api/rfid/in-scan', {
+    return this.request('/rfid/in-scan', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -176,7 +176,7 @@ class ApiClient {
     dispatch_time: string;
     status: string;
   }) {
-    return this.request('/api/dispatch/create', {
+    return this.request('/dispatch/create', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -187,7 +187,7 @@ class ApiClient {
     longitude: number;
     timestamp: number;
   }) {
-    return this.request(`/api/dispatch/${lotId}/gps`, {
+    return this.request(`/dispatch/${lotId}/gps`, {
       method: 'POST',
       body: JSON.stringify(location),
     });
@@ -201,41 +201,41 @@ class ApiClient {
     notes: string;
     timestamp: string;
   }) {
-    return this.request('/api/samples/drying', {
+    return this.request('/samples/drying', {
       method: 'POST',
       body: JSON.stringify(sample),
     });
   }
 
   async generateQRLabel(lotId: string) {
-    return this.request(`/api/qr/generate/${lotId}`, {
+    return this.request(`/qr/generate/${lotId}`, {
       method: 'POST',
     });
   }
 
   async getSupervisorLots(supervisorId: string) {
-    return this.request(`/api/supervisor/${supervisorId}/lots`);
+    return this.request(`/supervisor/${supervisorId}/lots`);
   }
 
   async getPendingProvisions() {
-    return this.request('/api/provisions/pending');
+    return this.request('/provisions/pending');
   }
 
   async approveProvision(provisionId: string) {
-    return this.request(`/api/provisions/${provisionId}/approve`, {
+    return this.request(`/provisions/${provisionId}/approve`, {
       method: 'POST',
     });
   }
 
   async rejectProvision(provisionId: string, reason: string) {
-    return this.request(`/api/provisions/${provisionId}/reject`, {
+    return this.request(`/provisions/${provisionId}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
   }
 
   async getPendingOnboarding() {
-    return this.request('/api/onboarding/pending');
+    return this.request('/onboarding/pending');
   }
 
   async submitOnboarding(data: {
@@ -249,7 +249,7 @@ class ApiClient {
     fingerprint_template?: string;
     profile_image?: string;
   }) {
-    return this.request('/api/onboarding/submit', {
+    return this.request('/onboarding/submit', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -265,25 +265,25 @@ class ApiClient {
     location: { latitude: number; longitude: number };
     timestamp: string;
   }) {
-    return this.request('/api/attendance/override', {
+    return this.request('/attendance/override', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async getPendingOverrides() {
-    return this.request('/api/attendance/overrides/pending');
+    return this.request('/attendance/overrides/pending');
   }
 
   async approveOverride(overrideId: string, notes?: string) {
-    return this.request(`/api/attendance/overrides/${overrideId}/approve`, {
+    return this.request(`/attendance/overrides/${overrideId}/approve`, {
       method: 'POST',
       body: JSON.stringify({ notes }),
     });
   }
 
   async rejectOverride(overrideId: string, reason: string) {
-    return this.request(`/api/attendance/overrides/${overrideId}/reject`, {
+    return this.request(`/attendance/overrides/${overrideId}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
@@ -294,28 +294,28 @@ class ApiClient {
     face_descriptor: number[];
     image_data?: string;
   }) {
-    return this.request('/api/biometric/face/register', {
+    return this.request('/biometric/face/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async authenticateFace(faceDescriptor: number[]) {
-    return this.request('/api/biometric/face/authenticate', {
+    return this.request('/biometric/face/authenticate', {
       method: 'POST',
       body: JSON.stringify({ face_descriptor: faceDescriptor }),
     });
   }
 
   async syncAttendanceBatch(records: any[]) {
-    return this.request('/api/sync/attendance/batch', {
+    return this.request('/sync/attendance/batch', {
       method: 'POST',
       body: JSON.stringify({ records }),
     });
   }
 
   async syncGPSBatch(locations: any[]) {
-    return this.request('/api/sync/gps/batch', {
+    return this.request('/sync/gps/batch', {
       method: 'POST',
       body: JSON.stringify({ locations }),
     });
@@ -327,7 +327,7 @@ class ApiClient {
     lotId?: string;
   }) {
     const queryParams = new URLSearchParams(params as any).toString();
-    return this.request(`/api/yields?${queryParams}`);
+    return this.request(`/yields?${queryParams}`);
   }
 }
 
