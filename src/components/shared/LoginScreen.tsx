@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { supabase } from '../../lib/supabase';
 import flavorCoreLogo from '../../assets/flavorcore-logo.png';
+import api from '../../lib/api';
 
 interface LoginScreenProps {
   onLogin: (userId: string, role: string) => void;
@@ -14,66 +15,57 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!staffId.trim()) {
-      setError('Please enter your Staff ID');
+  if (!staffId.trim()) {
+    setError('Please enter your Staff ID');
+    return;
+  }
+
+  setIsLoading(true);
+  setError('');
+
+  try {
+    // Use the API client instead of Supabase
+    const response = await api.login(staffId.trim());
+
+    if (!response.authenticated) {
+      setError('Authentication failed');
       return;
     }
 
-    setIsLoading(true);
-    setError('');
+    // Derive role from staff_id prefix (override person_type if needed)
+    let role = response.user.role || 'staff';
 
-    try {
-      const { data: user, error: dbError } = await supabase
-        .from('person_records')
-        .select('*')
-        .eq('staff_id', staffId.trim())
-        .single();
-
-      if (dbError || !user) {
-        setError('Invalid Staff ID');
-        console.error('Database error:', dbError);
-        return;
-      }
-
-      if (user.status !== 'active') {
-        setError('Account is not active');
-        return;
-      }
-
-      // Derive role from staff_id prefix (override person_type)
-let role = user.person_type || 'staff';
-
-if (staffId.startsWith('Admin-')) {
-  role = 'admin';
-} else if (staffId.startsWith('HF-')) {
-  role = 'harvestflow_manager';
-} else if (staffId.startsWith('FC-')) {
-  role = 'flavorcore_manager';
-} else if (staffId.startsWith('SUP-')) {
-  role = 'flavorcore_supervisor';
-} else if (staffId.startsWith('VEN-')) {
-  role = 'vendor';
-} else if (staffId.startsWith('DRI-')) {
-  role = 'driver';
-}
-
-      const displayName = user.full_name || staffId.trim();
-
-      console.log('✅ LoginScreen passing to App:', { 
-        displayName, 
-        role,
-        staffId: staffId.trim() 
-      });
-      
-      onLogin(staffId.trim(), role);
-      
-    } catch (err) {
-      setError('Login failed. Please check your connection.');
-      console.error('Login error:', err);
-    } finally {
-      setIsLoading(false);
+    if (staffId.startsWith('Admin-')) {
+      role = 'admin';
+    } else if (staffId.startsWith('HF-')) {
+      role = 'harvestflow_manager';
+    } else if (staffId.startsWith('FC-')) {
+      role = 'flavorcore_manager';
+    } else if (staffId.startsWith('SUP-')) {
+      role = 'flavorcore_supervisor';
+    } else if (staffId.startsWith('VEN-')) {
+      role = 'vendor';
+    } else if (staffId.startsWith('DRI-')) {
+      role = 'driver';
     }
-  };
+
+    const displayName = response.user.full_name || staffId.trim();
+
+    console.log('✅ LoginScreen passing to App:', { 
+      displayName, 
+      role,
+      staffId: staffId.trim() 
+    });
+    
+    onLogin(staffId.trim(), role);
+    
+  } catch (err: any) {
+    setError(err.message || 'Login failed. Please check your connection.');
+    console.error('Login error:', err);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {
