@@ -3,7 +3,7 @@
  * Base URL: https://relishagrobackend-production.up.railway.app
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://relishagrobackend-production.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
 
 class ApiClient {
   private token: string | null = null;
