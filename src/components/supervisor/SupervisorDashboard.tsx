@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { RFIDScanner } from '../shared/RFIDScanner';
-import { Smartphone, Package, Beaker, QrCode, CheckCircle, AlertCircle } from 'lucide-react';
+import { Smartphone, Package, Beaker, QrCode, CheckCircle, AlertCircle, Printer, Box, Send } from 'lucide-react';
 
 interface SupervisorDashboardProps {
   currentUser: {
@@ -22,27 +22,35 @@ interface ProcessingLot {
   status: string;
 }
 
-interface DryingSample {
+interface PackedProduct {
   id: string;
   lot_id: string;
-  sample_weight: number;
-  product_type: string;
-  quality_grade?: string;
-  moisture_level?: number;
-  notes: string;
-  timestamp: string;
+  product_name: string;
+  pack_size: string;
+  quantity_packed: number;
+  total_weight: number;
+  qr_code: string;
+  batch_number: string;
+  packing_date: string;
+  expiry_date: string;
+  quality_grade: string;
+  packed_by: string;
 }
 
-interface QRLabel {
+interface SubmissionForm {
   lot_id: string;
-  qr_code: string;
-  product: string;
-  final_weight: number;
-  traceability_data: any;
+  packed_products: PackedProduct[];
+  total_input_weight: number;
+  total_output_weight: number;
+  yield_percentage: number;
+  quality_notes: string;
+  supervisor_signature: string;
+  submission_timestamp: string;
+  status: 'pending_flavorcore_approval' | 'pending_harvestflow_approval' | 'approved' | 'rejected';
 }
 
 export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'rfid' | 'samples' | 'qr' | 'completion'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'rfid' | 'samples' | 'packing' | 'submissions'>('dashboard');
   const [assignedLots, setAssignedLots] = useState<ProcessingLot[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +60,6 @@ export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
 
   const loadAssignedLots = async () => {
     try {
-      // Using fetch instead of api client
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/supervisor-lots`);
       if (response.ok) {
         const lots = await response.json();
@@ -60,18 +67,17 @@ export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
       } else {
         // Mock data for testing
         setAssignedLots([
-          { lot_id: 'LOT-2024-001', crop: 'Black Pepper', threshed_weight: 850, bags_scanned: 15, total_bags: 20, status: 'processing' },
-          { lot_id: 'LOT-2024-002', crop: 'Cloves', threshed_weight: 650, bags_scanned: 8, total_bags: 12, status: 'processing' },
-          { lot_id: 'LOT-2024-003', crop: 'Nutmeg', threshed_weight: 400, bags_scanned: 0, total_bags: 8, status: 'pending' }
+          { lot_id: 'LOT-2024-001', crop: 'Black Pepper', threshed_weight: 850, bags_scanned: 20, total_bags: 20, status: 'ready_for_packing' },
+          { lot_id: 'LOT-2024-002', crop: 'Cloves', threshed_weight: 650, bags_scanned: 12, total_bags: 12, status: 'ready_for_packing' },
+          { lot_id: 'LOT-2024-003', crop: 'Nutmeg', threshed_weight: 400, bags_scanned: 8, total_bags: 8, status: 'processing' }
         ]);
       }
     } catch (error) {
       console.error('Error loading assigned lots:', error);
-      // Mock data fallback
       setAssignedLots([
-        { lot_id: 'LOT-2024-001', crop: 'Black Pepper', threshed_weight: 850, bags_scanned: 15, total_bags: 20, status: 'processing' },
-        { lot_id: 'LOT-2024-002', crop: 'Cloves', threshed_weight: 650, bags_scanned: 8, total_bags: 12, status: 'processing' },
-        { lot_id: 'LOT-2024-003', crop: 'Nutmeg', threshed_weight: 400, bags_scanned: 0, total_bags: 8, status: 'pending' }
+        { lot_id: 'LOT-2024-001', crop: 'Black Pepper', threshed_weight: 850, bags_scanned: 20, total_bags: 20, status: 'ready_for_packing' },
+        { lot_id: 'LOT-2024-002', crop: 'Cloves', threshed_weight: 650, bags_scanned: 12, total_bags: 12, status: 'ready_for_packing' },
+        { lot_id: 'LOT-2024-003', crop: 'Nutmeg', threshed_weight: 400, bags_scanned: 8, total_bags: 8, status: 'processing' }
       ]);
     } finally {
       setLoading(false);
@@ -86,10 +92,10 @@ export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
         return <RFIDInScanTab lots={assignedLots} onRefresh={loadAssignedLots} />;
       case 'samples':
         return <DryingSamplesTab lots={assignedLots} />;
-      case 'qr':
-        return <QRGenerationTab lots={assignedLots} />;
-      case 'completion':
-        return <LotCompletionTab lots={assignedLots} onRefresh={loadAssignedLots} />;
+      case 'packing':
+        return <FinalProductPackingTab lots={assignedLots} currentUser={currentUser} onRefresh={loadAssignedLots} />;
+      case 'submissions':
+        return <SubmissionTrackingTab currentUser={currentUser} />;
       default:
         return <DashboardOverview lots={assignedLots} setActiveTab={setActiveTab} />;
     }
@@ -113,7 +119,7 @@ export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">FlavorCore Supervisor</h1>
-            <p className="text-indigo-200">Processing Floor Operations</p>
+            <p className="text-indigo-200">Processing Floor Operations & Final Packing</p>
             <p className="text-indigo-200 text-sm">Welcome, {currentUser.full_name}</p>
           </div>
           <Button 
@@ -125,7 +131,7 @@ export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
         </div>
       </div>
 
-      {/* Simple Tab Navigation */}
+      {/* Tab Navigation */}
       <div className="bg-white shadow-md overflow-x-auto">
         <div className="flex gap-2 p-4 min-w-max">
           <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')}>
@@ -137,11 +143,11 @@ export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
           <TabButton active={activeTab === 'samples'} onClick={() => setActiveTab('samples')}>
             🧪 Drying Samples
           </TabButton>
-          <TabButton active={activeTab === 'qr'} onClick={() => setActiveTab('qr')}>
-            🏷️ QR Generation
+          <TabButton active={activeTab === 'packing'} onClick={() => setActiveTab('packing')}>
+            📦 Final Packing
           </TabButton>
-          <TabButton active={activeTab === 'completion'} onClick={() => setActiveTab('completion')}>
-            ✅ Lot Completion
+          <TabButton active={activeTab === 'submissions'} onClick={() => setActiveTab('submissions')}>
+            📋 Submissions
           </TabButton>
         </div>
       </div>
@@ -155,11 +161,11 @@ export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
 }
 
 // Dashboard Overview Tab
-function DashboardOverview({ lots, setActiveTab }: { lots: ProcessingLot[]; setActiveTab: (tab: 'dashboard' | 'rfid' | 'samples' | 'qr' | 'completion') => void }) {
+function DashboardOverview({ lots, setActiveTab }: { lots: ProcessingLot[]; setActiveTab: (tab: 'dashboard' | 'rfid' | 'samples' | 'packing' | 'submissions') => void }) {
   const totalLots = lots.length;
+  const readyForPacking = lots.filter(lot => lot.status === 'ready_for_packing').length;
   const completedScans = lots.reduce((sum, lot) => sum + lot.bags_scanned, 0);
   const totalBags = lots.reduce((sum, lot) => sum + (lot.total_bags || 0), 0);
-  const activeLots = lots.filter(lot => lot.status === 'processing').length;
 
   return (
     <div className="space-y-6">
@@ -179,20 +185,20 @@ function DashboardOverview({ lots, setActiveTab }: { lots: ProcessingLot[]; setA
 
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <Smartphone className="w-8 h-8 text-green-500" />
+            <Box className="w-8 h-8 text-green-500" />
             <div>
-              <p className="text-sm text-gray-600">Bags Scanned</p>
-              <p className="text-2xl font-bold">{completedScans}</p>
+              <p className="text-sm text-gray-600">Ready for Packing</p>
+              <p className="text-2xl font-bold">{readyForPacking}</p>
             </div>
           </div>
         </Card>
 
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <Beaker className="w-8 h-8 text-blue-500" />
+            <Smartphone className="w-8 h-8 text-blue-500" />
             <div>
-              <p className="text-sm text-gray-600">Active Processing</p>
-              <p className="text-2xl font-bold">{activeLots}</p>
+              <p className="text-sm text-gray-600">Bags Scanned</p>
+              <p className="text-2xl font-bold">{completedScans}</p>
             </div>
           </div>
         </Card>
@@ -208,9 +214,44 @@ function DashboardOverview({ lots, setActiveTab }: { lots: ProcessingLot[]; setA
         </Card>
       </div>
 
-      {/* Active Lots */}
+      {/* Quick Actions */}
       <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">📦 Assigned Lots</h3>
+        <h3 className="text-xl font-bold mb-4">⚡ Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Button 
+            onClick={() => setActiveTab('rfid')}
+            className="h-16 bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            <Smartphone className="w-5 h-5 mr-2" />
+            RFID Scanning
+          </Button>
+          <Button 
+            onClick={() => setActiveTab('samples')}
+            className="h-16 bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Beaker className="w-5 h-5 mr-2" />
+            Drying Samples
+          </Button>
+          <Button 
+            onClick={() => setActiveTab('packing')}
+            className="h-16 bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Box className="w-5 h-5 mr-2" />
+            Final Packing
+          </Button>
+          <Button 
+            onClick={() => setActiveTab('submissions')}
+            className="h-16 bg-orange-600 hover:bg-orange-700 text-white"
+          >
+            <Send className="w-5 h-5 mr-2" />
+            View Submissions
+          </Button>
+        </div>
+      </Card>
+
+      {/* Lots Status */}
+      <Card className="p-6">
+        <h3 className="text-xl font-bold mb-4">📦 Assigned Lots Status</h3>
         <div className="space-y-4">
           {lots.map(lot => (
             <div key={lot.lot_id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -221,227 +262,392 @@ function DashboardOverview({ lots, setActiveTab }: { lots: ProcessingLot[]; setA
               <div className="text-right">
                 <div className="flex items-center gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Bags Progress</p>
-                    <p className="font-semibold">{lot.bags_scanned}/{lot.total_bags || 0}</p>
+                    <p className="text-sm text-gray-600">Bags: {lot.bags_scanned}/{lot.total_bags || 0}</p>
+                    <div className={`px-3 py-1 rounded-full text-sm ${
+                      lot.status === 'ready_for_packing' ? 'bg-green-100 text-green-800' :
+                      lot.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                      lot.status === 'completed' ? 'bg-purple-100 text-purple-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {lot.status.replace('_', ' ').toUpperCase()}
+                    </div>
                   </div>
-                  <div className={`px-3 py-1 rounded-full text-sm ${
-                    lot.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                    lot.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {lot.status}
-                  </div>
+                  {lot.status === 'ready_for_packing' && (
+                    <Button
+                      onClick={() => setActiveTab('packing')}
+                      className="bg-green-600 hover:bg-green-700 text-sm"
+                    >
+                      Start Packing
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
           ))}
-        </div>
-      </Card>
-
-      {/* Quick Actions */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">⚡ Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button 
-            onClick={() => setActiveTab('rfid')}
-            className="h-16 bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            <Smartphone className="w-5 h-5 mr-2" />
-            Start RFID Scanning
-          </Button>
-          <Button 
-            onClick={() => setActiveTab('samples')}
-            className="h-16 bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Beaker className="w-5 h-5 mr-2" />
-            Log Drying Sample
-          </Button>
-          <Button 
-            onClick={() => setActiveTab('qr')}
-            className="h-16 bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            <QrCode className="w-5 h-5 mr-2" />
-            Generate QR Label
-          </Button>
-          <Button 
-            onClick={() => setActiveTab('completion')}
-            className="h-16 bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            <CheckCircle className="w-5 h-5 mr-2" />
-            Complete Lot
-          </Button>
         </div>
       </Card>
     </div>
   );
 }
 
-// RFID In-Scan Tab
-function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: () => void }) {
-  const [selectedLot, setSelectedLot] = useState<string>('');
-  const [scannedBags, setScannedBags] = useState<any[]>([]);
-  const [totalWeight, setTotalWeight] = useState(0);
-  const [sessionActive, setSessionActive] = useState(false);
+// Final Product Packing Tab (NEW)
+function FinalProductPackingTab({ lots, currentUser, onRefresh }: { lots: ProcessingLot[]; currentUser: any; onRefresh: () => void }) {
+  const [selectedLot, setSelectedLot] = useState('');
+  const [packedProducts, setPackedProducts] = useState<PackedProduct[]>([]);
+  const [currentPacking, setCurrentPacking] = useState({
+    product_name: '',
+    pack_size: '1kg',
+    quantity_packed: 1,
+    quality_grade: 'A',
+    expiry_months: 24
+  });
 
-  const handleBagScanned = async (bagData: { tagId: string; bagId: string; weight?: number }) => {
-    try {
-      // Record RFID in-scan
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/rfid-in-scan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lot_id: selectedLot,
-          bag_id: bagData.bagId,
-          rfid_tag: bagData.tagId,
-          weight: bagData.weight || 0,
-          scanned_by: 'supervisor',
-          timestamp: new Date().toISOString()
-        })
-      });
+  const readyLots = lots.filter(lot => lot.status === 'ready_for_packing');
+  const packSizes = ['250g', '500g', '1kg', '2kg', '5kg', '10kg', 'Bulk-25kg'];
+  const qualityGrades = ['A - Premium', 'B - Standard', 'C - Basic'];
 
-      const newBag = {
-        ...bagData,
-        timestamp: Date.now()
-      };
-
-      setScannedBags([...scannedBags, newBag]);
-      setTotalWeight(totalWeight + (bagData.weight || 0));
-
-      onRefresh();
-    } catch (error: any) {
-      alert('Failed to record scan: ' + error.message);
-    }
+  const generateQRCode = (product: PackedProduct) => {
+    return `QR-${product.lot_id}-${product.id}-${Date.now()}`;
   };
 
-  const startScanSession = () => {
-    setSessionActive(true);
-    setScannedBags([]);
-    setTotalWeight(0);
+  const generateBatchNumber = (lotId: string) => {
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${lotId}-${year}${month}${day}`;
   };
 
-  const endScanSession = async () => {
-    if (scannedBags.length === 0) {
-      alert('No bags scanned in this session');
+  const calculateExpiryDate = (months: number) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + months);
+    return date.toISOString().split('T')[0];
+  };
+
+  const handleAddPackedProduct = () => {
+    if (!selectedLot || !currentPacking.product_name) {
+      alert('Please select lot and enter product name');
       return;
     }
 
+    const newProduct: PackedProduct = {
+      id: `PACK-${Date.now()}`,
+      lot_id: selectedLot,
+      product_name: currentPacking.product_name,
+      pack_size: currentPacking.pack_size,
+      quantity_packed: currentPacking.quantity_packed,
+      total_weight: currentPacking.quantity_packed * parseFloat(currentPacking.pack_size.replace(/[^0-9.]/g, '')),
+      qr_code: '',
+      batch_number: generateBatchNumber(selectedLot),
+      packing_date: new Date().toISOString().split('T')[0],
+      expiry_date: calculateExpiryDate(currentPacking.expiry_months),
+      quality_grade: currentPacking.quality_grade,
+      packed_by: currentUser.full_name
+    };
+
+    // Generate QR Code
+    newProduct.qr_code = generateQRCode(newProduct);
+
+    setPackedProducts([...packedProducts, newProduct]);
+    
+    // Reset form
+    setCurrentPacking({
+      product_name: '',
+      pack_size: '1kg',
+      quantity_packed: 1,
+      quality_grade: 'A',
+      expiry_months: 24
+    });
+  };
+
+  const handlePrintQRLabel = (product: PackedProduct) => {
+    // Create printable QR label data
+    const labelData = {
+      product_name: product.product_name,
+      batch_number: product.batch_number,
+      pack_size: product.pack_size,
+      packing_date: product.packing_date,
+      expiry_date: product.expiry_date,
+      quality_grade: product.quality_grade,
+      qr_code: product.qr_code,
+      lot_id: product.lot_id,
+      traceability: {
+        supervisor: product.packed_by,
+        processing_facility: 'FlavorCore Processing Unit',
+        certification: 'Organic Certified'
+      }
+    };
+
+    // Create downloadable/printable label
+    const printContent = `
+      <div style="border: 2px solid #000; padding: 20px; width: 300px; font-family: Arial;">
+        <h2 style="text-align: center; margin: 0;">${product.product_name}</h2>
+        <div style="text-align: center; margin: 10px 0;">
+          <div style="border: 1px solid #000; padding: 10px; display: inline-block;">
+            QR CODE PLACEHOLDER<br>
+            ${product.qr_code}
+          </div>
+        </div>
+        <p><strong>Batch:</strong> ${product.batch_number}</p>
+        <p><strong>Pack Size:</strong> ${product.pack_size}</p>
+        <p><strong>Grade:</strong> ${product.quality_grade}</p>
+        <p><strong>Packed:</strong> ${product.packing_date}</p>
+        <p><strong>Expires:</strong> ${product.expiry_date}</p>
+        <p><strong>Lot ID:</strong> ${product.lot_id}</p>
+        <p style="font-size: 10px; margin-top: 20px;">
+          Packed by: ${product.packed_by}<br>
+          FlavorCore Processing - Organic Certified
+        </p>
+      </div>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const handleSubmitToManagers = async () => {
+    if (!selectedLot || packedProducts.length === 0) {
+      alert('Please select lot and add packed products');
+      return;
+    }
+
+    const selectedLotData = lots.find(l => l.lot_id === selectedLot);
+    const totalOutputWeight = packedProducts.reduce((sum, p) => sum + p.total_weight, 0);
+    const yieldPercentage = selectedLotData ? (totalOutputWeight / selectedLotData.threshed_weight) * 100 : 0;
+
+    const submissionForm: SubmissionForm = {
+      lot_id: selectedLot,
+      packed_products: packedProducts,
+      total_input_weight: selectedLotData?.threshed_weight || 0,
+      total_output_weight: totalOutputWeight,
+      yield_percentage: yieldPercentage,
+      quality_notes: `Processed and packed by ${currentUser.full_name}. All products meet quality standards.`,
+      supervisor_signature: currentUser.full_name,
+      submission_timestamp: new Date().toISOString(),
+      status: 'pending_flavorcore_approval'
+    };
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/scan-session-complete`, {
+      // Submit to FlavorCore Manager first, then HarvestFlow Manager + Admin
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/submit-packed-products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lot_id: selectedLot,
-          bags_scanned: scannedBags.length,
-          total_weight: totalWeight,
-          session_end: new Date().toISOString()
+          ...submissionForm,
+          notification_recipients: [
+            { role: 'flavorcore_manager', action: 'approve' },
+            { role: 'harvestflow_manager', action: 'view_pending' },
+            { role: 'admin', action: 'view_override' }
+          ]
         })
       });
 
-      alert(`Scan session completed! ${scannedBags.length} bags (${totalWeight.toFixed(1)} kg) recorded.`);
-      setSessionActive(false);
+      alert(`Submission successful! 
+      
+Packed Products Summary:
+- Lot: ${selectedLot}
+- Products: ${packedProducts.length} items
+- Total Weight: ${totalOutputWeight.toFixed(1)} kg
+- Yield: ${yieldPercentage.toFixed(1)}%
+
+📋 Approval Workflow:
+1. ✅ Submitted to FlavorCore Manager for approval
+2. ⏳ Pending HarvestFlow Manager review
+3. ⏳ Admin override available if needed
+4. ⏳ Upon approval: Entry into inventory system
+
+Your submission is now in the approval queue.`);
+
+      // Reset form
+      setSelectedLot('');
+      setPackedProducts([]);
       onRefresh();
-    } catch (error) {
-      console.error('Session completion error:', error);
+
+    } catch (error: any) {
+      alert('Submission failed: ' + error.message);
     }
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">📱 RFID In-Scan Operations</h2>
-
-      {/* Session Status */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${sessionActive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-            <span className="font-semibold">
-              Scan Session: {sessionActive ? 'ACTIVE' : 'INACTIVE'}
-            </span>
-          </div>
-          {sessionActive && (
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Bags Scanned</p>
-              <p className="text-xl font-bold text-green-600">{scannedBags.length}</p>
-            </div>
-          )}
-        </div>
-      </Card>
+      <h2 className="text-2xl font-bold text-gray-800">📦 Final Product Packing & QR Labeling</h2>
 
       {/* Lot Selection */}
       <Card className="p-6">
-        <label className="block text-sm font-medium mb-2">Select Lot to Process:</label>
+        <h3 className="text-xl font-bold mb-4">Select Lot for Packing</h3>
         <select
           value={selectedLot}
           onChange={(e) => {
             setSelectedLot(e.target.value);
-            setScannedBags([]);
-            setTotalWeight(0);
-            setSessionActive(false);
+            setPackedProducts([]);
           }}
           className="w-full p-3 border rounded-lg text-lg"
-          disabled={sessionActive}
         >
-          <option value="">Choose a lot...</option>
-          {lots.map(lot => (
+          <option value="">Choose a lot ready for packing...</option>
+          {readyLots.map(lot => (
             <option key={lot.lot_id} value={lot.lot_id}>
-              {lot.lot_id} - {lot.crop} ({lot.threshed_weight} kg)
+              {lot.lot_id} - {lot.crop} ({lot.threshed_weight} kg processed)
             </option>
           ))}
         </select>
-
-        {selectedLot && !sessionActive && (
-          <Button
-            onClick={startScanSession}
-            className="w-full mt-4 bg-green-600 hover:bg-green-700 h-12"
-          >
-            🚀 Start Scan Session
-          </Button>
-        )}
-
-        {sessionActive && (
-          <Button
-            onClick={endScanSession}
-            className="w-full mt-4 bg-red-600 hover:bg-red-700 h-12"
-          >
-            🛑 End Session
-          </Button>
-        )}
       </Card>
 
-      {selectedLot && sessionActive && (
+      {selectedLot && (
         <>
-          {/* RFID Scanner */}
-          <RFIDScanner
-            lotId={selectedLot}
-            onScanComplete={handleBagScanned}
-            showWeightInput={true}
-          />
+          {/* Packing Form */}
+          <Card className="p-6">
+            <h3 className="text-xl font-bold mb-4">Pack Product</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Product Name:</label>
+                <input
+                  type="text"
+                  value={currentPacking.product_name}
+                  onChange={(e) => setCurrentPacking({...currentPacking, product_name: e.target.value})}
+                  className="w-full p-3 border rounded-lg"
+                  placeholder="e.g., Organic Black Pepper Whole"
+                />
+              </div>
 
-          {/* Scanned Bags Summary */}
-          {scannedBags.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Pack Size:</label>
+                <select
+                  value={currentPacking.pack_size}
+                  onChange={(e) => setCurrentPacking({...currentPacking, pack_size: e.target.value})}
+                  className="w-full p-3 border rounded-lg"
+                >
+                  {packSizes.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Quantity:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={currentPacking.quantity_packed}
+                  onChange={(e) => setCurrentPacking({...currentPacking, quantity_packed: parseInt(e.target.value)})}
+                  className="w-full p-3 border rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Quality Grade:</label>
+                <select
+                  value={currentPacking.quality_grade}
+                  onChange={(e) => setCurrentPacking({...currentPacking, quality_grade: e.target.value})}
+                  className="w-full p-3 border rounded-lg"
+                >
+                  {qualityGrades.map(grade => (
+                    <option key={grade} value={grade.split(' ')[0]}>{grade}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Shelf Life (months):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={currentPacking.expiry_months}
+                  onChange={(e) => setCurrentPacking({...currentPacking, expiry_months: parseInt(e.target.value)})}
+                  className="w-full p-3 border rounded-lg"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <Button
+                  onClick={handleAddPackedProduct}
+                  className="w-full bg-green-600 hover:bg-green-700 h-12"
+                >
+                  <Box className="mr-2" size={20} />
+                  Add Packed Product
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Packed Products List */}
+          {packedProducts.length > 0 && (
             <Card className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Session Progress</h3>
+                <h3 className="text-xl font-bold">Packed Products</h3>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">Total Scanned</p>
-                  <p className="text-2xl font-bold text-indigo-600">{scannedBags.length} bags</p>
-                  <p className="text-sm text-gray-600">Total Weight: {totalWeight.toFixed(1)} kg</p>
+                  <p className="text-sm text-gray-600">Total Products: {packedProducts.length}</p>
+                  <p className="text-sm text-gray-600">Total Weight: {packedProducts.reduce((sum, p) => sum + p.total_weight, 0).toFixed(1)} kg</p>
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {scannedBags.map((bag, index) => (
-                  <div key={bag.bagId} className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <div>
-                      <p className="font-semibold text-sm">Bag #{index + 1}</p>
-                      <p className="text-xs font-mono text-gray-600">{bag.tagId}</p>
+              <div className="space-y-4">
+                {packedProducts.map((product, index) => (
+                  <div key={product.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-lg">{product.product_name}</h4>
+                        <p className="text-sm text-gray-600">
+                          Batch: {product.batch_number} | Pack: {product.pack_size} × {product.quantity_packed} = {product.total_weight} kg
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Grade: {product.quality_grade} | Packed: {product.packing_date} | Expires: {product.expiry_date}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gray-100 border border-gray-300 rounded flex items-center justify-center mb-2">
+                          <QrCode size={40} className="text-gray-400" />
+                        </div>
+                        <p className="text-xs font-mono">{product.qr_code.slice(-8)}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-indigo-700">{bag.weight} kg</p>
-                      <p className="text-xs text-gray-500">{new Date(bag.timestamp).toLocaleTimeString()}</p>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handlePrintQRLabel(product)}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Printer className="mr-2" size={16} />
+                        Print QR Label
+                      </Button>
+                      <Button
+                        onClick={() => setPackedProducts(packedProducts.filter(p => p.id !== product.id))}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Remove
+                      </Button>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Submit to Managers */}
+              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start gap-3 mb-4">
+                  <AlertCircle className="text-yellow-600 mt-1" size={20} />
+                  <div>
+                    <p className="font-semibold text-yellow-800">Approval Workflow</p>
+                    <p className="text-sm text-yellow-700">
+                      1. FlavorCore Manager → Approves quality & processing<br/>
+                      2. HarvestFlow Manager → Reviews for inventory entry<br/>
+                      3. Admin → Override capability if managers unavailable<br/>
+                      4. Upon approval → Automatic inventory system entry
+                    </p>
+                  </div>
+                </div>
+                
+                <Button
+                  onClick={handleSubmitToManagers}
+                  className="w-full bg-orange-600 hover:bg-orange-700 h-12"
+                >
+                  <Send className="mr-2" size={20} />
+                  Submit to FlavorCore Manager → HarvestFlow Manager → Admin
+                </Button>
               </div>
             </Card>
           )}
@@ -451,523 +657,160 @@ function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: 
   );
 }
 
-// Drying Samples Tab
-function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
-  const [selectedLot, setSelectedLot] = useState('');
-  const [sampleWeight, setSampleWeight] = useState('');
-  const [productType, setProductType] = useState('');
-  const [qualityGrade, setQualityGrade] = useState('A');
-  const [moistureLevel, setMoistureLevel] = useState('');
-  const [notes, setNotes] = useState('');
-  const [samples, setSamples] = useState<DryingSample[]>([]);
+// Submission Tracking Tab (NEW)
+function SubmissionTrackingTab({ currentUser }: { currentUser: any }) {
+  const [submissions, setSubmissions] = useState<SubmissionForm[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSubmitSample = async () => {
-    if (!selectedLot || !sampleWeight || !productType) {
-      alert('Please fill all required fields');
-      return;
-    }
+  useEffect(() => {
+    loadSubmissions();
+  }, []);
 
+  const loadSubmissions = async () => {
     try {
-      const sample: DryingSample = {
-        id: `SAMPLE-${Date.now()}`,
-        lot_id: selectedLot,
-        sample_weight: parseFloat(sampleWeight),
-        product_type: productType,
-        quality_grade: qualityGrade,
-        moisture_level: moistureLevel ? parseFloat(moistureLevel) : undefined,
-        notes,
-        timestamp: new Date().toISOString()
-      };
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/drying-samples`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sample)
-      });
-      
-      setSamples([...samples, sample]);
-      
-      // Reset form
-      setSampleWeight('');
-      setProductType('');
-      setQualityGrade('A');
-      setMoistureLevel('');
-      setNotes('');
-      
-      alert('Drying sample recorded successfully!');
-    } catch (error: any) {
-      alert('Failed to record sample: ' + error.message);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/my-submissions?supervisor_id=${currentUser.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSubmissions(data || []);
+      } else {
+        // Mock data
+        setSubmissions([
+          {
+            lot_id: 'LOT-2024-001',
+            packed_products: [
+              { id: '1', product_name: 'Organic Black Pepper Whole', pack_size: '1kg', quantity_packed: 50 } as PackedProduct
+            ],
+            total_input_weight: 850,
+            total_output_weight: 800,
+            yield_percentage: 94.1,
+            quality_notes: 'Excellent quality processing',
+            supervisor_signature: currentUser.full_name,
+            submission_timestamp: new Date().toISOString(),
+            status: 'pending_flavorcore_approval'
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error loading submissions:', error);
+      setSubmissions([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const productTypes = [
-    'Whole Cloves',
-    'Broken Cloves',
-    'Clove Stems',
-    'Black Pepper Whole',
-    'Black Pepper Powder',
-    'Nutmeg Whole',
-    'Nutmeg Powder',
-    'Cardamom Green',
-    'Cardamom Black'
-  ];
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending_flavorcore_approval': return 'bg-yellow-100 text-yellow-800';
+      case 'pending_harvestflow_approval': return 'bg-blue-100 text-blue-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
+  if (loading) {
+    return <div className="text-center py-8">Loading submissions...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800">📋 My Submissions & Approval Status</h2>
+
+      {submissions.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-gray-600">No submissions yet. Complete packing to create submissions.</p>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {submissions.map((submission, index) => (
+            <Card key={index} className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold">{submission.lot_id}</h3>
+                  <p className="text-sm text-gray-600">
+                    Submitted: {new Date(submission.submission_timestamp).toLocaleString()}
+                  </p>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-sm ${getStatusColor(submission.status)}`}>
+                  {submission.status.replace(/_/g, ' ').toUpperCase()}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <p className="text-sm text-gray-600">Products Packed</p>
+                  <p className="text-lg font-bold">{submission.packed_products.length}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Total Output</p>
+                  <p className="text-lg font-bold">{submission.total_output_weight} kg</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Yield</p>
+                  <p className="text-lg font-bold">{submission.yield_percentage.toFixed(1)}%</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-semibold">Packed Products:</h4>
+                {submission.packed_products.map((product, pidx) => (
+                  <div key={pidx} className="text-sm bg-gray-50 p-2 rounded">
+                    {product.product_name} - {product.pack_size} × {product.quantity_packed}
+                  </div>
+                ))}
+              </div>
+
+              {submission.quality_notes && (
+                <div className="mt-4 p-3 bg-blue-50 rounded">
+                  <p className="text-sm"><strong>Quality Notes:</strong> {submission.quality_notes}</p>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// RFID In-Scan Tab (Simplified version)
+function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: () => void }) {
+  const [selectedLot, setSelectedLot] = useState<string>('');
+  const [sessionActive, setSessionActive] = useState(false);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800">📱 RFID In-Scan Operations</h2>
+      
+      <Card className="p-6">
+        <p className="text-gray-600">RFID scanning functionality for processing lots.</p>
+        <div className="mt-4">
+          <select
+            value={selectedLot}
+            onChange={(e) => setSelectedLot(e.target.value)}
+            className="w-full p-3 border rounded-lg"
+          >
+            <option value="">Choose lot to scan...</option>
+            {lots.map(lot => (
+              <option key={lot.lot_id} value={lot.lot_id}>
+                {lot.lot_id} - {lot.crop}
+              </option>
+            ))}
+          </select>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// Drying Samples Tab (Simplified version)
+function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">🧪 Drying & Sample Logging</h2>
-
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Record Drying Sample</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Select Lot:</label>
-            <select
-              value={selectedLot}
-              onChange={(e) => setSelectedLot(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            >
-              <option value="">Choose lot...</option>
-              {lots.map(lot => (
-                <option key={lot.lot_id} value={lot.lot_id}>
-                  {lot.lot_id} - {lot.crop}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Product Type:</label>
-            <select
-              value={productType}
-              onChange={(e) => setProductType(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            >
-              <option value="">Select product type...</option>
-              {productTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Sample Weight (kg):</label>
-              <input
-                type="number"
-                step="0.01"
-                value={sampleWeight}
-                onChange={(e) => setSampleWeight(e.target.value)}
-                className="w-full p-3 border rounded-lg"
-                placeholder="0.00"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Quality Grade:</label>
-              <select
-                value={qualityGrade}
-                onChange={(e) => setQualityGrade(e.target.value)}
-                className="w-full p-3 border rounded-lg"
-              >
-                <option value="A">Grade A - Premium</option>
-                <option value="B">Grade B - Standard</option>
-                <option value="C">Grade C - Basic</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Moisture Level % (optional):</label>
-            <input
-              type="number"
-              step="0.1"
-              value={moistureLevel}
-              onChange={(e) => setMoistureLevel(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-              placeholder="12.5"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Notes (optional):</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-              rows={3}
-              placeholder="Quality observations, drying conditions, etc."
-            />
-          </div>
-
-          <Button
-            onClick={handleSubmitSample}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 h-12"
-          >
-            <Beaker className="mr-2" size={20} />
-            Record Sample
-          </Button>
-        </div>
-      </Card>
-
-      {/* Recorded Samples */}
-      {samples.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Today's Samples</h3>
-          <div className="space-y-3">
-            {samples.map(sample => (
-              <div key={sample.id} className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold">{sample.product_type}</p>
-                    <p className="text-sm text-gray-600">Lot: {sample.lot_id}</p>
-                    <p className="text-sm text-gray-600">Weight: {sample.sample_weight} kg | Grade: {sample.quality_grade}</p>
-                    {sample.moisture_level && <p className="text-sm text-gray-600">Moisture: {sample.moisture_level}%</p>}
-                    {sample.notes && <p className="text-sm text-gray-600 mt-1">Notes: {sample.notes}</p>}
-                  </div>
-                  <p className="text-xs text-gray-500">{new Date(sample.timestamp).toLocaleString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// QR Label Generation Tab
-function QRGenerationTab({ lots }: { lots: ProcessingLot[] }) {
-  const [selectedLot, setSelectedLot] = useState('');
-  const [qrLabels, setQrLabels] = useState<QRLabel[]>([]);
-  const [generating, setGenerating] = useState(false);
-
-  const handleGenerateQR = async () => {
-    if (!selectedLot) {
-      alert('Please select a lot');
-      return;
-    }
-
-    setGenerating(true);
-    try {
-      const selectedLotData = lots.find(l => l.lot_id === selectedLot);
       
-      const label: QRLabel = {
-        lot_id: selectedLot,
-        qr_code: `QR-${selectedLot}-${Date.now()}`,
-        product: selectedLotData?.crop || 'Unknown',
-        final_weight: selectedLotData?.threshed_weight || 0,
-        traceability_data: {
-          lot_id: selectedLot,
-          crop: selectedLotData?.crop,
-          processing_date: new Date().toISOString(),
-          supervisor: 'FlavorCore Supervisor',
-          quality_grade: 'A'
-        }
-      };
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/qr-labels`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(label)
-      });
-
-      setQrLabels([...qrLabels, label]);
-      alert('QR Label generated successfully!');
-    } catch (error: any) {
-      alert('Failed to generate QR label: ' + error.message);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleDownloadQR = (label: QRLabel) => {
-    // Create downloadable QR code data
-    const qrData = JSON.stringify(label.traceability_data, null, 2);
-    const blob = new Blob([qrData], { type: 'text/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.download = `QR_${label.lot_id}.json`;
-    link.href = url;
-    link.click();
-    
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">🏷️ QR Label Generation</h2>
-
       <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Generate Traceability Label</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Select Lot:</label>
-            <select
-              value={selectedLot}
-              onChange={(e) => setSelectedLot(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            >
-              <option value="">Choose lot...</option>
-              {lots.map(lot => (
-                <option key={lot.lot_id} value={lot.lot_id}>
-                  {lot.lot_id} - {lot.crop}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <Button
-            onClick={handleGenerateQR}
-            disabled={generating || !selectedLot}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 h-12"
-          >
-            {generating ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <QrCode className="mr-2" size={20} />
-                Generate QR Label
-              </>
-            )}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Generated QR Labels History */}
-      {qrLabels.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Generated Labels</h3>
-          
-          <div className="space-y-4">
-            {qrLabels.map((label, index) => (
-              <div key={index} className="bg-white border-2 border-gray-300 rounded-lg p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="font-bold text-lg">{label.product}</p>
-                    <p className="text-sm text-gray-600">Lot ID: {label.lot_id}</p>
-                    <p className="text-sm text-gray-600">Weight: {label.final_weight} kg</p>
-                    <p className="text-sm text-gray-600">QR Code: {label.qr_code}</p>
-                  </div>
-                  <div className="w-24 h-24 bg-gray-100 border-2 border-gray-300 flex items-center justify-center">
-                    <QrCode size={60} className="text-gray-400" />
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => handleDownloadQR(label)}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                  >
-                    📥 Download Data
-                  </Button>
-                  <Button className="flex-1 bg-blue-600 hover:bg-blue-700">
-                    🖨️ Print Label
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// Lot Completion Tab
-function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: () => void }) {
-  const [selectedLot, setSelectedLot] = useState('');
-  const [finalProducts, setFinalProducts] = useState<{ product: string; weight: number }[]>([]);
-  const [byProducts, setByProducts] = useState<{ product: string; weight: number }[]>([]);
-  const [yieldAnalysis, setYieldAnalysis] = useState<{ totalInput: number; totalOutput: number; yieldPercentage: number }>({ totalInput: 0, totalOutput: 0, yieldPercentage: 0 });
-
-  const handleAddProduct = (type: 'final' | 'by') => {
-    const product = prompt(`Enter ${type === 'final' ? 'final' : 'by-'} product name:`);
-    if (!product) return;
-    
-    const weight = prompt('Enter weight (kg):');
-    if (!weight || isNaN(parseFloat(weight))) return;
-
-    const newProduct = { product, weight: parseFloat(weight) };
-    
-    if (type === 'final') {
-      const newFinalProducts = [...finalProducts, newProduct];
-      setFinalProducts(newFinalProducts);
-      updateYieldAnalysis(newFinalProducts, byProducts);
-    } else {
-      const newByProducts = [...byProducts, newProduct];
-      setByProducts(newByProducts);
-      updateYieldAnalysis(finalProducts, newByProducts);
-    }
-  };
-
-  const updateYieldAnalysis = (finals: any[], bys: any[]) => {
-    const selectedLotData = lots.find(l => l.lot_id === selectedLot);
-    const totalInput = selectedLotData?.threshed_weight || 0;
-    const totalOutput = [...finals, ...bys].reduce((sum, p) => sum + p.weight, 0);
-    const yieldPercentage = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
-    
-    setYieldAnalysis({ totalInput, totalOutput, yieldPercentage });
-  };
-
-  const handleSubmitCompletion = async () => {
-    if (!selectedLot || finalProducts.length === 0) {
-      alert('Please select lot and add at least one final product');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/lot-completion`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lot_id: selectedLot,
-          final_products: finalProducts,
-          by_products: byProducts,
-          yield_analysis: yieldAnalysis,
-          completed_by: 'supervisor',
-          completion_time: new Date().toISOString()
-        })
-      });
-
-      alert('Lot marked as complete and submitted for manager approval!');
-      
-      // Reset
-      setSelectedLot('');
-      setFinalProducts([]);
-      setByProducts([]);
-      setYieldAnalysis({ totalInput: 0, totalOutput: 0, yieldPercentage: 0 });
-      onRefresh();
-      
-    } catch (error: any) {
-      alert('Failed to complete lot: ' + error.message);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">✅ Lot Completion & Yield Analysis</h2>
-
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Submit Lot for Approval</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Select Lot:</label>
-            <select
-              value={selectedLot}
-              onChange={(e) => {
-                setSelectedLot(e.target.value);
-                setFinalProducts([]);
-                setByProducts([]);
-                setYieldAnalysis({ totalInput: 0, totalOutput: 0, yieldPercentage: 0 });
-              }}
-              className="w-full p-3 border rounded-lg"
-            >
-              <option value="">Choose lot...</option>
-              {lots.map(lot => (
-                <option key={lot.lot_id} value={lot.lot_id}>
-                  {lot.lot_id} - {lot.crop} ({lot.threshed_weight} kg input)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Yield Analysis */}
-          {selectedLot && (
-            <Card className="p-4 bg-blue-50">
-              <h4 className="font-semibold mb-2">📊 Yield Analysis</h4>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-sm text-gray-600">Input Weight</p>
-                  <p className="text-xl font-bold text-blue-600">{yieldAnalysis.totalInput} kg</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Output Weight</p>
-                  <p className="text-xl font-bold text-green-600">{yieldAnalysis.totalOutput} kg</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Yield %</p>
-                  <p className="text-xl font-bold text-purple-600">{yieldAnalysis.yieldPercentage.toFixed(1)}%</p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Final Products */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-medium">Final Products:</label>
-              <Button
-                onClick={() => handleAddProduct('final')}
-                className="bg-green-600 hover:bg-green-700 h-8 text-sm"
-              >
-                + Add Product
-              </Button>
-            </div>
-            {finalProducts.length > 0 ? (
-              <div className="space-y-2">
-                {finalProducts.map((prod, index) => (
-                  <div key={index} className="flex justify-between p-2 bg-green-50 border border-green-200 rounded">
-                    <span className="font-semibold">{prod.product}</span>
-                    <span className="text-green-700">{prod.weight} kg</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 italic">No products added yet</p>
-            )}
-          </div>
-
-          {/* By-Products */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-medium">By-Products (optional):</label>
-              <Button
-                onClick={() => handleAddProduct('by')}
-                className="bg-blue-600 hover:bg-blue-700 h-8 text-sm"
-              >
-                + Add By-Product
-              </Button>
-            </div>
-            {byProducts.length > 0 && (
-              <div className="space-y-2">
-                {byProducts.map((prod, index) => (
-                  <div key={index} className="flex justify-between p-2 bg-blue-50 border border-blue-200 rounded">
-                    <span className="font-semibold">{prod.product}</span>
-                    <span className="text-blue-700">{prod.weight} kg</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="text-yellow-600 mt-1" size={20} />
-              <div>
-                <p className="font-semibold text-yellow-800">Manager Approval Required</p>
-                <p className="text-sm text-yellow-700">
-                  Lot will be submitted to FlavorCore Manager for final approval and quality verification
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleSubmitCompletion}
-            disabled={!selectedLot || finalProducts.length === 0}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 h-12"
-          >
-            <CheckCircle className="mr-2" size={20} />
-            Submit for Manager Approval
-          </Button>
-        </div>
+        <p className="text-gray-600">Quality sampling and drying process documentation.</p>
       </Card>
     </div>
   );
