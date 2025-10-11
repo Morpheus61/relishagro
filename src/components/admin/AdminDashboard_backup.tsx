@@ -12,33 +12,13 @@ import {
   Download,
   AlertTriangle,
   CheckCircle,
-  XCircle,
-  UserCheck,
-  Clock,
-  MapPin,
-  Phone,
-  Mail
+  XCircle
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   userId: string;
   userRole: string;
   onLogout: () => void;
-}
-
-interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  staff_id: string;
-  person_type: string;
-  designation: string;
-  contact_number?: string;
-  address?: string;
-  status: string;
-  created_at: string;
-  face_registered_at?: string;
 }
 
 interface YieldSettings {
@@ -72,18 +52,16 @@ export function AdminDashboard({ userId, userRole, onLogout }: AdminDashboardPro
   const loadDashboardStats = async () => {
     try {
       // Load various stats from API
-      const [onboarding, provisions, users] = await Promise.all([
-        api.getPendingOnboarding().catch(() => ({ count: 0 })),
-        api.getPendingProvisions().catch(() => ({ count: 0 })),
-        // Fetch users from the working endpoint
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/`).then(r => r.json()).catch(() => [])
+      const [onboarding, provisions] = await Promise.all([
+        api.getPendingOnboarding(),
+        api.getPendingProvisions()
       ]);
 
       setStats({
         pendingOnboarding: onboarding.count || 0,
         pendingOverrides: 0, // TODO: Add API endpoint
         pendingProvisions: provisions.count || 0,
-        totalUsers: Array.isArray(users) ? users.length : 0,
+        totalUsers: 0,
         activeDispatches: 0
       });
     } catch (error) {
@@ -182,14 +160,14 @@ function DashboardHome({ stats }: { stats: any }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           icon={<Users className="text-blue-600" size={32} />}
-          title="Total Users"
-          value={stats.totalUsers}
+          title="Pending Onboarding"
+          value={stats.pendingOnboarding}
           color="blue"
         />
         <StatCard
           icon={<ClipboardCheck className="text-yellow-600" size={32} />}
-          title="Pending Onboarding"
-          value={stats.pendingOnboarding}
+          title="Override Approvals"
+          value={stats.pendingOverrides}
           color="yellow"
         />
         <StatCard
@@ -213,7 +191,7 @@ function DashboardHome({ stats }: { stats: any }) {
           <Button className="bg-blue-600 hover:bg-blue-700 h-20">
             <div className="text-center">
               <Users size={24} className="mx-auto mb-1" />
-              <span>Manage Users</span>
+              <span>Review Onboarding</span>
             </div>
           </Button>
           <Button className="bg-green-600 hover:bg-green-700 h-20">
@@ -441,386 +419,31 @@ function YieldsAnalytics() {
   );
 }
 
-// FIXED: Real User Management Component
-function UserManagement() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const userData = await response.json();
-      setUsers(Array.isArray(userData) ? userData : []);
-    } catch (err: any) {
-      console.error('Error loading users:', err);
-      setError(err.message || 'Failed to load users');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'harvestflow_manager': return 'bg-green-100 text-green-800';
-      case 'flavorcore_manager': return 'bg-blue-100 text-blue-800';
-      case 'supervisor': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    return status === 'active' 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-red-100 text-red-800';
-  };
-
-  if (loading) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-gray-500">Loading users...</p>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="p-6">
-        <div className="text-center text-red-600">
-          <h3 className="text-xl font-bold mb-2">Error Loading Users</h3>
-          <p className="mb-4">{error}</p>
-          <Button onClick={loadUsers} className="bg-red-600 hover:bg-red-700">
-            Retry
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">👨‍💼 User Management</h2>
-        <div className="flex gap-2">
-          <Button onClick={loadUsers} className="bg-blue-600 hover:bg-blue-700">
-            <Download size={18} className="mr-2" />
-            Refresh
-          </Button>
-          <Button className="bg-green-600 hover:bg-green-700">
-            <Users size={18} className="mr-2" />
-            Add User
-          </Button>
-        </div>
-      </div>
-
-      {/* Users Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          icon={<Users className="text-blue-600" size={24} />}
-          title="Total Users"
-          value={users.length}
-          color="blue"
-        />
-        <StatCard
-          icon={<UserCheck className="text-green-600" size={24} />}
-          title="Active Users"
-          value={users.filter(u => u.status === 'active').length}
-          color="green"
-        />
-        <StatCard
-          icon={<Clock className="text-yellow-600" size={24} />}
-          title="Admins"
-          value={users.filter(u => u.person_type === 'admin').length}
-          color="yellow"
-        />
-        <StatCard
-          icon={<Settings className="text-purple-600" size={24} />}
-          title="Face Registered"
-          value={users.filter(u => u.face_registered_at).length}
-          color="purple"
-        />
-      </div>
-
-      {/* Users Table */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">All Users ({users.length})</h3>
-        
-        {users.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Users size={48} className="mx-auto mb-4 opacity-50" />
-            <p>No users found</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left p-3 font-semibold">Staff ID</th>
-                  <th className="text-left p-3 font-semibold">Name</th>
-                  <th className="text-left p-3 font-semibold">Role</th>
-                  <th className="text-left p-3 font-semibold">Designation</th>
-                  <th className="text-left p-3 font-semibold">Status</th>
-                  <th className="text-left p-3 font-semibold">Contact</th>
-                  <th className="text-left p-3 font-semibold">Face Auth</th>
-                  <th className="text-left p-3 font-semibold">Created</th>
-                  <th className="text-left p-3 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="p-3">
-                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
-                        {user.staff_id}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <div>
-                        <p className="font-semibold">{user.full_name}</p>
-                        <p className="text-sm text-gray-500">{user.first_name} {user.last_name}</p>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRoleColor(user.person_type)}`}>
-                        {user.person_type.replace('_', ' ').toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="p-3 text-sm">{user.designation}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(user.status)}`}>
-                        {user.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="p-3 text-sm">
-                      {user.contact_number ? (
-                        <div className="flex items-center gap-1">
-                          <Phone size={14} />
-                          <span>{user.contact_number}</span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">No contact</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      {user.face_registered_at ? (
-                        <div className="flex items-center gap-1 text-green-600">
-                          <CheckCircle size={16} />
-                          <span className="text-xs">Registered</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-gray-400">
-                          <XCircle size={16} />
-                          <span className="text-xs">Not set</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3 text-xs text-gray-500">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex gap-1">
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs px-2 py-1">
-                          Edit
-                        </Button>
-                        <Button size="sm" className="bg-gray-600 hover:bg-gray-700 text-xs px-2 py-1">
-                          View
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-// FIXED: Real Onboarding Approvals Component  
+// Placeholder components - will be implemented
 function OnboardingApprovals() {
-  const [pendingOnboarding, setPendingOnboarding] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadPendingOnboarding();
-  }, []);
-
-  const loadPendingOnboarding = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getPendingOnboarding();
-      setPendingOnboarding(data.records || []);
-    } catch (error) {
-      console.error('Error loading pending onboarding:', error);
-      setPendingOnboarding([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-gray-500">Loading pending onboarding requests...</p>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">👥 Onboarding Approvals</h2>
-      
-      {pendingOnboarding.length === 0 ? (
-        <Card className="p-8 text-center">
-          <UserCheck size={48} className="mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">No Pending Requests</h3>
-          <p className="text-gray-500">All onboarding requests have been processed.</p>
-        </Card>
-      ) : (
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Pending Requests ({pendingOnboarding.length})</h3>
-          <div className="space-y-4">
-            {pendingOnboarding.map((request) => (
-              <div key={request.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-semibold">{request.full_name}</h4>
-                    <p className="text-sm text-gray-600">{request.designation}</p>
-                    <p className="text-xs text-gray-500">Staff ID: {request.staff_id}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button className="bg-green-600 hover:bg-green-700 text-sm">
-                      Approve
-                    </Button>
-                    <Button className="bg-red-600 hover:bg-red-700 text-sm">
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
+  return <Card className="p-6"><h3 className="text-xl font-bold">Onboarding Approvals Coming Soon</h3></Card>;
 }
 
-// FIXED: Real Attendance Overrides Component
 function AttendanceOverrides() {
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">✅ Attendance Override Approvals</h2>
-      
-      <Card className="p-8 text-center">
-        <ClipboardCheck size={48} className="mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold text-gray-600 mb-2">No Override Requests</h3>
-        <p className="text-gray-500">All attendance records are properly logged.</p>
-      </Card>
-    </div>
-  );
+  return <Card className="p-6"><h3 className="text-xl font-bold">Attendance Override Approvals Coming Soon</h3></Card>;
 }
 
-// FIXED: Real All Attendance Records Component
 function AllAttendanceRecords() {
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">📋 All Attendance Records</h2>
-      
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">Attendance Records</h3>
-          <Button className="bg-purple-600 hover:bg-purple-700">
-            <Download size={18} className="mr-2" />
-            Export CSV
-          </Button>
-        </div>
-        
-        <div className="text-center py-8 text-gray-500">
-          <ClipboardCheck size={48} className="mx-auto mb-4 opacity-50" />
-          <p>Attendance records will be displayed here</p>
-          <p className="text-sm">Connect to attendance API endpoint</p>
-        </div>
-      </Card>
-    </div>
-  );
+  return <Card className="p-6"><h3 className="text-xl font-bold">All Attendance Records Coming Soon</h3></Card>;
 }
 
-// FIXED: Real Provision Approvals Component
 function ProvisionApprovals() {
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">📦 Provision Approvals</h2>
-      
-      <Card className="p-8 text-center">
-        <Package size={48} className="mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold text-gray-600 mb-2">No Pending Requests</h3>
-        <p className="text-gray-500">All provision requests have been processed.</p>
-      </Card>
-    </div>
-  );
+  return <Card className="p-6"><h3 className="text-xl font-bold">Provision Approvals Coming Soon</h3></Card>;
 }
 
-// FIXED: Real Wages Reports Component
 function WagesReports() {
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">💰 Wages & Financial Reports</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6">
-          <h3 className="font-bold mb-2">Monthly Wages</h3>
-          <p className="text-2xl font-bold text-green-600">₹0</p>
-          <p className="text-sm text-gray-500">Current month</p>
-        </Card>
-        
-        <Card className="p-6">
-          <h3 className="font-bold mb-2">Pending Payments</h3>
-          <p className="text-2xl font-bold text-yellow-600">₹0</p>
-          <p className="text-sm text-gray-500">To be paid</p>
-        </Card>
-        
-        <Card className="p-6">
-          <h3 className="font-bold mb-2">Total Workers</h3>
-          <p className="text-2xl font-bold text-blue-600">3</p>
-          <p className="text-sm text-gray-500">Active payroll</p>
-        </Card>
-      </div>
-      
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">Wage Calculations</h3>
-          <Button className="bg-purple-600 hover:bg-purple-700">
-            <Download size={18} className="mr-2" />
-            Generate Payroll
-          </Button>
-        </div>
-        
-        <div className="text-center py-8 text-gray-500">
-          <DollarSign size={48} className="mx-auto mb-4 opacity-50" />
-          <p>Wage reports will be displayed here</p>
-          <p className="text-sm">Connect to wage calculation API</p>
-        </div>
-      </Card>
-    </div>
-  );
+  return <Card className="p-6"><h3 className="text-xl font-bold">Wages & Financial Reports Coming Soon</h3></Card>;
 }
 
-// Keep the existing SystemSettings component as it's working
+function UserManagement() {
+  return <Card className="p-6"><h3 className="text-xl font-bold">User Management Coming Soon</h3></Card>;
+}
+
 function SystemSettings() {
   const [yieldSettings, setYieldSettings] = useState<YieldSettings>({
     hf_raw_to_threshed_min: 65,
