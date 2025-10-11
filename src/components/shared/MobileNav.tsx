@@ -89,11 +89,11 @@ export function MobileNav({ userRole, onNavigate, onLogout, currentRoute }: Mobi
             <img
               src="/flavorcore-logo.png"
               alt="FlavorCore"
-              className="w-16 h-16 bg-white p-1"
+              className="w-18 h-18 bg-white p-1"
             />
             <div>
               <h2 className="text-xl font-bold">FlavorCore</h2>
-              <p className="text-purple-200 text-sm">RelishAgro Management</p>
+              <p className="text-purple-200 text-sm">RelishAgro Management System</p>
             </div>
           </div>
           <div className="text-sm border-t border-purple-500 pt-3 mt-3">

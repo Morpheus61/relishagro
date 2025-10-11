@@ -107,3 +107,9 @@ temp/
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Backup files
+*_backup.*
+*_backup.tsx
+*_backup.js
+*.backup.*
