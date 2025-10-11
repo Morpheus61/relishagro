@@ -148,10 +148,13 @@ function App() {
               );
             case 'harvestflow_manager':
               return (
-                <HarvestFlowDashboard
-                  userId={currentUser.id}
-                  userRole={currentUser.role}
-                  onLogout={handleLogout}
+                <HarvestFlowDashboard 
+                  currentUser={{
+                    id: currentUser.id,
+                    staff_id: currentUser.staff_id,
+                    role: currentUser.role,
+                    full_name: currentUser.full_name
+                  }}
                 />
               );
             case 'flavorcore_manager':
@@ -165,9 +168,12 @@ function App() {
             case 'flavorcore_supervisor':
               return (
                 <SupervisorDashboard
-                  userId={currentUser.id}
-                  userRole={currentUser.role}
-                  onLogout={handleLogout}
+                  currentUser={{
+                    id: currentUser.id,
+                    staff_id: currentUser.staff_id,
+                    role: currentUser.role,
+                    full_name: currentUser.full_name
+                  }}
                 />
               );
             default:

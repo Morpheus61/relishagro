@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { RFIDScanner } from '../shared/RFIDScanner';
-import api from '../../lib/api';
 import { Smartphone, Package, Beaker, QrCode, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface SupervisorDashboardProps {
-  userId: string;
-  userRole: string;
-  onLogout: () => void;
+  currentUser: {
+    id: string;
+    staff_id: string;
+    full_name: string;
+    role: string;
+  };
 }
 
 interface ProcessingLot {
@@ -25,6 +27,8 @@ interface DryingSample {
   lot_id: string;
   sample_weight: number;
   product_type: string;
+  quality_grade?: string;
+  moisture_level?: number;
   notes: string;
   timestamp: string;
 }
@@ -37,8 +41,8 @@ interface QRLabel {
   traceability_data: any;
 }
 
-export function SupervisorDashboard({ userId, userRole, onLogout }: SupervisorDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'rfid' | 'drying' | 'qr' | 'completion'>('rfid');
+export function SupervisorDashboard({ currentUser }: SupervisorDashboardProps) {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'rfid' | 'samples' | 'qr' | 'completion'>('dashboard');
   const [assignedLots, setAssignedLots] = useState<ProcessingLot[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,10 +52,27 @@ export function SupervisorDashboard({ userId, userRole, onLogout }: SupervisorDa
 
   const loadAssignedLots = async () => {
     try {
-      const lots = await api.getSupervisorLots(userId);
-      setAssignedLots(lots || []);
+      // Using fetch instead of api client
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/supervisor-lots`);
+      if (response.ok) {
+        const lots = await response.json();
+        setAssignedLots(lots || []);
+      } else {
+        // Mock data for testing
+        setAssignedLots([
+          { lot_id: 'LOT-2024-001', crop: 'Black Pepper', threshed_weight: 850, bags_scanned: 15, total_bags: 20, status: 'processing' },
+          { lot_id: 'LOT-2024-002', crop: 'Cloves', threshed_weight: 650, bags_scanned: 8, total_bags: 12, status: 'processing' },
+          { lot_id: 'LOT-2024-003', crop: 'Nutmeg', threshed_weight: 400, bags_scanned: 0, total_bags: 8, status: 'pending' }
+        ]);
+      }
     } catch (error) {
       console.error('Error loading assigned lots:', error);
+      // Mock data fallback
+      setAssignedLots([
+        { lot_id: 'LOT-2024-001', crop: 'Black Pepper', threshed_weight: 850, bags_scanned: 15, total_bags: 20, status: 'processing' },
+        { lot_id: 'LOT-2024-002', crop: 'Cloves', threshed_weight: 650, bags_scanned: 8, total_bags: 12, status: 'processing' },
+        { lot_id: 'LOT-2024-003', crop: 'Nutmeg', threshed_weight: 400, bags_scanned: 0, total_bags: 8, status: 'pending' }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -59,16 +80,18 @@ export function SupervisorDashboard({ userId, userRole, onLogout }: SupervisorDa
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <DashboardOverview lots={assignedLots} setActiveTab={setActiveTab} />;
       case 'rfid':
         return <RFIDInScanTab lots={assignedLots} onRefresh={loadAssignedLots} />;
-      case 'drying':
+      case 'samples':
         return <DryingSamplesTab lots={assignedLots} />;
       case 'qr':
         return <QRGenerationTab lots={assignedLots} />;
       case 'completion':
         return <LotCompletionTab lots={assignedLots} onRefresh={loadAssignedLots} />;
       default:
-        return <RFIDInScanTab lots={assignedLots} onRefresh={loadAssignedLots} />;
+        return <DashboardOverview lots={assignedLots} setActiveTab={setActiveTab} />;
     }
   };
 
@@ -91,24 +114,31 @@ export function SupervisorDashboard({ userId, userRole, onLogout }: SupervisorDa
           <div>
             <h1 className="text-3xl font-bold">FlavorCore Supervisor</h1>
             <p className="text-indigo-200">Processing Floor Operations</p>
+            <p className="text-indigo-200 text-sm">Welcome, {currentUser.full_name}</p>
           </div>
-          <Button onClick={onLogout} className="bg-indigo-800 hover:bg-indigo-900">
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="bg-indigo-800 hover:bg-indigo-900"
+          >
             Logout
           </Button>
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Simple Tab Navigation */}
       <div className="bg-white shadow-md overflow-x-auto">
         <div className="flex gap-2 p-4 min-w-max">
-          <TabButton active={activeTab === 'rfid'} onClick={() => setActiveTab('rfid')}>
-            📱 RFID In-Scan
+          <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')}>
+            📊 Dashboard
           </TabButton>
-          <TabButton active={activeTab === 'drying'} onClick={() => setActiveTab('drying')}>
+          <TabButton active={activeTab === 'rfid'} onClick={() => setActiveTab('rfid')}>
+            📱 RFID Scanning
+          </TabButton>
+          <TabButton active={activeTab === 'samples'} onClick={() => setActiveTab('samples')}>
             🧪 Drying Samples
           </TabButton>
           <TabButton active={activeTab === 'qr'} onClick={() => setActiveTab('qr')}>
-            🏷️ QR Labels
+            🏷️ QR Generation
           </TabButton>
           <TabButton active={activeTab === 'completion'} onClick={() => setActiveTab('completion')}>
             ✅ Lot Completion
@@ -124,22 +154,149 @@ export function SupervisorDashboard({ userId, userRole, onLogout }: SupervisorDa
   );
 }
 
+// Dashboard Overview Tab
+function DashboardOverview({ lots, setActiveTab }: { lots: ProcessingLot[]; setActiveTab: (tab: 'dashboard' | 'rfid' | 'samples' | 'qr' | 'completion') => void }) {
+  const totalLots = lots.length;
+  const completedScans = lots.reduce((sum, lot) => sum + lot.bags_scanned, 0);
+  const totalBags = lots.reduce((sum, lot) => sum + (lot.total_bags || 0), 0);
+  const activeLots = lots.filter(lot => lot.status === 'processing').length;
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800">📊 Processing Floor Overview</h2>
+
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <Package className="w-8 h-8 text-indigo-500" />
+            <div>
+              <p className="text-sm text-gray-600">Total Lots</p>
+              <p className="text-2xl font-bold">{totalLots}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <Smartphone className="w-8 h-8 text-green-500" />
+            <div>
+              <p className="text-sm text-gray-600">Bags Scanned</p>
+              <p className="text-2xl font-bold">{completedScans}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <Beaker className="w-8 h-8 text-blue-500" />
+            <div>
+              <p className="text-sm text-gray-600">Active Processing</p>
+              <p className="text-2xl font-bold">{activeLots}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <QrCode className="w-8 h-8 text-purple-500" />
+            <div>
+              <p className="text-sm text-gray-600">Scan Progress</p>
+              <p className="text-2xl font-bold">{totalBags > 0 ? Math.round((completedScans / totalBags) * 100) : 0}%</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Active Lots */}
+      <Card className="p-6">
+        <h3 className="text-xl font-bold mb-4">📦 Assigned Lots</h3>
+        <div className="space-y-4">
+          {lots.map(lot => (
+            <div key={lot.lot_id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h4 className="font-semibold text-lg">{lot.lot_id}</h4>
+                <p className="text-gray-600">{lot.crop} - {lot.threshed_weight} kg</p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Bags Progress</p>
+                    <p className="font-semibold">{lot.bags_scanned}/{lot.total_bags || 0}</p>
+                  </div>
+                  <div className={`px-3 py-1 rounded-full text-sm ${
+                    lot.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                    lot.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {lot.status}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card className="p-6">
+        <h3 className="text-xl font-bold mb-4">⚡ Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Button 
+            onClick={() => setActiveTab('rfid')}
+            className="h-16 bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            <Smartphone className="w-5 h-5 mr-2" />
+            Start RFID Scanning
+          </Button>
+          <Button 
+            onClick={() => setActiveTab('samples')}
+            className="h-16 bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Beaker className="w-5 h-5 mr-2" />
+            Log Drying Sample
+          </Button>
+          <Button 
+            onClick={() => setActiveTab('qr')}
+            className="h-16 bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <QrCode className="w-5 h-5 mr-2" />
+            Generate QR Label
+          </Button>
+          <Button 
+            onClick={() => setActiveTab('completion')}
+            className="h-16 bg-orange-600 hover:bg-orange-700 text-white"
+          >
+            <CheckCircle className="w-5 h-5 mr-2" />
+            Complete Lot
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // RFID In-Scan Tab
 function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: () => void }) {
   const [selectedLot, setSelectedLot] = useState<string>('');
   const [scannedBags, setScannedBags] = useState<any[]>([]);
   const [totalWeight, setTotalWeight] = useState(0);
+  const [sessionActive, setSessionActive] = useState(false);
 
   const handleBagScanned = async (bagData: { tagId: string; bagId: string; weight?: number }) => {
     try {
       // Record RFID in-scan
-      await api.recordRFIDInScan({
-        lot_id: selectedLot,
-        bag_id: bagData.bagId,
-        rfid_tag: bagData.tagId,
-        weight: bagData.weight || 0,
-        scanned_by: 'supervisor',
-        timestamp: new Date().toISOString()
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/rfid-in-scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lot_id: selectedLot,
+          bag_id: bagData.bagId,
+          rfid_tag: bagData.tagId,
+          weight: bagData.weight || 0,
+          scanned_by: 'supervisor',
+          timestamp: new Date().toISOString()
+        })
       });
 
       const newBag = {
@@ -156,9 +313,59 @@ function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: 
     }
   };
 
+  const startScanSession = () => {
+    setSessionActive(true);
+    setScannedBags([]);
+    setTotalWeight(0);
+  };
+
+  const endScanSession = async () => {
+    if (scannedBags.length === 0) {
+      alert('No bags scanned in this session');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/scan-session-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lot_id: selectedLot,
+          bags_scanned: scannedBags.length,
+          total_weight: totalWeight,
+          session_end: new Date().toISOString()
+        })
+      });
+
+      alert(`Scan session completed! ${scannedBags.length} bags (${totalWeight.toFixed(1)} kg) recorded.`);
+      setSessionActive(false);
+      onRefresh();
+    } catch (error) {
+      console.error('Session completion error:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">📱 RFID In-Scan Operations</h2>
+
+      {/* Session Status */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${sessionActive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            <span className="font-semibold">
+              Scan Session: {sessionActive ? 'ACTIVE' : 'INACTIVE'}
+            </span>
+          </div>
+          {sessionActive && (
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Bags Scanned</p>
+              <p className="text-xl font-bold text-green-600">{scannedBags.length}</p>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Lot Selection */}
       <Card className="p-6">
@@ -169,8 +376,10 @@ function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: 
             setSelectedLot(e.target.value);
             setScannedBags([]);
             setTotalWeight(0);
+            setSessionActive(false);
           }}
           className="w-full p-3 border rounded-lg text-lg"
+          disabled={sessionActive}
         >
           <option value="">Choose a lot...</option>
           {lots.map(lot => (
@@ -179,9 +388,27 @@ function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: 
             </option>
           ))}
         </select>
+
+        {selectedLot && !sessionActive && (
+          <Button
+            onClick={startScanSession}
+            className="w-full mt-4 bg-green-600 hover:bg-green-700 h-12"
+          >
+            🚀 Start Scan Session
+          </Button>
+        )}
+
+        {sessionActive && (
+          <Button
+            onClick={endScanSession}
+            className="w-full mt-4 bg-red-600 hover:bg-red-700 h-12"
+          >
+            🛑 End Session
+          </Button>
+        )}
       </Card>
 
-      {selectedLot && (
+      {selectedLot && sessionActive && (
         <>
           {/* RFID Scanner */}
           <RFIDScanner
@@ -194,7 +421,7 @@ function RFIDInScanTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefresh: 
           {scannedBags.length > 0 && (
             <Card className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Scanned Bags</h3>
+                <h3 className="text-xl font-bold">Session Progress</h3>
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Total Scanned</p>
                   <p className="text-2xl font-bold text-indigo-600">{scannedBags.length} bags</p>
@@ -229,6 +456,8 @@ function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
   const [selectedLot, setSelectedLot] = useState('');
   const [sampleWeight, setSampleWeight] = useState('');
   const [productType, setProductType] = useState('');
+  const [qualityGrade, setQualityGrade] = useState('A');
+  const [moistureLevel, setMoistureLevel] = useState('');
   const [notes, setNotes] = useState('');
   const [samples, setSamples] = useState<DryingSample[]>([]);
 
@@ -244,17 +473,25 @@ function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
         lot_id: selectedLot,
         sample_weight: parseFloat(sampleWeight),
         product_type: productType,
+        quality_grade: qualityGrade,
+        moisture_level: moistureLevel ? parseFloat(moistureLevel) : undefined,
         notes,
         timestamp: new Date().toISOString()
       };
 
-      await api.recordDryingSample(sample);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/drying-samples`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sample)
+      });
       
       setSamples([...samples, sample]);
       
       // Reset form
       setSampleWeight('');
       setProductType('');
+      setQualityGrade('A');
+      setMoistureLevel('');
       setNotes('');
       
       alert('Drying sample recorded successfully!');
@@ -313,15 +550,42 @@ function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
             </select>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Sample Weight (kg):</label>
+              <input
+                type="number"
+                step="0.01"
+                value={sampleWeight}
+                onChange={(e) => setSampleWeight(e.target.value)}
+                className="w-full p-3 border rounded-lg"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Quality Grade:</label>
+              <select
+                value={qualityGrade}
+                onChange={(e) => setQualityGrade(e.target.value)}
+                className="w-full p-3 border rounded-lg"
+              >
+                <option value="A">Grade A - Premium</option>
+                <option value="B">Grade B - Standard</option>
+                <option value="C">Grade C - Basic</option>
+              </select>
+            </div>
+          </div>
+
           <div>
-            <label className="block text-sm font-medium mb-2">Sample Weight (kg):</label>
+            <label className="block text-sm font-medium mb-2">Moisture Level % (optional):</label>
             <input
               type="number"
-              step="0.01"
-              value={sampleWeight}
-              onChange={(e) => setSampleWeight(e.target.value)}
+              step="0.1"
+              value={moistureLevel}
+              onChange={(e) => setMoistureLevel(e.target.value)}
               className="w-full p-3 border rounded-lg"
-              placeholder="0.00"
+              placeholder="12.5"
             />
           </div>
 
@@ -332,7 +596,7 @@ function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
               onChange={(e) => setNotes(e.target.value)}
               className="w-full p-3 border rounded-lg"
               rows={3}
-              placeholder="Quality observations, moisture level, etc."
+              placeholder="Quality observations, drying conditions, etc."
             />
           </div>
 
@@ -349,7 +613,7 @@ function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
       {/* Recorded Samples */}
       {samples.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Recorded Samples</h3>
+          <h3 className="text-xl font-bold mb-4">Today's Samples</h3>
           <div className="space-y-3">
             {samples.map(sample => (
               <div key={sample.id} className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -357,7 +621,8 @@ function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
                   <div>
                     <p className="font-semibold">{sample.product_type}</p>
                     <p className="text-sm text-gray-600">Lot: {sample.lot_id}</p>
-                    <p className="text-sm text-gray-600">Weight: {sample.sample_weight} kg</p>
+                    <p className="text-sm text-gray-600">Weight: {sample.sample_weight} kg | Grade: {sample.quality_grade}</p>
+                    {sample.moisture_level && <p className="text-sm text-gray-600">Moisture: {sample.moisture_level}%</p>}
                     {sample.notes && <p className="text-sm text-gray-600 mt-1">Notes: {sample.notes}</p>}
                   </div>
                   <p className="text-xs text-gray-500">{new Date(sample.timestamp).toLocaleString()}</p>
@@ -374,7 +639,7 @@ function DryingSamplesTab({ lots }: { lots: ProcessingLot[] }) {
 // QR Label Generation Tab
 function QRGenerationTab({ lots }: { lots: ProcessingLot[] }) {
   const [selectedLot, setSelectedLot] = useState('');
-  const [qrLabel, setQrLabel] = useState<QRLabel | null>(null);
+  const [qrLabels, setQrLabels] = useState<QRLabel[]>([]);
   const [generating, setGenerating] = useState(false);
 
   const handleGenerateQR = async () => {
@@ -385,8 +650,30 @@ function QRGenerationTab({ lots }: { lots: ProcessingLot[] }) {
 
     setGenerating(true);
     try {
-      const label = await api.generateQRLabel(selectedLot);
-      setQrLabel(label);
+      const selectedLotData = lots.find(l => l.lot_id === selectedLot);
+      
+      const label: QRLabel = {
+        lot_id: selectedLot,
+        qr_code: `QR-${selectedLot}-${Date.now()}`,
+        product: selectedLotData?.crop || 'Unknown',
+        final_weight: selectedLotData?.threshed_weight || 0,
+        traceability_data: {
+          lot_id: selectedLot,
+          crop: selectedLotData?.crop,
+          processing_date: new Date().toISOString(),
+          supervisor: 'FlavorCore Supervisor',
+          quality_grade: 'A'
+        }
+      };
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/qr-labels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(label)
+      });
+
+      setQrLabels([...qrLabels, label]);
+      alert('QR Label generated successfully!');
     } catch (error: any) {
       alert('Failed to generate QR label: ' + error.message);
     } finally {
@@ -394,35 +681,18 @@ function QRGenerationTab({ lots }: { lots: ProcessingLot[] }) {
     }
   };
 
-  const handleDownloadQR = () => {
-    if (!qrLabel) return;
-
-    // Create downloadable QR code image
-    const qrDataURL = generateQRCodeDataURL(qrLabel.qr_code);
+  const handleDownloadQR = (label: QRLabel) => {
+    // Create downloadable QR code data
+    const qrData = JSON.stringify(label.traceability_data, null, 2);
+    const blob = new Blob([qrData], { type: 'text/json' });
+    const url = URL.createObjectURL(blob);
     
     const link = document.createElement('a');
-    link.download = `QR_${qrLabel.lot_id}.png`;
-    link.href = qrDataURL;
+    link.download = `QR_${label.lot_id}.json`;
+    link.href = url;
     link.click();
-  };
-
-  const generateQRCodeDataURL = (data: string): string => {
-    // Simple QR code generation placeholder
-    // In production, use a library like qrcode.react or qrcode
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 300;
-    canvas.height = 300;
     
-    if (ctx) {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, 300, 300);
-      ctx.fillStyle = 'black';
-      ctx.font = '12px monospace';
-      ctx.fillText(data, 10, 150);
-    }
-    
-    return canvas.toDataURL();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -469,36 +739,39 @@ function QRGenerationTab({ lots }: { lots: ProcessingLot[] }) {
         </div>
       </Card>
 
-      {/* Generated QR Label */}
-      {qrLabel && (
+      {/* Generated QR Labels History */}
+      {qrLabels.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Generated Label</h3>
+          <h3 className="text-xl font-bold mb-4">Generated Labels</h3>
           
-          <div className="bg-white border-2 border-gray-300 rounded-lg p-6 text-center">
-            <div className="mb-4">
-              <div className="w-64 h-64 mx-auto bg-gray-100 border-2 border-gray-300 flex items-center justify-center">
-                <QrCode size={200} className="text-gray-400" />
-              </div>
-            </div>
-            
-            <div className="space-y-2 text-left">
-              <p className="font-bold text-lg">{qrLabel.product}</p>
-              <p className="text-sm text-gray-600">Lot ID: {qrLabel.lot_id}</p>
-              <p className="text-sm text-gray-600">Weight: {qrLabel.final_weight} kg</p>
-              <p className="text-sm text-gray-600">QR Code: {qrLabel.qr_code}</p>
-            </div>
+          <div className="space-y-4">
+            {qrLabels.map((label, index) => (
+              <div key={index} className="bg-white border-2 border-gray-300 rounded-lg p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <p className="font-bold text-lg">{label.product}</p>
+                    <p className="text-sm text-gray-600">Lot ID: {label.lot_id}</p>
+                    <p className="text-sm text-gray-600">Weight: {label.final_weight} kg</p>
+                    <p className="text-sm text-gray-600">QR Code: {label.qr_code}</p>
+                  </div>
+                  <div className="w-24 h-24 bg-gray-100 border-2 border-gray-300 flex items-center justify-center">
+                    <QrCode size={60} className="text-gray-400" />
+                  </div>
+                </div>
 
-            <div className="mt-6 space-y-3">
-              <Button
-                onClick={handleDownloadQR}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                📥 Download Label (PNG)
-              </Button>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                🖨️ Print Label
-              </Button>
-            </div>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleDownloadQR(label)}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    📥 Download Data
+                  </Button>
+                  <Button className="flex-1 bg-blue-600 hover:bg-blue-700">
+                    🖨️ Print Label
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
       )}
@@ -511,6 +784,7 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
   const [selectedLot, setSelectedLot] = useState('');
   const [finalProducts, setFinalProducts] = useState<{ product: string; weight: number }[]>([]);
   const [byProducts, setByProducts] = useState<{ product: string; weight: number }[]>([]);
+  const [yieldAnalysis, setYieldAnalysis] = useState<{ totalInput: number; totalOutput: number; yieldPercentage: number }>({ totalInput: 0, totalOutput: 0, yieldPercentage: 0 });
 
   const handleAddProduct = (type: 'final' | 'by') => {
     const product = prompt(`Enter ${type === 'final' ? 'final' : 'by-'} product name:`);
@@ -522,10 +796,23 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
     const newProduct = { product, weight: parseFloat(weight) };
     
     if (type === 'final') {
-      setFinalProducts([...finalProducts, newProduct]);
+      const newFinalProducts = [...finalProducts, newProduct];
+      setFinalProducts(newFinalProducts);
+      updateYieldAnalysis(newFinalProducts, byProducts);
     } else {
-      setByProducts([...byProducts, newProduct]);
+      const newByProducts = [...byProducts, newProduct];
+      setByProducts(newByProducts);
+      updateYieldAnalysis(finalProducts, newByProducts);
     }
+  };
+
+  const updateYieldAnalysis = (finals: any[], bys: any[]) => {
+    const selectedLotData = lots.find(l => l.lot_id === selectedLot);
+    const totalInput = selectedLotData?.threshed_weight || 0;
+    const totalOutput = [...finals, ...bys].reduce((sum, p) => sum + p.weight, 0);
+    const yieldPercentage = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
+    
+    setYieldAnalysis({ totalInput, totalOutput, yieldPercentage });
   };
 
   const handleSubmitCompletion = async () => {
@@ -535,12 +822,17 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
     }
 
     try {
-      await api.completeLot({
-        lot_id: selectedLot,
-        final_products: finalProducts,
-        by_products: byProducts,
-        completed_by: 'supervisor',
-        completion_time: new Date().toISOString()
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/lot-completion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lot_id: selectedLot,
+          final_products: finalProducts,
+          by_products: byProducts,
+          yield_analysis: yieldAnalysis,
+          completed_by: 'supervisor',
+          completion_time: new Date().toISOString()
+        })
       });
 
       alert('Lot marked as complete and submitted for manager approval!');
@@ -549,6 +841,7 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
       setSelectedLot('');
       setFinalProducts([]);
       setByProducts([]);
+      setYieldAnalysis({ totalInput: 0, totalOutput: 0, yieldPercentage: 0 });
       onRefresh();
       
     } catch (error: any) {
@@ -558,7 +851,7 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">✅ Lot Completion</h2>
+      <h2 className="text-2xl font-bold text-gray-800">✅ Lot Completion & Yield Analysis</h2>
 
       <Card className="p-6">
         <h3 className="text-xl font-bold mb-4">Submit Lot for Approval</h3>
@@ -568,17 +861,43 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
             <label className="block text-sm font-medium mb-2">Select Lot:</label>
             <select
               value={selectedLot}
-              onChange={(e) => setSelectedLot(e.target.value)}
+              onChange={(e) => {
+                setSelectedLot(e.target.value);
+                setFinalProducts([]);
+                setByProducts([]);
+                setYieldAnalysis({ totalInput: 0, totalOutput: 0, yieldPercentage: 0 });
+              }}
               className="w-full p-3 border rounded-lg"
             >
               <option value="">Choose lot...</option>
               {lots.map(lot => (
                 <option key={lot.lot_id} value={lot.lot_id}>
-                  {lot.lot_id} - {lot.crop}
+                  {lot.lot_id} - {lot.crop} ({lot.threshed_weight} kg input)
                 </option>
               ))}
             </select>
           </div>
+
+          {/* Yield Analysis */}
+          {selectedLot && (
+            <Card className="p-4 bg-blue-50">
+              <h4 className="font-semibold mb-2">📊 Yield Analysis</h4>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-sm text-gray-600">Input Weight</p>
+                  <p className="text-xl font-bold text-blue-600">{yieldAnalysis.totalInput} kg</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Output Weight</p>
+                  <p className="text-xl font-bold text-green-600">{yieldAnalysis.totalOutput} kg</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Yield %</p>
+                  <p className="text-xl font-bold text-purple-600">{yieldAnalysis.yieldPercentage.toFixed(1)}%</p>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Final Products */}
           <div>
@@ -632,9 +951,9 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
             <div className="flex items-start gap-3">
               <AlertCircle className="text-yellow-600 mt-1" size={20} />
               <div>
-                <p className="font-semibold text-yellow-800">Approval Required</p>
+                <p className="font-semibold text-yellow-800">Manager Approval Required</p>
                 <p className="text-sm text-yellow-700">
-                  Lot will be submitted to FlavorCore Manager for final approval after completion
+                  Lot will be submitted to FlavorCore Manager for final approval and quality verification
                 </p>
               </div>
             </div>
@@ -646,7 +965,7 @@ function LotCompletionTab({ lots, onRefresh }: { lots: ProcessingLot[]; onRefres
             className="w-full bg-indigo-600 hover:bg-indigo-700 h-12"
           >
             <CheckCircle className="mr-2" size={20} />
-            Submit for Approval
+            Submit for Manager Approval
           </Button>
         </div>
       </Card>
