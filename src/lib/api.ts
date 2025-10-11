@@ -3,6 +3,7 @@
  * Base URL: https://relishagrobackend-production.up.railway.app
  */
 
+// Change this line in api.ts:
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
 
 // Define all data interfaces
