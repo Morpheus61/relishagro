@@ -8,7 +8,7 @@ import { HarvestFlowDashboard } from './components/harvestflow/HarvestFlowDashbo
 import { FlavorCoreManagerDashboard } from './components/flavorcore/FlavorCoreManagerDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import './App.css';
+// REMOVED: import './App.css'; - File doesn't exist, causing build failure
 
 // Define the navigation routes
 type Route = 'dashboard' | 'users' | 'farms' | 'harvest' | 'processing' | 'quality' | 'reports' | 'settings';
@@ -25,8 +25,25 @@ const AppContent: React.FC = () => {
   // Show loading spinner while checking authentication
   if (isLoading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner">Loading...</div>
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        backgroundColor: '#f3f4f6'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #e5e7eb',
+            borderTop: '4px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }}></div>
+          <p style={{ color: '#6b7280' }}>Loading...</p>
+        </div>
       </div>
     );
   }
@@ -92,10 +109,29 @@ const AppContent: React.FC = () => {
       
       default:
         return (
-          <div className="error-container">
-            <h2>Access Error</h2>
-            <p>Unknown user role: {user.role}</p>
-            <button onClick={logout}>Logout</button>
+          <div style={{
+            padding: '48px 24px',
+            textAlign: 'center',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            margin: '24px'
+          }}>
+            <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Access Error</h2>
+            <p style={{ color: '#7f1d1d', marginBottom: '24px' }}>Unknown user role: {user.role}</p>
+            <button 
+              onClick={logout}
+              style={{
+                backgroundColor: '#dc2626',
+                color: 'white',
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Logout
+            </button>
           </div>
         );
     }
@@ -111,47 +147,106 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="app">
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       {/* Header with user info and navigation */}
-      <header className="app-header">
-        <div className="header-content">
-          <div className="logo-section">
+      <header style={{
+        backgroundColor: '#6366f1',
+        color: 'white',
+        padding: '16px 24px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          maxWidth: '1200px',
+          margin: '0 auto'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <img 
               src="/src/assets/flavorcore-logo.png" 
               alt="FlavorCore" 
-              className="app-logo"
+              style={{ width: '40px', height: '40px', objectFit: 'contain' }}
             />
-            <h1>FlavorCore Agricultural Management</h1>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
+              FlavorCore Agricultural Management
+            </h1>
           </div>
           
-          <div className="user-section">
-            <div className="user-info">
-              <span className="welcome-text">Welcome, {user.username}</span>
-              <span className="user-role">({user.role.replace('_', ' ')})</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '14px', opacity: 0.9 }}>
+                Welcome, {user.username}
+              </span>
+              <br />
+              <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                ({user.role.replace('_', ' ')})
+              </span>
             </div>
-            <button onClick={logout} className="logout-btn">
+            <button 
+              onClick={logout}
+              style={{
+                backgroundColor: '#4338ca',
+                color: 'white',
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
               Logout
             </button>
           </div>
         </div>
         
         {/* Optional: Navigation menu using currentRoute and handleNavigation */}
-        <nav className="main-navigation">
+        <nav style={{
+          marginTop: '16px',
+          display: 'flex',
+          gap: '8px',
+          maxWidth: '1200px',
+          margin: '16px auto 0'
+        }}>
           <button 
-            className={currentRoute === 'dashboard' ? 'nav-btn active' : 'nav-btn'}
             onClick={() => handleNavigation('dashboard')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: currentRoute === 'dashboard' ? '#4338ca' : 'transparent',
+              color: 'white',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
           >
             Dashboard
           </button>
           <button 
-            className={currentRoute === 'reports' ? 'nav-btn active' : 'nav-btn'}
             onClick={() => handleNavigation('reports')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: currentRoute === 'reports' ? '#4338ca' : 'transparent',
+              color: 'white',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
           >
             Reports
           </button>
           <button 
-            className={currentRoute === 'settings' ? 'nav-btn active' : 'nav-btn'}
             onClick={() => handleNavigation('settings')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: currentRoute === 'settings' ? '#4338ca' : 'transparent',
+              color: 'white',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
           >
             Settings
           </button>
@@ -159,9 +254,17 @@ const AppContent: React.FC = () => {
       </header>
 
       {/* Main content area */}
-      <main className="app-main">
+      <main style={{ padding: '24px' }}>
         {renderDashboard()}
       </main>
+
+      {/* Add CSS animation for loading spinner */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
@@ -170,7 +273,7 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
-        <div className="app-wrapper">
+        <div>
           <Routes>
             <Route path="/" element={<AppContent />} />
             <Route path="/login" element={<AppContent />} />
