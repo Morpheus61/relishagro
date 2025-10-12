@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // CORRECT IMPORTS - Using named imports to match your component exports
@@ -8,13 +8,12 @@ import { HarvestFlowDashboard } from './components/harvestflow/HarvestFlowDashbo
 import { FlavorCoreManagerDashboard } from './components/flavorcore/FlavorCoreManagerDashboard';
 import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-// REMOVED: import './App.css'; - File doesn't exist, causing build failure
 
 // Define the navigation routes
 type Route = 'dashboard' | 'users' | 'farms' | 'harvest' | 'processing' | 'quality' | 'reports' | 'settings';
 
 const AppContent: React.FC = () => {
-  const { user, logout, isLoading } = useAuth();
+  const { user, login, logout, isLoading, error } = useAuth();
   const [currentRoute, setCurrentRoute] = useState<Route>('dashboard');
 
   // Navigation handler
@@ -42,26 +41,38 @@ const AppContent: React.FC = () => {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 16px'
           }}></div>
-          <p style={{ color: '#6b7280' }}>Loading...</p>
+          <p style={{ color: '#6b7280' }}>Loading FlavorCore...</p>
         </div>
       </div>
     );
   }
 
-  // Handle login from LoginScreen
-  const handleLogin = (staffId: string, role: string) => {
-    // The AuthContext should handle this through its login method
-    console.log('Login attempt:', { staffId, role });
-    // You might need to implement this based on your AuthContext setup
+  // FIXED: Handle login from LoginScreen - now calls AuthContext login properly
+  const handleLogin = async (staffId: string, role: string) => {
+    console.log('🚀 App.tsx handleLogin called with:', { staffId, role });
+    
+    try {
+      // Call the AuthContext login method with the staffId
+      const success = await login(staffId);
+      
+      if (success) {
+        console.log('✅ App.tsx: Login successful, user should be set in AuthContext');
+      } else {
+        console.log('❌ App.tsx: Login failed');
+      }
+    } catch (error) {
+      console.error('❌ App.tsx: Login error:', error);
+    }
   };
 
   // Render appropriate dashboard based on user role with CORRECT PROPS
   const renderDashboard = () => {
     if (!user) return null;
 
+    console.log('🎯 App.tsx: Rendering dashboard for user:', user);
+
     switch (user.role) {
       case 'admin':
-        // AdminDashboard expects: userId, userRole, onLogout
         return (
           <AdminDashboard 
             userId={user.id} 
@@ -71,20 +82,18 @@ const AppContent: React.FC = () => {
         );
       
       case 'harvestflow_manager':
-        // HarvestFlowDashboard expects: currentUser
         return (
           <HarvestFlowDashboard 
             currentUser={{
               id: user.id,
-              staff_id: user.username, // Using username as staff_id
-              full_name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username,
+              staff_id: user.staff_id,
+              full_name: user.full_name,
               role: user.role
             }} 
           />
         );
       
       case 'flavorcore_manager':
-        // FlavorCoreManagerDashboard expects: userId, userRole, onLogout
         return (
           <FlavorCoreManagerDashboard 
             userId={user.id}
@@ -94,13 +103,12 @@ const AppContent: React.FC = () => {
         );
       
       case 'flavorcore_supervisor':
-        // SupervisorDashboard expects: currentUser, onLogout
         return (
           <SupervisorDashboard 
             currentUser={{
               id: user.id,
-              staff_id: user.username, // Using username as staff_id
-              full_name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username,
+              staff_id: user.staff_id,
+              full_name: user.full_name,
               role: user.role
             }}
             onLogout={logout}
@@ -137,14 +145,17 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // If user is not authenticated, show login screen with proper props
+  // If user is not authenticated, show login screen
   if (!user) {
+    console.log('🔒 App.tsx: No user found, showing LoginScreen');
     return (
       <LoginScreen 
         onLogin={handleLogin}
       />
     );
   }
+
+  console.log('✅ App.tsx: User authenticated, showing dashboard for:', user);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -163,11 +174,19 @@ const AppContent: React.FC = () => {
           margin: '0 auto'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <img 
-              src="/src/assets/flavorcore-logo.png" 
-              alt="FlavorCore" 
-              style={{ width: '40px', height: '40px', objectFit: 'contain' }}
-            />
+            <div style={{
+              width: '40px',
+              height: '40px',
+              backgroundColor: '#4f46e5',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px',
+              fontWeight: 'bold'
+            }}>
+              🌾
+            </div>
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
               FlavorCore Agricultural Management
             </h1>
@@ -176,11 +195,11 @@ const AppContent: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: '14px', opacity: 0.9 }}>
-                Welcome, {user.username}
+                Welcome, {user.full_name || user.staff_id}
               </span>
               <br />
               <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                ({user.role.replace('_', ' ')})
+                {user.designation} ({user.role.replace('_', ' ')})
               </span>
             </div>
             <button 
@@ -200,7 +219,7 @@ const AppContent: React.FC = () => {
           </div>
         </div>
         
-        {/* Optional: Navigation menu using currentRoute and handleNavigation */}
+        {/* Navigation menu */}
         <nav style={{
           marginTop: '16px',
           display: 'flex',
@@ -254,7 +273,7 @@ const AppContent: React.FC = () => {
       </header>
 
       {/* Main content area */}
-      <main style={{ padding: '24px' }}>
+      <main style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
         {renderDashboard()}
       </main>
 
