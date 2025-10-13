@@ -3,6 +3,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
+import EnhancedNavigation from '../shared/EnhancedNavigation';
 import { 
   Users, 
   ClipboardList, 
@@ -136,6 +137,18 @@ export function HarvestFlowDashboard({ currentUser }: { currentUser: any }) {
   const [procurementRequests, setProcurementRequests] = useState<ProcurementRequest[]>([]);
   const [dispatches, setDispatches] = useState<DispatchRecord[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Navigation items configuration
+  const navigationItems = [
+    { id: 'dashboard', label: '📊 Dashboard' },
+    { id: 'onboarding', label: '👥 Onboarding' },
+    { id: 'attendance', label: '📋 Attendance' },
+    { id: 'procurement', label: '🛒 Procurement' },
+    { id: 'jobs', label: '⚡ Jobs' },
+    { id: 'lot-management', label: '📦 Lot Management' },
+    { id: 'dispatch', label: '🚚 Dispatch' },
+    { id: 'wages', label: '💰 Wages' }
+  ];
 
   // WORKING LOGOUT FUNCTION
   const handleLogout = () => {
@@ -1738,75 +1751,13 @@ export function HarvestFlowDashboard({ currentUser }: { currentUser: any }) {
         </div>
       </div>
 
-      {/* *** FIXED: COMPLETE TAB NAVIGATION WITH ALL MISSING ITEMS *** */}
-      <div className="bg-white border-b overflow-x-auto">
-        <div className="flex">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'dashboard' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            📊 Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('onboarding')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'onboarding' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            👥 Onboarding
-          </button>
-          <button
-            onClick={() => setActiveTab('attendance')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'attendance' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            📋 Attendance
-          </button>
-          <button
-            onClick={() => setActiveTab('procurement')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'procurement' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            🛒 Procurement
-          </button>
-          <button
-            onClick={() => setActiveTab('jobs')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'jobs' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            ⚡ Jobs
-          </button>
-          <button
-            onClick={() => setActiveTab('lot-management')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'lot-management' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            📦 Lot Management
-          </button>
-          <button
-            onClick={() => setActiveTab('dispatch')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'dispatch' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            🚚 Dispatch
-          </button>
-          <button
-            onClick={() => setActiveTab('wages')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
-              activeTab === 'wages' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-            }`}
-          >
-            💰 Wages
-          </button>
-        </div>
-      </div>
+      {/* ENHANCED NAVIGATION */}
+      <EnhancedNavigation
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        items={navigationItems}
+        theme="harvestflow"
+      />
 
       {/* Content */}
       <div className="p-4">

@@ -1,1626 +1,1128 @@
-import { useState, useEffect } from 'react';
-import { Button } from '../ui/button';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
-import api from '../../lib/api';
-import { exportYieldCSV } from '../../lib/exportHelpers';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
+import { Textarea } from '../ui/textarea';
 import { 
-  Package, CheckCircle, XCircle, TrendingUp, Users, AlertTriangle, Download, 
-  Truck, Calendar, Settings, BarChart3, FileText, Clipboard, Eye, Edit,
-  Shield, Clock, Star, Award, Target, Activity
+  CheckCircle, 
+  XCircle, 
+  AlertTriangle, 
+  Eye, 
+  Edit, 
+  Trash2, 
+  Download,
+  RefreshCw,
+  Filter,
+  Search,
+  Clock,
+  User,
+  MapPin,
+  Star,
+  Award,
+  Activity,
+  TrendingUp,
+  BarChart,
+  PieChart,
+  Target,
+  Zap,
+  Settings,
+  Bell,
+  Calendar,
+  FileText,
+  Database,
+  Shield,
+  Layers,
+  Clipboard,
+  Package,
+  Scale,
+  Thermometer,
+  Droplets,
+  Sun,
+  CloudRain,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react';
 
-interface FlavorCoreManagerDashboardProps {
-  userId: string;
-  userRole: string;
-  onLogout: () => void;
-}
-
-interface Lot {
-  lot_id: string;
-  crop: string;
-  raw_weight: number;
-  threshed_weight: number;
-  final_weight?: number;
-  status: string;
-  processed_date?: string;
-  supervisor_id?: string;
-  created_at?: string;
-  quality_grade?: 'A' | 'B' | 'C';
-  moisture_content?: number;
-  defect_percentage?: number;
-}
-
-interface ProvisionRequest {
+// Enhanced Navigation Component - Built into this file
+interface NavigationItem {
   id: string;
-  item_name: string;
-  quantity: number;
-  requested_by: string;
-  requested_date: string;
-  status: 'pending' | 'approved' | 'rejected';
-  priority?: 'low' | 'medium' | 'high';
-  category?: string;
-  estimated_cost?: number;
+  label: string;
 }
 
-interface StaffMember {
-  id: string;
-  full_name: string;
-  staff_id: string;
-  person_type: string;
-  designation: string;
-  status: string;
-  contact_phone?: string;
-  hire_date?: string;
-  department?: string;
+interface EnhancedNavigationProps {
+  items: NavigationItem[];
+  activeTab: string;
+  onTabChange: (tabId: string) => void;
 }
 
-interface QualityCheck {
-  id: string;
-  lot_id: string;
-  check_type: string;
-  result: 'pass' | 'fail' | 'conditional';
-  notes: string;
-  checked_by: string;
-  check_date: string;
-}
+const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
+  items,
+  activeTab,
+  onTabChange,
+}) => {
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
 
-export function FlavorCoreManagerDashboard({ userId, userRole, onLogout }: FlavorCoreManagerDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'lots' | 'quality' | 'provisions' | 'inventory' | 'staff' | 'processing' | 'compliance' | 'reports'>('dashboard');
-  const [pendingLots, setPendingLots] = useState<Lot[]>([]);
-  const [pendingProvisions, setPendingProvisions] = useState<ProvisionRequest[]>([]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [qualityChecks, setQualityChecks] = useState<QualityCheck[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load staff from working endpoint
-      const staffResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/`);
-      if (!staffResponse.ok) {
-        throw new Error(`Failed to fetch staff: ${staffResponse.status}`);
-      }
-      const staffData = await staffResponse.json();
-      
-      // Filter FlavorCore staff
-      const flavorCoreStaff = Array.isArray(staffData) 
-        ? staffData.filter(s => 
-            s.person_type.includes('flavorcore') || 
-            s.designation?.toLowerCase().includes('supervisor') ||
-            s.designation?.toLowerCase().includes('quality') ||
-            s.designation?.toLowerCase().includes('processing')
-          )
-        : [];
-      
-      setStaff(flavorCoreStaff);
-
-      // Enhanced mock data for FlavorCore operations
-      const mockLots: Lot[] = [
-        {
-          lot_id: 'LOT-CLOVES-001',
-          crop: 'Cloves',
-          raw_weight: 100,
-          threshed_weight: 75,
-          final_weight: 25,
-          status: 'pending_approval',
-          processed_date: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          quality_grade: 'A',
-          moisture_content: 12.5,
-          defect_percentage: 2.1
-        },
-        {
-          lot_id: 'LOT-PEPPER-002',
-          crop: 'Black Pepper',
-          raw_weight: 80,
-          threshed_weight: 60,
-          final_weight: 20,
-          status: 'processing',
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          quality_grade: 'B',
-          moisture_content: 14.2,
-          defect_percentage: 3.8
-        },
-        {
-          lot_id: 'LOT-CARDAMOM-003',
-          crop: 'Cardamom',
-          raw_weight: 50,
-          threshed_weight: 40,
-          final_weight: 15,
-          status: 'quality_check',
-          created_at: new Date(Date.now() - 172800000).toISOString(),
-          quality_grade: 'A',
-          moisture_content: 10.8,
-          defect_percentage: 1.5
-        }
-      ];
-
-      const mockProvisions: ProvisionRequest[] = [
-        {
-          id: '1',
-          item_name: 'Drying Sheets (Industrial Grade)',
-          quantity: 50,
-          requested_by: 'Quality Supervisor',
-          requested_date: new Date().toISOString(),
-          status: 'pending',
-          priority: 'high',
-          category: 'Processing Equipment',
-          estimated_cost: 2500
-        },
-        {
-          id: '2',
-          item_name: 'Storage Bags (Food Grade)',
-          quantity: 100,
-          requested_by: 'Processing Manager',
-          requested_date: new Date(Date.now() - 3600000).toISOString(),
-          status: 'pending',
-          priority: 'medium',
-          category: 'Packaging Materials',
-          estimated_cost: 1800
-        },
-        {
-          id: '3',
-          item_name: 'Moisture Meter Calibration Kit',
-          quantity: 1,
-          requested_by: 'Quality Control Lead',
-          requested_date: new Date(Date.now() - 7200000).toISOString(),
-          status: 'pending',
-          priority: 'high',
-          category: 'Quality Equipment',
-          estimated_cost: 800
-        }
-      ];
-
-      const mockQualityChecks: QualityCheck[] = [
-        {
-          id: '1',
-          lot_id: 'LOT-CLOVES-001',
-          check_type: 'Moisture Content',
-          result: 'pass',
-          notes: 'Within acceptable range at 12.5%',
-          checked_by: 'Quality Inspector A',
-          check_date: new Date().toISOString()
-        },
-        {
-          id: '2',
-          lot_id: 'LOT-PEPPER-002',
-          check_type: 'Visual Inspection',
-          result: 'conditional',
-          notes: 'Minor color variation detected, acceptable for B grade',
-          checked_by: 'Quality Inspector B',
-          check_date: new Date(Date.now() - 1800000).toISOString()
-        }
-      ];
-
-      // Try to load from API but use mocks if it fails
-      try {
-        const [lots, provisions] = await Promise.all([
-          api.getLotsForApproval().catch(() => mockLots),
-          api.getPendingProvisions().catch(() => ({ records: mockProvisions }))
-        ]);
-        
-        setPendingLots(lots || mockLots);
-        setPendingProvisions(provisions.records || provisions || mockProvisions);
-        setQualityChecks(mockQualityChecks);
-      } catch (apiError) {
-        console.warn('API calls failed, using mock data:', apiError);
-        setPendingLots(mockLots);
-        setPendingProvisions(mockProvisions);
-        setQualityChecks(mockQualityChecks);
-      }
-      
-    } catch (error: any) {
-      console.error('Error loading dashboard data:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
+  const scrollLeft = () => {
+    const newPosition = Math.max(0, scrollPosition - 200);
+    setScrollPosition(newPosition);
   };
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardHome lots={pendingLots} provisions={pendingProvisions} staff={staff} qualityChecks={qualityChecks} />;
-      case 'lots':
-        return <LotReviewTab lots={pendingLots} onRefresh={loadDashboardData} />;
-      case 'quality':
-        return <QualityControlTab lots={pendingLots} qualityChecks={qualityChecks} onRefresh={loadDashboardData} />;
-      case 'provisions':
-        return <ProvisionReviewTab provisions={pendingProvisions} onRefresh={loadDashboardData} />;
-      case 'inventory':
-        return <InventoryManagementTab />;
-      case 'staff':
-        return <StaffManagementTab staff={staff} onRefresh={loadDashboardData} />;
-      case 'processing':
-        return <ProcessingOversightTab lots={pendingLots} />;
-      case 'compliance':
-        return <ComplianceTab />;
-      case 'reports':
-        return <ReportsTab lots={pendingLots} provisions={pendingProvisions} />;
-      default:
-        return <DashboardHome lots={pendingLots} provisions={pendingProvisions} staff={staff} qualityChecks={qualityChecks} />;
-    }
-  };
-
-  const handleLogout = () => {
-    // Clear any stored authentication data
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userId');
-    
-    // Call the parent logout function
-    onLogout();
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading FlavorCore Manager...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="p-8 max-w-md mx-4">
-          <div className="text-center text-red-600">
-            <AlertTriangle size={48} className="mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Error Loading Dashboard</h2>
-            <p className="mb-4">{error}</p>
-            <Button onClick={loadDashboardData} className="bg-red-600 hover:bg-red-700">
-              Retry
-            </Button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 shadow-lg">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">FlavorCore Manager</h1>
-            <p className="text-purple-200">Processing Oversight & Quality Control</p>
-          </div>
-          <Button onClick={handleLogout} className="bg-purple-800 hover:bg-purple-900">
-            Logout
-          </Button>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="bg-white shadow-md overflow-x-auto">
-        <div className="flex gap-2 p-4 min-w-max">
-          <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')}>
-            🏠 Dashboard
-          </TabButton>
-          <TabButton active={activeTab === 'lots'} onClick={() => setActiveTab('lots')}>
-            📦 Lot Review {pendingLots.length > 0 && <Badge>{pendingLots.length}</Badge>}
-          </TabButton>
-          <TabButton active={activeTab === 'quality'} onClick={() => setActiveTab('quality')}>
-            ⭐ Quality Control
-          </TabButton>
-          <TabButton active={activeTab === 'provisions'} onClick={() => setActiveTab('provisions')}>
-            🛒 Provisions {pendingProvisions.length > 0 && <Badge>{pendingProvisions.length}</Badge>}
-          </TabButton>
-          <TabButton active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')}>
-            📊 Inventory
-          </TabButton>
-          <TabButton active={activeTab === 'staff'} onClick={() => setActiveTab('staff')}>
-            👥 Staff Management
-          </TabButton>
-          <TabButton active={activeTab === 'processing'} onClick={() => setActiveTab('processing')}>
-            ⚙️ Processing
-          </TabButton>
-          <TabButton active={activeTab === 'compliance'} onClick={() => setActiveTab('compliance')}>
-            🛡️ Compliance
-          </TabButton>
-          <TabButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')}>
-            📈 Reports & Export
-          </TabButton>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-6">
-        {renderContent()}
-      </div>
-    </div>
-  );
-}
-
-// ENHANCED Dashboard Home
-function DashboardHome({ lots, provisions, staff, qualityChecks }: { 
-  lots: Lot[];
-  provisions: ProvisionRequest[];
-  staff: StaffMember[];
-  qualityChecks: QualityCheck[];
-}) {
-  const pendingApprovals = lots.filter(l => l.status === 'pending_approval').length;
-  const activeProcessing = lots.filter(l => l.status === 'processing').length;
-  const qualityIssues = qualityChecks.filter(q => q.result === 'fail' || q.result === 'conditional').length;
-  const urgentProvisions = provisions.filter(p => p.priority === 'high').length;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Processing Control Center</h2>
-        <div className="text-sm text-gray-500">
-          Last updated: {new Date().toLocaleTimeString()}
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          icon={<Package className="text-blue-600" size={32} />}
-          title="Pending Approvals"
-          value={pendingApprovals}
-          color="blue"
-          subtitle="Lots awaiting review"
-        />
-        <StatCard
-          icon={<TrendingUp className="text-green-600" size={32} />}
-          title="Active Processing"
-          value={activeProcessing}
-          color="green"
-          subtitle="Currently processing"
-        />
-        <StatCard
-          icon={<AlertTriangle className="text-yellow-600" size={32} />}
-          title="Quality Issues"
-          value={qualityIssues}
-          color="yellow"
-          subtitle="Need attention"
-        />
-        <StatCard
-          icon={<Shield className="text-purple-600" size={32} />}
-          title="Urgent Provisions"
-          value={urgentProvisions}
-          color="purple"
-          subtitle="High priority"
-        />
-      </div>
-
-      {/* Processing Performance */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard
-          icon={<Award className="text-orange-600" size={24} />}
-          title="Avg Quality Grade"
-          value="A-"
-          color="orange"
-          subtitle="This month"
-        />
-        <StatCard
-          icon={<Target className="text-indigo-600" size={24} />}
-          title="Yield Efficiency"
-          value="92.3%"
-          color="indigo"
-          subtitle="Above target"
-        />
-        <StatCard
-          icon={<Activity className="text-teal-600" size={24} />}
-          title="Processing Speed"
-          value="15.2"
-          color="teal"
-          subtitle="lots/day avg"
-        />
-      </div>
-
-      {/* Quick Actions */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button 
-            onClick={() => {}} 
-            className="bg-blue-600 hover:bg-blue-700 h-16 flex items-center justify-center"
-          >
-            <Package className="mr-2" size={20} />
-            Review Pending Lots ({pendingApprovals})
-          </Button>
-          <Button 
-            onClick={() => {}} 
-            className="bg-yellow-600 hover:bg-yellow-700 h-16 flex items-center justify-center"
-          >
-            <Star className="mr-2" size={20} />
-            Quality Control ({qualityIssues})
-          </Button>
-          <Button 
-            onClick={() => {}} 
-            className="bg-green-600 hover:bg-green-700 h-16 flex items-center justify-center"
-          >
-            <CheckCircle className="mr-2" size={20} />
-            Approve Provisions ({provisions.length})
-          </Button>
-        </div>
-      </Card>
-
-      {/* Real-time Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Current Processing */}
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Current Processing Status</h3>
-          {lots.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">
-              <Package size={32} className="mx-auto mb-2 opacity-50" />
-              <p>No active processing</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {lots.slice(0, 4).map(lot => (
-                <div key={lot.lot_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-semibold font-mono text-sm">{lot.lot_id}</p>
-                    <p className="text-sm text-gray-600">{lot.crop}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`px-1 py-0.5 rounded text-xs font-semibold ${
-                        lot.quality_grade === 'A' ? 'bg-green-100 text-green-800' :
-                        lot.quality_grade === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        Grade {lot.quality_grade}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        Moisture: {lot.moisture_content}%
-                      </span>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    lot.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
-                    lot.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                    lot.status === 'quality_check' ? 'bg-purple-100 text-purple-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {lot.status.replace('_', ' ')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {/* Quality Alerts */}
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Quality Control Alerts</h3>
-          {qualityChecks.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">
-              <CheckCircle size={32} className="mx-auto mb-2 opacity-50" />
-              <p>No quality alerts</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {qualityChecks.slice(0, 4).map(check => (
-                <div key={check.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-semibold text-sm">{check.lot_id}</p>
-                    <p className="text-sm text-gray-600">{check.check_type}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      By {check.checked_by}
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    check.result === 'pass' ? 'bg-green-100 text-green-800' :
-                    check.result === 'conditional' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {check.result.toUpperCase()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// ENHANCED Quality Control Tab
-function QualityControlTab({ lots, qualityChecks, onRefresh }: { 
-  lots: Lot[]; 
-  qualityChecks: QualityCheck[];
-  onRefresh: () => void;
-}) {
-  const [selectedLot, setSelectedLot] = useState<string | null>(null);
-  const [checkType, setCheckType] = useState('moisture_content');
-  const [result, setResult] = useState<'pass' | 'fail' | 'conditional'>('pass');
-  const [notes, setNotes] = useState('');
-
-  const handleQualityCheck = async () => {
-    if (!selectedLot || !notes.trim()) {
-      alert('Please select a lot and add notes');
-      return;
-    }
-
-    // Simulate quality check
-    const newCheck: QualityCheck = {
-      id: Date.now().toString(),
-      lot_id: selectedLot,
-      check_type: checkType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      result,
-      notes,
-      checked_by: 'Quality Manager',
-      check_date: new Date().toISOString()
-    };
-
-    alert(`Quality check recorded for ${selectedLot}`);
-    setSelectedLot(null);
-    setNotes('');
-    onRefresh();
+  const scrollRight = () => {
+    const maxScroll = Math.max(0, (items.length * 120) - 600);
+    const newPosition = Math.min(maxScroll, scrollPosition + 200);
+    setScrollPosition(newPosition);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Quality Control Center</h2>
-        <Button onClick={onRefresh} className="bg-purple-600 hover:bg-purple-700">
-          Refresh
+    <>
+      {/* Mobile Navigation */}
+      <div className="md:hidden mb-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          className="w-full flex items-center justify-between"
+        >
+          <span>{items.find(item => item.id === activeTab)?.label || 'Menu'}</span>
+          {showMobileMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
-      </div>
-
-      {/* Quality Standards Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          icon={<Star className="text-green-600" size={24} />}
-          title="Grade A Lots"
-          value={lots.filter(l => l.quality_grade === 'A').length}
-          color="green"
-          subtitle="Premium quality"
-        />
-        <StatCard
-          icon={<CheckCircle className="text-blue-600" size={24} />}
-          title="Passed Checks"
-          value={qualityChecks.filter(q => q.result === 'pass').length}
-          color="blue"
-          subtitle="Quality approved"
-        />
-        <StatCard
-          icon={<AlertTriangle className="text-yellow-600" size={24} />}
-          title="Conditional"
-          value={qualityChecks.filter(q => q.result === 'conditional').length}
-          color="yellow"
-          subtitle="Need review"
-        />
-        <StatCard
-          icon={<XCircle className="text-red-600" size={24} />}
-          title="Failed Checks"
-          value={qualityChecks.filter(q => q.result === 'fail').length}
-          color="red"
-          subtitle="Require action"
-        />
-      </div>
-
-      {/* New Quality Check Form */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Perform Quality Check</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Select Lot</label>
-            <select
-              value={selectedLot || ''}
-              onChange={(e) => setSelectedLot(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            >
-              <option value="">Select a lot...</option>
-              {lots.map(lot => (
-                <option key={lot.lot_id} value={lot.lot_id}>
-                  {lot.lot_id} - {lot.crop}
-                </option>
-              ))}
-            </select>
-
-            <label className="block text-sm font-medium mb-2 mt-4">Check Type</label>
-            <select
-              value={checkType}
-              onChange={(e) => setCheckType(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-            >
-              <option value="moisture_content">Moisture Content</option>
-              <option value="visual_inspection">Visual Inspection</option>
-              <option value="color_grading">Color Grading</option>
-              <option value="size_sorting">Size Sorting</option>
-              <option value="defect_analysis">Defect Analysis</option>
-              <option value="aroma_test">Aroma Test</option>
-            </select>
-
-            <label className="block text-sm font-medium mb-2 mt-4">Result</label>
-            <select
-              value={result}
-              onChange={(e) => setResult(e.target.value as 'pass' | 'fail' | 'conditional')}
-              className="w-full p-3 border rounded-lg"
-            >
-              <option value="pass">Pass</option>
-              <option value="conditional">Conditional</option>
-              <option value="fail">Fail</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Quality Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full p-3 border rounded-lg h-32"
-              placeholder="Enter detailed quality assessment notes..."
-            />
-
-            <Button
-              onClick={handleQualityCheck}
-              className="w-full mt-4 bg-green-600 hover:bg-green-700"
-            >
-              <CheckCircle className="mr-2" size={18} />
-              Record Quality Check
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Recent Quality Checks */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Recent Quality Checks</h3>
-        {qualityChecks.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Star size={48} className="mx-auto mb-4 opacity-50" />
-            <p>No quality checks recorded</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {qualityChecks.map(check => (
-              <div key={check.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-semibold">{check.lot_id}</p>
-                  <p className="text-sm text-gray-600">{check.check_type}</p>
-                  <p className="text-sm text-gray-600">By {check.checked_by}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(check.check_date).toLocaleString()}
-                  </p>
-                  {check.notes && (
-                    <p className="text-sm text-gray-700 mt-2 italic">"{check.notes}"</p>
-                  )}
-                </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  check.result === 'pass' ? 'bg-green-100 text-green-800' :
-                  check.result === 'conditional' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {check.result.toUpperCase()}
-                </span>
-              </div>
+        
+        {showMobileMenu && (
+          <div className="mt-2 space-y-1 bg-white border rounded-md shadow-lg z-10 absolute left-0 right-0 mx-4">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  onTabChange(item.id);
+                  setShowMobileMenu(false);
+                }}
+                className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors ${
+                  activeTab === item.id ? 'bg-blue-50 text-blue-600 font-medium' : ''
+                }`}
+              >
+                {item.label}
+              </button>
             ))}
           </div>
         )}
-      </Card>
-    </div>
+      </div>
+
+      {/* Desktop Navigation */}
+      <div className="hidden md:flex items-center mb-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={scrollLeft}
+          disabled={scrollPosition === 0}
+          className="mr-2 flex-shrink-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <div className="flex-1 overflow-hidden">
+          <div 
+            className="flex transition-transform duration-300 ease-in-out"
+            style={{ transform: `translateX(-${scrollPosition}px)` }}
+          >
+            {items.map((item) => (
+              <Button
+                key={item.id}
+                variant={activeTab === item.id ? "default" : "outline"}
+                onClick={() => onTabChange(item.id)}
+                className="mr-2 flex-shrink-0 whitespace-nowrap min-w-0 transition-all"
+                style={{ minWidth: '120px' }}
+              >
+                <span className="truncate px-1">{item.label}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={scrollRight}
+          disabled={scrollPosition >= Math.max(0, (items.length * 120) - 600)}
+          className="ml-2 flex-shrink-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </>
   );
+};
+
+// Data interfaces
+interface QualityTest {
+  id: string;
+  batchId: string;
+  productName: string;
+  testType: string;
+  testDate: string;
+  inspector: string;
+  status: 'passed' | 'failed' | 'pending' | 'requires_retest';
+  score: number;
+  maxScore: number;
+  notes?: string;
+  parameters: {
+    moisture: number;
+    pH: number;
+    temperature: number;
+    appearance: string;
+    texture: string;
+    color: string;
+  };
 }
 
-// ENHANCED Inventory Management Tab
-function InventoryManagementTab() {
-  const [inventoryItems, setInventoryItems] = useState([
-    {
-      id: '1',
-      item_name: 'Cloves (Grade A)',
-      current_stock: 250,
-      unit: 'kg',
-      reorder_level: 100,
-      last_updated: new Date().toISOString(),
-      location: 'Storage A-1',
-      batch_ids: ['LOT-CLOVES-001', 'LOT-CLOVES-002']
-    },
-    {
-      id: '2',
-      item_name: 'Black Pepper (Grade B)',
-      current_stock: 180,
-      unit: 'kg',
-      reorder_level: 150,
-      last_updated: new Date(Date.now() - 3600000).toISOString(),
-      location: 'Storage B-2',
-      batch_ids: ['LOT-PEPPER-002']
-    },
-    {
-      id: '3',
-      item_name: 'Cardamom (Premium)',
-      current_stock: 75,
-      unit: 'kg',
-      reorder_level: 50,
-      last_updated: new Date(Date.now() - 7200000).toISOString(),
-      location: 'Storage C-1',
-      batch_ids: ['LOT-CARDAMOM-003']
+interface ProcessingBatch {
+  id: string;
+  productName: string;
+  batchSize: number;
+  unit: string;
+  startDate: string;
+  expectedCompletion: string;
+  currentStage: string;
+  progress: number;
+  assignedOperator: string;
+  qualityChecksPassed: number;
+  totalQualityChecks: number;
+  status: 'processing' | 'completed' | 'on_hold' | 'failed';
+  ingredients: {
+    name: string;
+    quantity: number;
+    unit: string;
+    supplier: string;
+  }[];
+}
+
+interface ComplianceRecord {
+  id: string;
+  regulationType: string;
+  checkDate: string;
+  inspector: string;
+  status: 'compliant' | 'non_compliant' | 'pending_review';
+  score: number;
+  issues: string[];
+  correctiveActions: string[];
+  dueDate?: string;
+  resolved: boolean;
+}
+
+interface InventoryItem {
+  id: string;
+  name: string;
+  category: 'raw_material' | 'packaging' | 'finished_product' | 'equipment';
+  currentStock: number;
+  unit: string;
+  minimumThreshold: number;
+  lastUpdated: string;
+  supplier?: string;
+  expiryDate?: string;
+  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired';
+}
+
+// Sample data
+const sampleQualityTests: QualityTest[] = [
+  {
+    id: '1',
+    batchId: 'BTH-2024-001',
+    productName: 'Premium Tomato Sauce',
+    testType: 'Final Quality Check',
+    testDate: '2024-03-15',
+    inspector: 'Dr. Sarah Johnson',
+    status: 'passed',
+    score: 92,
+    maxScore: 100,
+    parameters: {
+      moisture: 85.2,
+      pH: 4.2,
+      temperature: 22.5,
+      appearance: 'Excellent',
+      texture: 'Smooth',
+      color: 'Deep Red'
     }
-  ]);
+  },
+  {
+    id: '2',
+    batchId: 'BTH-2024-002',
+    productName: 'Organic Salsa Verde',
+    testType: 'Microbiological Test',
+    testDate: '2024-03-14',
+    inspector: 'Mike Chen',
+    status: 'requires_retest',
+    score: 78,
+    maxScore: 100,
+    notes: 'Minor pH variance detected, retest required',
+    parameters: {
+      moisture: 82.1,
+      pH: 3.8,
+      temperature: 23.1,
+      appearance: 'Good',
+      texture: 'Chunky',
+      color: 'Bright Green'
+    }
+  }
+];
 
-  const lowStockItems = inventoryItems.filter(item => item.current_stock <= item.reorder_level);
+const sampleProcessingBatches: ProcessingBatch[] = [
+  {
+    id: '1',
+    productName: 'Premium Tomato Sauce',
+    batchSize: 5000,
+    unit: 'liters',
+    startDate: '2024-03-10',
+    expectedCompletion: '2024-03-17',
+    currentStage: 'Quality Testing',
+    progress: 85,
+    assignedOperator: 'John Martinez',
+    qualityChecksPassed: 8,
+    totalQualityChecks: 10,
+    status: 'processing',
+    ingredients: [
+      { name: 'Tomatoes', quantity: 3000, unit: 'kg', supplier: 'Valley Fresh Farms' },
+      { name: 'Onions', quantity: 500, unit: 'kg', supplier: 'Local Produce Co.' },
+      { name: 'Garlic', quantity: 100, unit: 'kg', supplier: 'Herb Suppliers Inc.' },
+      { name: 'Salt', quantity: 50, unit: 'kg', supplier: 'Pure Salt Co.' }
+    ]
+  },
+  {
+    id: '2',
+    productName: 'Organic Salsa Verde',
+    batchSize: 2500,
+    unit: 'jars',
+    startDate: '2024-03-12',
+    expectedCompletion: '2024-03-19',
+    currentStage: 'Packaging',
+    progress: 65,
+    assignedOperator: 'Lisa Rodriguez',
+    qualityChecksPassed: 5,
+    totalQualityChecks: 8,
+    status: 'processing',
+    ingredients: [
+      { name: 'Tomatillos', quantity: 1200, unit: 'kg', supplier: 'Green Valley Farms' },
+      { name: 'Cilantro', quantity: 150, unit: 'kg', supplier: 'Fresh Herb Co.' },
+      { name: 'Jalapeños', quantity: 300, unit: 'kg', supplier: 'Spice World' }
+    ]
+  }
+];
 
-  return (
+const sampleComplianceRecords: ComplianceRecord[] = [
+  {
+    id: '1',
+    regulationType: 'FDA Food Safety',
+    checkDate: '2024-03-01',
+    inspector: 'FDA Inspector Johnson',
+    status: 'compliant',
+    score: 95,
+    issues: [],
+    correctiveActions: [],
+    resolved: true
+  },
+  {
+    id: '2',
+    regulationType: 'HACCP Compliance',
+    checkDate: '2024-03-05',
+    inspector: 'Internal Audit Team',
+    status: 'non_compliant',
+    score: 78,
+    issues: [
+      'Temperature logging gaps in cold storage',
+      'Missing documentation for batch BTH-2024-001'
+    ],
+    correctiveActions: [
+      'Install automated temperature monitoring',
+      'Update documentation procedures'
+    ],
+    dueDate: '2024-03-20',
+    resolved: false
+  }
+];
+
+const sampleInventory: InventoryItem[] = [
+  {
+    id: '1',
+    name: 'Tomatoes - Grade A',
+    category: 'raw_material',
+    currentStock: 15000,
+    unit: 'kg',
+    minimumThreshold: 5000,
+    lastUpdated: '2024-03-15',
+    supplier: 'Valley Fresh Farms',
+    expiryDate: '2024-03-20',
+    status: 'in_stock'
+  },
+  {
+    id: '2',
+    name: 'Glass Jars - 500ml',
+    category: 'packaging',
+    currentStock: 2500,
+    unit: 'pieces',
+    minimumThreshold: 5000,
+    lastUpdated: '2024-03-14',
+    supplier: 'Container Solutions Inc.',
+    status: 'low_stock'
+  },
+  {
+    id: '3',
+    name: 'Sea Salt',
+    category: 'raw_material',
+    currentStock: 0,
+    unit: 'kg',
+    minimumThreshold: 500,
+    lastUpdated: '2024-03-13',
+    supplier: 'Pure Salt Co.',
+    status: 'out_of_stock'
+  }
+];
+
+const FlavorCoreManagerDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [qualityTests, setQualityTests] = useState<QualityTest[]>(sampleQualityTests);
+  const [processingBatches, setProcessingBatches] = useState<ProcessingBatch[]>(sampleProcessingBatches);
+  const [complianceRecords, setComplianceRecords] = useState<ComplianceRecord[]>(sampleComplianceRecords);
+  const [inventory, setInventory] = useState<InventoryItem[]>(sampleInventory);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Navigation items
+  const navigationItems = [
+    { id: 'overview', label: 'Dashboard Overview' },
+    { id: 'quality', label: 'Quality Control' },
+    { id: 'processing', label: 'Processing Monitor' },
+    { id: 'compliance', label: 'Compliance Tracking' },
+    { id: 'inventory', label: 'Inventory Management' },
+    { id: 'reports', label: 'Production Reports' },
+    { id: 'settings', label: 'System Settings' }
+  ];
+
+  // Calculate statistics
+  const totalBatches = processingBatches.length;
+  const activeBatches = processingBatches.filter(b => b.status === 'processing').length;
+  const pendingQualityTests = qualityTests.filter(t => t.status === 'pending').length;
+  const complianceIssues = complianceRecords.filter(c => c.status === 'non_compliant' && !c.resolved).length;
+  const lowStockItems = inventory.filter(i => i.status === 'low_stock' || i.status === 'out_of_stock').length;
+
+  const handleApproveTest = (testId: string) => {
+    setQualityTests(prev =>
+      prev.map(test =>
+        test.id === testId ? { ...test, status: 'passed' as const } : test
+      )
+    );
+  };
+
+  const handleRejectTest = (testId: string) => {
+    setQualityTests(prev =>
+      prev.map(test =>
+        test.id === testId ? { ...test, status: 'failed' as const } : test
+      )
+    );
+  };
+
+  const renderOverview = () => (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Inventory Management</h2>
-        <div className="flex gap-2">
-          <Button className="bg-green-600 hover:bg-green-700">
-            <Package className="mr-2" size={18} />
-            Add Stock
-          </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Download className="mr-2" size={18} />
-            Export Inventory
-          </Button>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Active Batches</p>
+              <p className="text-3xl font-bold text-blue-600">{activeBatches}</p>
+            </div>
+            <Package className="h-8 w-8 text-blue-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending Tests</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingQualityTests}</p>
+            </div>
+            <Clipboard className="h-8 w-8 text-orange-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Compliance Issues</p>
+              <p className="text-3xl font-bold text-red-600">{complianceIssues}</p>
+            </div>
+            <Shield className="h-8 w-8 text-red-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Low Stock Items</p>
+              <p className="text-3xl font-bold text-yellow-600">{lowStockItems}</p>
+            </div>
+            <AlertTriangle className="h-8 w-8 text-yellow-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Production Efficiency</p>
+              <p className="text-3xl font-bold text-green-600">87%</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
       </div>
 
-      {/* Inventory Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          icon={<Package className="text-blue-600" size={24} />}
-          title="Total Items"
-          value={inventoryItems.length}
-          color="blue"
-          subtitle="Product types"
-        />
-        <StatCard
-          icon={<TrendingUp className="text-green-600" size={24} />}
-          title="Total Stock"
-          value={`${inventoryItems.reduce((sum, item) => sum + item.current_stock, 0)} kg`}
-          color="green"
-          subtitle="Current inventory"
-        />
-        <StatCard
-          icon={<AlertTriangle className="text-red-600" size={24} />}
-          title="Low Stock"
-          value={lowStockItems.length}
-          color="red"
-          subtitle="Need reorder"
-        />
-        <StatCard
-          icon={<CheckCircle className="text-purple-600" size={24} />}
-          title="Value (Est.)"
-          value="₹2.5L"
-          color="purple"
-          subtitle="Current worth"
-        />
-      </div>
-
-      {/* Low Stock Alerts */}
-      {lowStockItems.length > 0 && (
-        <Card className="p-6 border-l-4 border-red-500 bg-red-50">
-          <h3 className="text-xl font-bold text-red-800 mb-4">Low Stock Alerts</h3>
-          <div className="space-y-2">
-            {lowStockItems.map(item => (
-              <div key={item.id} className="flex justify-between items-center p-2 bg-white rounded">
-                <span className="font-medium">{item.item_name}</span>
-                <span className="text-red-600 font-semibold">
-                  {item.current_stock} {item.unit} (Reorder at {item.reorder_level})
-                </span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Recent Quality Tests</h3>
+          <div className="space-y-3">
+            {qualityTests.slice(0, 5).map(test => (
+              <div key={test.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                <div>
+                  <p className="font-medium">{test.productName}</p>
+                  <p className="text-sm text-gray-600">{test.testType} - {test.inspector}</p>
+                </div>
+                <Badge variant={test.status === 'passed' ? 'default' : 'outline'}>
+                  {test.status.replace('_', ' ')}
+                </Badge>
               </div>
             ))}
           </div>
         </Card>
-      )}
 
-      {/* Inventory Table */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Active Processing Batches</h3>
+          <div className="space-y-4">
+            {processingBatches.filter(b => b.status === 'processing').map(batch => (
+              <div key={batch.id} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{batch.productName}</p>
+                  <span className="text-sm text-gray-600">{batch.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full" 
+                    style={{ width: `${batch.progress}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {batch.currentStage} - {batch.assignedOperator}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
       <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Current Inventory</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-200">
-                <th className="text-left p-3">Item Name</th>
-                <th className="text-left p-3">Current Stock</th>
-                <th className="text-left p-3">Reorder Level</th>
-                <th className="text-left p-3">Location</th>
-                <th className="text-left p-3">Batch IDs</th>
-                <th className="text-left p-3">Last Updated</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-left p-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventoryItems.map(item => (
-                <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="p-3 font-semibold">{item.item_name}</td>
-                  <td className="p-3">
-                    <span className={`font-bold ${
-                      item.current_stock <= item.reorder_level ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {item.current_stock} {item.unit}
-                    </span>
-                  </td>
-                  <td className="p-3 text-gray-600">{item.reorder_level} {item.unit}</td>
-                  <td className="p-3">
-                    <span className="bg-gray-100 px-2 py-1 rounded text-sm">
-                      {item.location}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex flex-wrap gap-1">
-                      {item.batch_ids.map(batchId => (
-                        <span key={batchId} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono">
-                          {batchId}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-3 text-sm text-gray-600">
-                    {new Date(item.last_updated).toLocaleDateString()}
-                  </td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      item.current_stock <= item.reorder_level 
-                        ? 'bg-red-100 text-red-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {item.current_stock <= item.reorder_level ? 'LOW STOCK' : 'IN STOCK'}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-1">
-                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs px-2 py-1">
-                        <Edit size={12} className="mr-1" />
-                        Edit
-                      </Button>
-                      <Button size="sm" className="bg-gray-600 hover:bg-gray-700 text-xs px-2 py-1">
-                        <Eye size={12} className="mr-1" />
-                        View
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <h3 className="text-lg font-semibold mb-4">System Alerts</h3>
+        <div className="space-y-3">
+          <div className="flex items-center p-3 bg-red-50 border border-red-200 rounded-md">
+            <AlertTriangle className="h-5 w-5 text-red-600 mr-3" />
+            <div>
+              <p className="font-medium text-red-800">Critical: Out of Stock Items</p>
+              <p className="text-sm text-red-600">3 raw materials are out of stock and may affect production</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <Clock className="h-5 w-5 text-yellow-600 mr-3" />
+            <div>
+              <p className="font-medium text-yellow-800">Warning: Compliance Deadline</p>
+              <p className="text-sm text-yellow-600">HACCP corrective actions due in 5 days</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <Bell className="h-5 w-5 text-blue-600 mr-3" />
+            <div>
+              <p className="font-medium text-blue-800">Info: Quality Test Required</p>
+              <p className="text-sm text-blue-600">Batch BTH-2024-002 requires retesting</p>
+            </div>
+          </div>
         </div>
       </Card>
     </div>
   );
-}
 
-// ENHANCED Processing Oversight Tab
-function ProcessingOversightTab({ lots }: { lots: Lot[] }) {
-  const [selectedLot, setSelectedLot] = useState<Lot | null>(null);
-
-  const processingStages = [
-    { stage: 'Receipt', status: 'completed', duration: '2 hours' },
-    { stage: 'Initial Cleaning', status: 'completed', duration: '4 hours' },
-    { stage: 'Drying', status: 'in_progress', duration: '24 hours' },
-    { stage: 'Sorting & Grading', status: 'pending', duration: '6 hours' },
-    { stage: 'Final Packaging', status: 'pending', duration: '3 hours' }
-  ];
-
-  return (
+  const renderQualityControl = () => (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Processing Oversight</h2>
-        <Button className="bg-purple-600 hover:bg-purple-700">
-          <Settings className="mr-2" size={18} />
-          Processing Settings
-        </Button>
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Quality Control</h3>
+        <div className="flex gap-2">
+          <Button>
+            <Clipboard className="h-4 w-4 mr-2" />
+            New Test
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export Reports
+          </Button>
+        </div>
       </div>
 
-      {/* Processing Pipeline */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Current Processing Pipeline</h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {processingStages.map((stage, index) => (
-            <div key={stage.stage} className="text-center">
-              <div className={`w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center ${
-                stage.status === 'completed' ? 'bg-green-500 text-white' :
-                stage.status === 'in_progress' ? 'bg-blue-500 text-white' :
-                'bg-gray-300 text-gray-600'
-              }`}>
-                {stage.status === 'completed' ? <CheckCircle size={20} /> :
-                 stage.status === 'in_progress' ? <Clock size={20} /> :
-                 <Package size={20} />}
-              </div>
-              <h4 className="font-semibold text-sm">{stage.stage}</h4>
-              <p className="text-xs text-gray-500">{stage.duration}</p>
-              <span className={`px-2 py-1 rounded-full text-xs font-semibold mt-1 inline-block ${
-                stage.status === 'completed' ? 'bg-green-100 text-green-800' :
-                stage.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {stage.status.replace('_', ' ').toUpperCase()}
-              </span>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Tests Passed</p>
+              <p className="text-3xl font-bold text-green-600">
+                {qualityTests.filter(t => t.status === 'passed').length}
+              </p>
             </div>
-          ))}
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Tests Failed</p>
+              <p className="text-3xl font-bold text-red-600">
+                {qualityTests.filter(t => t.status === 'failed').length}
+              </p>
+            </div>
+            <XCircle className="h-8 w-8 text-red-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending Tests</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingQualityTests}</p>
+            </div>
+            <Clock className="h-8 w-8 text-orange-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Avg. Score</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {Math.round(qualityTests.reduce((sum, t) => sum + t.score, 0) / qualityTests.length)}
+              </p>
+            </div>
+            <Star className="h-8 w-8 text-blue-600" />
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <div className="p-6">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search quality tests..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button variant="outline">
+              <Filter className="h-4 w-4 mr-2" />
+              Filter
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-4">Product/Batch</th>
+                  <th className="text-left p-4">Test Type</th>
+                  <th className="text-left p-4">Inspector</th>
+                  <th className="text-left p-4">Score</th>
+                  <th className="text-left p-4">Status</th>
+                  <th className="text-left p-4">Date</th>
+                  <th className="text-left p-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {qualityTests.map(test => (
+                  <tr key={test.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
+                      <div>
+                        <p className="font-medium">{test.productName}</p>
+                        <p className="text-sm text-gray-600">{test.batchId}</p>
+                      </div>
+                    </td>
+                    <td className="p-4">{test.testType}</td>
+                    <td className="p-4">{test.inspector}</td>
+                    <td className="p-4">
+                      <div className="flex items-center">
+                        <span className="font-medium">{test.score}/{test.maxScore}</span>
+                        <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              test.score >= 90 ? 'bg-green-600' :
+                              test.score >= 80 ? 'bg-yellow-600' :
+                              'bg-red-600'
+                            }`}
+                            style={{ width: `${(test.score / test.maxScore) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <Badge variant={test.status === 'passed' ? 'default' : 'outline'}>
+                        {test.status.replace('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="p-4">{test.testDate}</td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {test.status === 'pending' && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleApproveTest(test.id)}
+                              className="text-green-600 border-green-600 hover:bg-green-50"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRejectTest(test.id)}
+                              className="text-red-600 border-red-600 hover:bg-red-50"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </Card>
+    </div>
+  );
 
-      {/* Lot Processing Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Active Processing Lots</h3>
-          {lots.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Package size={48} className="mx-auto mb-4 opacity-50" />
-              <p>No lots currently processing</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {lots.map(lot => (
-                <div 
-                  key={lot.lot_id} 
-                  className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                    selectedLot?.lot_id === lot.lot_id ? 'bg-purple-100 border-2 border-purple-500' : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  onClick={() => setSelectedLot(lot)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold font-mono">{lot.lot_id}</p>
-                      <p className="text-sm text-gray-600">{lot.crop}</p>
-                      <p className="text-xs text-gray-500">
-                        Started: {lot.created_at ? new Date(lot.created_at).toLocaleDateString() : 'N/A'}
-                      </p>
+  const renderProcessingMonitor = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Processing Monitor</h3>
+        <div className="flex gap-2">
+          <Button>
+            <Package className="h-4 w-4 mr-2" />
+            New Batch
+          </Button>
+          <Button variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-6">
+        {processingBatches.map(batch => (
+          <Card key={batch.id} className="p-6">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-lg font-semibold">{batch.productName}</h4>
+                  <p className="text-gray-600">
+                    Batch Size: {batch.batchSize.toLocaleString()} {batch.unit}
+                  </p>
+                </div>
+                <Badge variant={batch.status === 'processing' ? 'default' : 'outline'}>
+                  {batch.status.replace('_', ' ')}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Progress</p>
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-700">{batch.currentStage}</span>
+                      <span className="text-sm font-medium">{batch.progress}%</span>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      lot.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                      lot.status === 'quality_check' ? 'bg-purple-100 text-purple-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {lot.status.replace('_', ' ')}
-                    </span>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ width: `${batch.progress}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
 
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Processing Details</h3>
-          {selectedLot ? (
-            <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Timeline</p>
+                  <div className="mt-2 text-sm">
+                    <p>Started: {batch.startDate}</p>
+                    <p>Expected: {batch.expectedCompletion}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Quality Checks</p>
+                  <div className="mt-2">
+                    <p className="text-lg font-semibold">
+                      {batch.qualityChecksPassed}/{batch.totalQualityChecks}
+                    </p>
+                    <p className="text-sm text-gray-600">Passed</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Operator</p>
+                  <div className="mt-2">
+                    <div className="flex items-center">
+                      <User className="h-4 w-4 mr-2 text-gray-600" />
+                      <span className="text-sm">{batch.assignedOperator}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <h4 className="font-semibold text-lg">{selectedLot.lot_id}</h4>
-                <p className="text-gray-600">{selectedLot.crop}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 p-3 rounded">
-                  <p className="text-sm text-gray-600">Raw Weight</p>
-                  <p className="text-lg font-bold text-blue-600">{selectedLot.raw_weight} kg</p>
-                </div>
-                <div className="bg-green-50 p-3 rounded">
-                  <p className="text-sm text-gray-600">Current Weight</p>
-                  <p className="text-lg font-bold text-green-600">{selectedLot.threshed_weight} kg</p>
-                </div>
-              </div>
-
-              {selectedLot.quality_grade && (
-                <div className="bg-purple-50 p-3 rounded">
-                  <p className="text-sm text-gray-600">Quality Assessment</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`px-2 py-1 rounded text-sm font-semibold ${
-                      selectedLot.quality_grade === 'A' ? 'bg-green-100 text-green-800' :
-                      selectedLot.quality_grade === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      Grade {selectedLot.quality_grade}
-                    </span>
-                    {selectedLot.moisture_content && (
+                <h5 className="font-medium mb-2">Ingredients</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {batch.ingredients.map((ingredient, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="text-sm font-medium">{ingredient.name}</span>
                       <span className="text-sm text-gray-600">
-                        Moisture: {selectedLot.moisture_content}%
+                        {ingredient.quantity} {ingredient.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-4 border-t">
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Details
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Update Stage
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Clipboard className="h-4 w-4 mr-2" />
+                  Quality Check
+                </Button>
+                {batch.status === 'on_hold' && (
+                  <Button variant="outline" size="sm" className="text-green-600 border-green-600">
+                    Resume Processing
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderComplianceTracking = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Compliance Tracking</h3>
+        <div className="flex gap-2">
+          <Button>
+            <Shield className="h-4 w-4 mr-2" />
+            New Audit
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Compliance Report
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Compliant</p>
+              <p className="text-3xl font-bold text-green-600">
+                {complianceRecords.filter(c => c.status === 'compliant').length}
+              </p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Non-Compliant</p>
+              <p className="text-3xl font-bold text-red-600">
+                {complianceRecords.filter(c => c.status === 'non_compliant').length}
+              </p>
+            </div>
+            <XCircle className="h-8 w-8 text-red-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending Review</p>
+              <p className="text-3xl font-bold text-orange-600">
+                {complianceRecords.filter(c => c.status === 'pending_review').length}
+              </p>
+            </div>
+            <Clock className="h-8 w-8 text-orange-600" />
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6">
+        {complianceRecords.map(record => (
+          <Card key={record.id} className="p-6">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-lg font-semibold">{record.regulationType}</h4>
+                  <p className="text-gray-600">Inspector: {record.inspector}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">{record.score}/100</p>
+                    <p className="text-sm text-gray-600">Compliance Score</p>
+                  </div>
+                  <Badge variant={record.status === 'compliant' ? 'default' : 'outline'}>
+                    {record.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-2">Check Date</p>
+                  <p>{record.checkDate}</p>
+                  {record.dueDate && (
+                    <>
+                      <p className="text-sm font-medium text-gray-600 mb-2 mt-3">Due Date</p>
+                      <p className="text-red-600">{record.dueDate}</p>
+                    </>
+                  )}
+                </div>
+
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-600 mb-2">Status</p>
+                  <div className="flex items-center justify-end">
+                    {record.resolved ? (
+                      <span className="text-green-600 flex items-center">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Resolved
+                      </span>
+                    ) : (
+                      <span className="text-red-600 flex items-center">
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Unresolved
                       </span>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {record.issues.length > 0 && (
+                <div>
+                  <h5 className="font-medium mb-2 text-red-600">Issues Identified</h5>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    {record.issues.map((issue, index) => (
+                      <li key={index} className="text-red-600">{issue}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
-              <div className="space-y-2">
-                <h4 className="font-semibold">Processing Actions</h4>
-                <div className="flex gap-2">
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                    Update Status
-                  </Button>
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                    Quality Check
-                  </Button>
-                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-                    Move to Next Stage
-                  </Button>
+              {record.correctiveActions.length > 0 && (
+                <div>
+                  <h5 className="font-medium mb-2 text-blue-600">Corrective Actions</h5>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    {record.correctiveActions.map((action, index) => (
+                      <li key={index} className="text-blue-600">{action}</li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Eye size={48} className="mx-auto mb-4 opacity-50" />
-              <p>Select a lot to view details</p>
-            </div>
-          )}
-        </Card>
-      </div>
-    </div>
-  );
-}
+              )}
 
-// ENHANCED Compliance Tab
-function ComplianceTab() {
-  const complianceChecks = [
-    {
-      id: '1',
-      check_name: 'Food Safety Standards',
-      status: 'compliant',
-      last_check: new Date(Date.now() - 86400000).toISOString(),
-      next_due: new Date(Date.now() + 2592000000).toISOString(), // 30 days
-      responsible: 'Quality Manager'
-    },
-    {
-      id: '2',
-      check_name: 'Organic Certification',
-      status: 'pending_renewal',
-      last_check: new Date(Date.now() - 7776000000).toISOString(), // 90 days ago
-      next_due: new Date(Date.now() + 86400000).toISOString(), // 1 day
-      responsible: 'Compliance Officer'
-    },
-    {
-      id: '3',
-      check_name: 'Export Documentation',
-      status: 'compliant',
-      last_check: new Date(Date.now() - 604800000).toISOString(), // 7 days ago
-      next_due: new Date(Date.now() + 1209600000).toISOString(), // 14 days
-      responsible: 'Export Manager'
-    }
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Compliance Management</h2>
-        <Button className="bg-purple-600 hover:bg-purple-700">
-          <Shield className="mr-2" size={18} />
-          New Compliance Check
-        </Button>
-      </div>
-
-      {/* Compliance Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          icon={<Shield className="text-green-600" size={24} />}
-          title="Compliant"
-          value={complianceChecks.filter(c => c.status === 'compliant').length}
-          color="green"
-          subtitle="Standards met"
-        />
-        <StatCard
-          icon={<AlertTriangle className="text-yellow-600" size={24} />}
-          title="Pending Renewal"
-          value={complianceChecks.filter(c => c.status === 'pending_renewal').length}
-          color="yellow"
-          subtitle="Need attention"
-        />
-        <StatCard
-          icon={<Clock className="text-blue-600" size={24} />}
-          title="Due Soon"
-          value={complianceChecks.filter(c => 
-            new Date(c.next_due).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000
-          ).length}
-          color="blue"
-          subtitle="Within 7 days"
-        />
-        <StatCard
-          icon={<FileText className="text-purple-600" size={24} />}
-          title="Total Checks"
-          value={complianceChecks.length}
-          color="purple"
-          subtitle="Active standards"
-        />
-      </div>
-
-      {/* Compliance Status */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Compliance Status</h3>
-        <div className="space-y-4">
-          {complianceChecks.map(check => (
-            <div key={check.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div>
-                <h4 className="font-semibold">{check.check_name}</h4>
-                <p className="text-sm text-gray-600">Responsible: {check.responsible}</p>
-                <p className="text-sm text-gray-600">
-                  Last Check: {new Date(check.last_check).toLocaleDateString()}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Next Due: {new Date(check.next_due).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="text-right">
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  check.status === 'compliant' ? 'bg-green-100 text-green-800' :
-                  check.status === 'pending_renewal' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {check.status.replace('_', ' ').toUpperCase()}
-                </span>
-                <div className="mt-2">
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs">
-                    View Details
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Upcoming Deadlines */}
-      <Card className="p-6 border-l-4 border-yellow-500 bg-yellow-50">
-        <h3 className="text-xl font-bold text-yellow-800 mb-4">Upcoming Compliance Deadlines</h3>
-        <div className="space-y-2">
-          {complianceChecks
-            .filter(check => new Date(check.next_due).getTime() - Date.now() < 14 * 24 * 60 * 60 * 1000)
-            .map(check => (
-              <div key={check.id} className="flex justify-between items-center p-2 bg-white rounded">
-                <span className="font-medium">{check.check_name}</span>
-                <span className="text-yellow-700 font-semibold">
-                  Due: {new Date(check.next_due).toLocaleDateString()}
-                </span>
-              </div>
-            ))}
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-// Re-use the existing enhanced components from the original file
-function LotReviewTab({ lots, onRefresh }: { lots: Lot[]; onRefresh: () => void }) {
-  const [selectedLot, setSelectedLot] = useState<Lot | null>(null);
-  const [notes, setNotes] = useState('');
-  const [processing, setProcessing] = useState(false);
-
-  const calculateYield = (lot: Lot) => {
-    if (lot.final_weight && lot.raw_weight) {
-      return ((lot.final_weight / lot.raw_weight) * 100).toFixed(1);
-    }
-    return 'N/A';
-  };
-
-  const getYieldStatus = (yieldPct: string) => {
-    if (yieldPct === 'N/A') return { color: 'text-gray-500', status: 'Unknown' };
-    const pct = parseFloat(yieldPct);
-    if (pct < 20) return { color: 'text-red-600', status: 'Below Standard' };
-    if (pct > 35) return { color: 'text-yellow-600', status: 'Above Expected' };
-    return { color: 'text-green-600', status: 'Good Yield' };
-  };
-
-  const handleApprove = async (lotId: string) => {
-    if (!notes.trim()) {
-      if (!confirm('No notes added. Continue with approval?')) return;
-    }
-
-    setProcessing(true);
-    try {
-      await api.approveLot(lotId, { approved_by: 'flavorcore_manager', notes });
-      alert('Lot approved successfully!');
-      setSelectedLot(null);
-      setNotes('');
-      onRefresh();
-    } catch (error: any) {
-      console.warn('API call failed, but continuing:', error);
-      alert('Lot approved successfully! (Note: API connection issue)');
-      setSelectedLot(null);
-      setNotes('');
-      onRefresh();
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleReject = async (lotId: string) => {
-    const reason = prompt('Enter rejection reason:');
-    if (!reason?.trim()) return;
-
-    setProcessing(true);
-    try {
-      await api.rejectLot(lotId, { rejected_by: 'flavorcore_manager', reason });
-      alert('Lot rejected');
-      setSelectedLot(null);
-      onRefresh();
-    } catch (error: any) {
-      console.warn('API call failed, but continuing:', error);
-      alert('Lot rejected successfully! (Note: API connection issue)');
-      setSelectedLot(null);
-      onRefresh();
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Lot Review & Quality Approval</h2>
-        <div className="flex gap-2">
-          <Button onClick={onRefresh} className="bg-purple-600 hover:bg-purple-700">
-            Refresh
-          </Button>
-          <Button className="bg-green-600 hover:bg-green-700">
-            <Download size={18} className="mr-2" />
-            Export List
-          </Button>
-        </div>
-      </div>
-
-      {lots.length === 0 ? (
-        <Card className="p-8 text-center">
-          <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">No Lots Pending</h3>
-          <p className="text-gray-500">All lots have been reviewed and processed</p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {lots.map(lot => {
-            const yieldPct = calculateYield(lot);
-            const yieldStatus = getYieldStatus(yieldPct);
-            
-            return (
-              <Card key={lot.lot_id} className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold font-mono">{lot.lot_id}</h3>
-                    <p className="text-sm text-gray-600">{lot.crop}</p>
-                    {lot.created_at && (
-                      <p className="text-xs text-gray-500">
-                        Created: {new Date(lot.created_at).toLocaleDateString()}
-                      </p>
-                    )}
-                    {lot.quality_grade && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          lot.quality_grade === 'A' ? 'bg-green-100 text-green-800' :
-                          lot.quality_grade === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          Grade {lot.quality_grade}
-                        </span>
-                        {lot.moisture_content && (
-                          <span className="text-xs text-gray-600">
-                            Moisture: {lot.moisture_content}%
-                          </span>
-                        )}
-                        {lot.defect_percentage && (
-                          <span className="text-xs text-gray-600">
-                            Defects: {lot.defect_percentage}%
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      lot.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
-                      lot.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                      lot.status === 'quality_check' ? 'bg-purple-100 text-purple-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {lot.status.replace('_', ' ')}
-                    </span>
-                    <div className="mt-2">
-                      <p className={`text-sm font-semibold ${yieldStatus.color}`}>
-                        Yield: {yieldPct}%
-                      </p>
-                      <p className={`text-xs ${yieldStatus.color}`}>
-                        {yieldStatus.status}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-600">Raw Weight</p>
-                    <p className="text-lg font-bold text-blue-600">{lot.raw_weight} kg</p>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-600">Threshed</p>
-                    <p className="text-lg font-bold text-green-600">{lot.threshed_weight} kg</p>
-                  </div>
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-600">Final Product</p>
-                    <p className="text-lg font-bold text-purple-600">{lot.final_weight || 'N/A'} kg</p>
-                  </div>
-                  <div className="bg-orange-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-600">Weight Loss</p>
-                    <p className="text-lg font-bold text-orange-600">
-                      {lot.final_weight ? (lot.raw_weight - lot.final_weight).toFixed(1) : 'N/A'} kg
-                    </p>
-                  </div>
-                </div>
-
-                {selectedLot?.lot_id === lot.lot_id ? (
-                  <div className="space-y-3 border-t pt-4">
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="w-full p-3 border rounded-lg"
-                      rows={3}
-                      placeholder="Add quality assessment and approval notes..."
-                    />
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={() => handleApprove(lot.lot_id)}
-                        disabled={processing}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="mr-2" size={18} />
-                        {processing ? 'Approving...' : 'Approve for Processing'}
-                      </Button>
-                      <Button
-                        onClick={() => handleReject(lot.lot_id)}
-                        disabled={processing}
-                        className="flex-1 bg-red-600 hover:bg-red-700"
-                      >
-                        <XCircle className="mr-2" size={18} />
-                        Reject
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedLot(null)}
-                        disabled={processing}
-                        className="bg-gray-500 hover:bg-gray-600"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    onClick={() => setSelectedLot(lot)}
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Star className="mr-2" size={18} />
-                    Review Lot Quality
+              <div className="flex flex-wrap gap-2 pt-4 border-t">
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Full Report
+                </Button>
+                {!record.resolved && record.status === 'non_compliant' && (
+                  <Button variant="outline" size="sm" className="text-green-600 border-green-600">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark Resolved
                   </Button>
                 )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProvisionReviewTab({ provisions, onRefresh }: { provisions: ProvisionRequest[]; onRefresh: () => void }) {
-  const [processing, setProcessing] = useState<string | null>(null);
-
-  const handleApprove = async (id: string) => {
-    setProcessing(id);
-    try {
-      await api.approveProvision(id);
-      alert('Provision request approved!');
-      onRefresh();
-    } catch (error: any) {
-      console.warn('API call failed, but continuing:', error);
-      alert('Provision request approved! (Note: API connection issue)');
-      onRefresh();
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const handleReject = async (id: string) => {
-    const reason = prompt('Enter rejection reason:');
-    if (!reason?.trim()) return;
-
-    setProcessing(id);
-    try {
-      await api.rejectProvision(id, reason);
-      alert('Provision request rejected');
-      onRefresh();
-    } catch (error: any) {
-      console.warn('API call failed, but continuing:', error);
-      alert('Provision request rejected! (Note: API connection issue)');
-      onRefresh();
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const getPriorityColor = (priority?: string) => {
-    switch (priority) {
-      case 'high': return 'border-l-red-500 bg-red-50';
-      case 'medium': return 'border-l-yellow-500 bg-yellow-50';
-      default: return 'border-l-green-500 bg-green-50';
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Provision Request Review</h2>
-        <Button onClick={onRefresh} className="bg-purple-600 hover:bg-purple-700">
-          Refresh
-        </Button>
+                <Button variant="outline" size="sm">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Add Notes
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
-
-      {provisions.length === 0 ? (
-        <Card className="p-8 text-center">
-          <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">No Pending Requests</h3>
-          <p className="text-gray-500">All provision requests have been processed</p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {provisions.map(request => (
-            <Card key={request.id} className={`p-6 border-l-4 ${getPriorityColor(request.priority)}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-bold">{request.item_name}</h3>
-                  <p className="text-sm text-gray-600">Quantity: {request.quantity}</p>
-                  <p className="text-sm text-gray-600">Requested by: {request.requested_by}</p>
-                  <p className="text-sm text-gray-600">
-                    Date: {new Date(request.requested_date).toLocaleDateString()}
-                    {' '}({new Date(request.requested_date).toLocaleTimeString()})
-                  </p>
-                  {request.category && (
-                    <p className="text-sm text-gray-600">Category: {request.category}</p>
-                  )}
-                  {request.estimated_cost && (
-                    <p className="text-sm font-semibold text-green-600">
-                      Estimated Cost: ₹{request.estimated_cost.toLocaleString()}
-                    </p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
-                    Pending
-                  </span>
-                  {request.priority && (
-                    <p className={`text-xs mt-1 font-semibold ${
-                      request.priority === 'high' ? 'text-red-600' :
-                      request.priority === 'medium' ? 'text-yellow-600' :
-                      'text-green-600'
-                    }`}>
-                      {request.priority.toUpperCase()} PRIORITY
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => handleApprove(request.id)}
-                  disabled={processing === request.id}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle className="mr-2" size={18} />
-                  {processing === request.id ? 'Approving...' : 'Approve'}
-                </Button>
-                <Button
-                  onClick={() => handleReject(request.id)}
-                  disabled={processing === request.id}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                >
-                  <XCircle className="mr-2" size={18} />
-                  Reject
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
     </div>
   );
-}
 
-function StaffManagementTab({ staff, onRefresh }: { staff: StaffMember[]; onRefresh: () => void }) {
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'flavorcore_manager': return 'bg-purple-100 text-purple-800';
-      case 'flavorcore_supervisor': return 'bg-blue-100 text-blue-800';  
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    return status === 'active' 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-red-100 text-red-800';
-  };
-
-  return (
+  const renderInventoryManagement = () => (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">FlavorCore Staff Management</h2>
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Inventory Management</h3>
         <div className="flex gap-2">
-          <Button onClick={onRefresh} className="bg-purple-600 hover:bg-purple-700">
-            Refresh
+          <Button>
+            <Package className="h-4 w-4 mr-2" />
+            Add Item
           </Button>
-          <Button className="bg-green-600 hover:bg-green-700">
-            <Users size={18} className="mr-2" />
-            Add Staff Member
+          <Button variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Update Stock
           </Button>
         </div>
       </div>
 
-      {/* Staff Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard
-          icon={<Users className="text-blue-600" size={24} />}
-          title="Total Staff"
-          value={staff.length}
-          color="blue"
-          subtitle="FlavorCore team"
-        />
-        <StatCard
-          icon={<CheckCircle className="text-green-600" size={24} />}
-          title="Active Staff"
-          value={staff.filter(s => s.status === 'active').length}
-          color="green"
-          subtitle="Currently working"
-        />
-        <StatCard
-          icon={<TrendingUp className="text-purple-600" size={24} />}
-          title="Supervisors"
-          value={staff.filter(s => s.designation?.toLowerCase().includes('supervisor')).length}
-          color="purple"
-          subtitle="Management level"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">In Stock</p>
+              <p className="text-3xl font-bold text-green-600">
+                {inventory.filter(i => i.status === 'in_stock').length}
+              </p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Low Stock</p>
+              <p className="text-3xl font-bold text-yellow-600">
+                {inventory.filter(i => i.status === 'low_stock').length}
+              </p>
+            </div>
+            <AlertTriangle className="h-8 w-8 text-yellow-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Out of Stock</p>
+              <p className="text-3xl font-bold text-red-600">
+                {inventory.filter(i => i.status === 'out_of_stock').length}
+              </p>
+            </div>
+            <XCircle className="h-8 w-8 text-red-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Expired</p>
+              <p className="text-3xl font-bold text-gray-600">
+                {inventory.filter(i => i.status === 'expired').length}
+              </p>
+            </div>
+            <Clock className="h-8 w-8 text-gray-600" />
+          </div>
+        </Card>
       </div>
 
-      {/* Staff List */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">FlavorCore Team ({staff.length})</h3>
-        
-        {staff.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Users size={48} className="mx-auto mb-4 opacity-50" />
-            <p>No FlavorCore staff found</p>
-            <p className="text-sm">Staff members with FlavorCore roles will appear here</p>
+      <Card>
+        <div className="p-6">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search inventory..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <select className="px-3 py-2 border border-gray-300 rounded-md bg-white">
+              <option value="all">All Categories</option>
+              <option value="raw_material">Raw Materials</option>
+              <option value="packaging">Packaging</option>
+              <option value="finished_product">Finished Products</option>
+              <option value="equipment">Equipment</option>
+            </select>
           </div>
-        ) : (
+
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full">
               <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left p-3 font-semibold">Staff ID</th>
-                  <th className="text-left p-3 font-semibold">Name</th>
-                  <th className="text-left p-3 font-semibold">Role</th>
-                  <th className="text-left p-3 font-semibold">Designation</th>
-                  <th className="text-left p-3 font-semibold">Status</th>
-                  <th className="text-left p-3 font-semibold">Actions</th>
+                <tr className="border-b">
+                  <th className="text-left p-4">Item Name</th>
+                  <th className="text-left p-4">Category</th>
+                  <th className="text-left p-4">Current Stock</th>
+                  <th className="text-left p-4">Minimum Threshold</th>
+                  <th className="text-left p-4">Status</th>
+                  <th className="text-left p-4">Expiry Date</th>
+                  <th className="text-left p-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {staff.map((member) => (
-                  <tr key={member.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="p-3">
-                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
-                        {member.staff_id}
+                {inventory.map(item => (
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        {item.supplier && (
+                          <p className="text-sm text-gray-600">{item.supplier}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <Badge variant="outline">
+                        {item.category.replace('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <span className={`font-medium ${
+                        item.currentStock <= item.minimumThreshold ? 'text-red-600' : 'text-gray-900'
+                      }`}>
+                        {item.currentStock.toLocaleString()} {item.unit}
                       </span>
                     </td>
-                    <td className="p-3">
-                      <p className="font-semibold">{member.full_name}</p>
+                    <td className="p-4">
+                      {item.minimumThreshold.toLocaleString()} {item.unit}
                     </td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRoleColor(member.person_type)}`}>
-                        {member.person_type.replace('_', ' ').toUpperCase()}
-                      </span>
+                    <td className="p-4">
+                      <Badge variant={
+                        item.status === 'in_stock' ? 'default' : 
+                        item.status === 'low_stock' ? 'outline' :
+                        'outline'
+                      }>
+                        {item.status.replace('_', ' ')}
+                      </Badge>
                     </td>
-                    <td className="p-3 text-sm">{member.designation}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(member.status)}`}>
-                        {member.status.toUpperCase()}
-                      </span>
+                    <td className="p-4">
+                      {item.expiryDate || 'N/A'}
                     </td>
-                    <td className="p-3">
-                      <div className="flex gap-1">
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs px-2 py-1">
-                          Edit
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" className="bg-gray-600 hover:bg-gray-700 text-xs px-2 py-1">
-                          View
+                        <Button variant="outline" size="sm">
+                          <RefreshCw className="h-4 w-4" />
                         </Button>
                       </div>
                     </td>
@@ -1629,295 +1131,241 @@ function StaffManagementTab({ staff, onRefresh }: { staff: StaffMember[]; onRefr
               </tbody>
             </table>
           </div>
-        )}
+        </div>
       </Card>
     </div>
   );
-}
 
-function ReportsTab({ lots, provisions }: { lots: Lot[]; provisions: ProvisionRequest[] }) {
-  const [selectedPeriod, setSelectedPeriod] = useState('current_month');
-  const [exporting, setExporting] = useState<string | null>(null);
+  const renderReports = () => (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Production Reports</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Quality Control Report</h4>
+              <p className="text-sm text-gray-600 mt-1">Test results and quality metrics</p>
+            </div>
+            <Clipboard className="h-8 w-8 text-blue-600" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
 
-  const handleExportYield = async () => {
-    setExporting('yield');
-    try {
-      const yieldData = lots.map(lot => ({
-        lot_id: lot.lot_id,
-        date_harvested: lot.created_at || new Date().toISOString(),
-        crop: lot.crop,
-        raw_weight: lot.raw_weight,
-        threshed_weight: lot.threshed_weight,
-        estate_yield_pct: ((lot.threshed_weight / lot.raw_weight) * 100).toFixed(1),
-        final_weight: lot.final_weight || 0,
-        fc_yield_raw: lot.final_weight ? ((lot.final_weight / lot.raw_weight) * 100).toFixed(1) : '0',
-        fc_yield_threshed: lot.final_weight ? ((lot.final_weight / lot.threshed_weight) * 100).toFixed(1) : '0',
-        quality_grade: lot.quality_grade || 'N/A',
-        moisture_content: lot.moisture_content || 'N/A',
-        defect_percentage: lot.defect_percentage || 'N/A',
-        status: lot.status
-      }));
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Production Efficiency</h4>
+              <p className="text-sm text-gray-600 mt-1">Batch processing and efficiency metrics</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-green-600" />
+          </div>  
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
+
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Compliance Summary</h4>
+              <p className="text-sm text-gray-600 mt-1">Regulatory compliance status</p>
+            </div>
+            <Shield className="h-8 w-8 text-purple-600" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
+
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Inventory Report</h4>
+              <p className="text-sm text-gray-600 mt-1">Stock levels and usage analytics</p>
+            </div>
+            <Package className="h-8 w-8 text-orange-600" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
+
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Cost Analysis</h4>
+              <p className="text-sm text-gray-600 mt-1">Production costs and profit margins</p>
+            </div>
+            <BarChart className="h-8 w-8 text-red-600" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
+
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Environmental Impact</h4>
+              <p className="text-sm text-gray-600 mt-1">Sustainability and waste metrics</p>
+            </div>
+            <Layers className="h-8 w-8 text-green-700" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">System Settings</h3>
       
-      exportYieldCSV(yieldData);
-      
-    } catch (error) {
-      alert('Export failed: ' + (error as Error).message);
-    } finally {
-      setExporting(null);
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">Quality Control Settings</h4>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Default Quality Score Threshold</label>
+              <Input type="number" placeholder="85" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Auto-approval Score</label>
+              <Input type="number" placeholder="95" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Retest Requirements</label>
+              <Button variant="outline">Configure Rules</Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">Processing Settings</h4>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Default Batch Size Limits</label>
+              <Input type="number" placeholder="10000" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Processing Stage Templates</label>
+              <Button variant="outline">Manage Templates</Button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Operator Assignments</label>
+              <Button variant="outline">Configure Assignments</Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">Inventory Settings</h4>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Low Stock Alert Threshold</label>
+              <Input type="number" placeholder="20" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Expiry Warning Days</label>
+              <Input type="number" placeholder="30" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Auto-reorder Settings</label>
+              <Button variant="outline">Configure Auto-reorder</Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">Compliance Settings</h4>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Audit Frequency</label>
+              <select className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white">
+                <option>Monthly</option>
+                <option>Quarterly</option>
+                <option>Semi-annually</option>
+                <option>Annually</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Notification Settings</label>
+              <Button variant="outline">Configure Notifications</Button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Regulatory Updates</label>
+              <Button variant="outline">Subscribe to Updates</Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return renderOverview();
+      case 'quality':
+        return renderQualityControl();
+      case 'processing':
+        return renderProcessingMonitor();
+      case 'compliance':
+        return renderComplianceTracking();
+      case 'inventory':
+        return renderInventoryManagement();
+      case 'reports':
+        return renderReports();
+      case 'settings':
+        return renderSettings();
+      default:
+        return renderOverview();
     }
   };
 
-  const handleExportProvisions = () => {
-    setExporting('provisions');
-    setTimeout(() => {
-      alert('Provisions export completed!');
-      setExporting(null);
-    }, 1000);
-  };
-
-  const handleExportQuality = () => {
-    setExporting('quality');
-    setTimeout(() => {
-      alert('Quality report export completed!');
-      setExporting(null);
-    }, 1000);
-  };
-
-  const totalProcessed = lots.filter(l => l.status !== 'pending_approval').length;
-  const totalYield = lots.reduce((sum, lot) => sum + (lot.final_weight || 0), 0);
-  const avgYield = lots.length > 0 
-    ? (lots.reduce((sum, lot) => sum + ((lot.final_weight || 0) / lot.raw_weight * 100), 0) / lots.length).toFixed(1)
-    : '0';
-  const gradeALots = lots.filter(l => l.quality_grade === 'A').length;
-
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">FlavorCore Reports & Analytics</h2>
-        <select
-          value={selectedPeriod}
-          onChange={(e) => setSelectedPeriod(e.target.value)}
-          className="p-2 border rounded-lg"
-        >
-          <option value="current_month">Current Month</option>
-          <option value="last_month">Last Month</option>
-          <option value="quarter">This Quarter</option>
-          <option value="year">This Year</option>
-          <option value="custom">Custom Period</option>
-        </select>
-      </div>
-
-      {/* Analytics Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          icon={<Package className="text-blue-600" size={24} />}
-          title="Lots Processed"
-          value={totalProcessed}
-          color="blue"
-          subtitle="This period"
-        />
-        <StatCard
-          icon={<TrendingUp className="text-green-600" size={24} />}
-          title="Total Yield"
-          value={`${totalYield} kg`}
-          color="green"
-          subtitle="Final product"
-        />
-        <StatCard
-          icon={<Star className="text-purple-600" size={24} />}
-          title="Grade A Quality"
-          value={gradeALots}
-          color="purple"
-          subtitle="Premium lots"
-        />
-        <StatCard
-          icon={<BarChart3 className="text-orange-600" size={24} />}
-          title="Avg Yield Rate"
-          value={`${avgYield}%`}
-          color="orange"
-          subtitle="Processing efficiency"
-        />
-      </div>
-      
-      {/* Export Options */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Export Reports</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button 
-            onClick={handleExportYield} 
-            disabled={exporting === 'yield'}
-            className="w-full bg-purple-600 hover:bg-purple-700 h-16 flex items-center justify-center"
-          >
-            <Download className="mr-2" size={20} />
-            {exporting === 'yield' ? 'Exporting...' : `Export Processing Data (${lots.length} lots)`}
-          </Button>
-          <Button 
-            onClick={handleExportQuality}
-            disabled={exporting === 'quality'}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 h-16 flex items-center justify-center"
-          >
-            <Star className="mr-2" size={20} />
-            {exporting === 'quality' ? 'Exporting...' : 'Export Quality Reports'}
-          </Button>
-          <Button 
-            onClick={handleExportProvisions}
-            disabled={exporting === 'provisions'}
-            className="w-full bg-green-600 hover:bg-green-700 h-16 flex items-center justify-center"
-          >
-            <Clipboard className="mr-2" size={20} />
-            {exporting === 'provisions' ? 'Exporting...' : `Export Provisions (${provisions.length})`}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Quality Analysis */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Quality Analysis Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">
-              {lots.filter(l => l.quality_grade === 'A').length}
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-semibold text-gray-900">FlavorCore Manager</h1>
             </div>
-            <div className="text-sm text-gray-600">Grade A Lots</div>
-            <div className="text-xs text-gray-500">Premium Quality</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-yellow-600 mb-2">
-              {lots.filter(l => l.quality_grade === 'B').length}
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
             </div>
-            <div className="text-sm text-gray-600">Grade B Lots</div>
-            <div className="text-xs text-gray-500">Standard Quality</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-red-600 mb-2">
-              {lots.filter(l => l.quality_grade === 'C').length}
-            </div>
-            <div className="text-sm text-gray-600">Grade C Lots</div>
-            <div className="text-xs text-gray-500">Below Standard</div>
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* Processing Performance Table */}
-      <Card className="p-6">
-        <h3 className="text-xl font-bold mb-4">Processing Performance Details</h3>
-        {lots.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <BarChart3 size={48} className="mx-auto mb-4 opacity-50" />
-            <p>No processing data available</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left p-3">Lot ID</th>
-                  <th className="text-left p-3">Crop</th>
-                  <th className="text-left p-3">Raw (kg)</th>
-                  <th className="text-left p-3">Final (kg)</th>
-                  <th className="text-left p-3">Yield %</th>
-                  <th className="text-left p-3">Quality</th>
-                  <th className="text-left p-3">Moisture %</th>
-                  <th className="text-left p-3">Defects %</th>
-                  <th className="text-left p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lots.map(lot => (
-                  <tr key={lot.lot_id} className="border-b border-gray-100">
-                    <td className="p-3 font-mono">{lot.lot_id}</td>
-                    <td className="p-3">{lot.crop}</td>
-                    <td className="p-3">{lot.raw_weight}</td>
-                    <td className="p-3">{lot.final_weight || 'N/A'}</td>
-                    <td className="p-3">
-                      {lot.final_weight ? 
-                        `${((lot.final_weight / lot.raw_weight) * 100).toFixed(1)}%` : 
-                        'N/A'
-                      }
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        lot.quality_grade === 'A' ? 'bg-green-100 text-green-800' :
-                        lot.quality_grade === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                        lot.quality_grade === 'C' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {lot.quality_grade || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="p-3">{lot.moisture_content || 'N/A'}</td>
-                    <td className="p-3">{lot.defect_percentage || 'N/A'}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        lot.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
-                        lot.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                        lot.status === 'quality_check' ? 'bg-purple-100 text-purple-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {lot.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <EnhancedNavigation
+          items={navigationItems}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+        
+        <div className="mt-6">
+          {renderContent()}
+        </div>
+      </div>
     </div>
   );
-}
+};
 
-// Helper Components
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-        active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function StatCard({ icon, title, value, color, subtitle }: { 
-  icon: React.ReactNode; 
-  title: string; 
-  value: number | string; 
-  color: string;
-  subtitle?: string;
-}) {
-  const colors = {
-    blue: 'bg-blue-50 border-blue-200',
-    yellow: 'bg-yellow-50 border-yellow-200',
-    green: 'bg-green-50 border-green-200',
-    purple: 'bg-purple-50 border-purple-200',
-    orange: 'bg-orange-50 border-orange-200',
-    red: 'bg-red-50 border-red-200',
-    indigo: 'bg-indigo-50 border-indigo-200',
-    teal: 'bg-teal-50 border-teal-200'
-  };
-
-  return (
-    <Card className={`p-6 ${colors[color as keyof typeof colors]} border-2`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-        </div>
-        {icon}
-      </div>
-    </Card>
-  );
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
-      {children}
-    </span>
-  );
-}
+export default FlavorCoreManagerDashboard;
