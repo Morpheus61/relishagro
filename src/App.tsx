@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// CORRECT IMPORTS - Using named imports to match your component exports
+// CORRECTED IMPORTS - Based on actual component exports
 import { LoginScreen } from './components/shared/LoginScreen';
-import { AdminDashboard } from './components/admin/AdminDashboard';
-import { HarvestFlowDashboard } from './components/harvestflow/HarvestFlowDashboard';
-import { FlavorCoreManagerDashboard } from './components/flavorcore/FlavorCoreManagerDashboard';
-import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
+import AdminDashboard from './components/admin/AdminDashboard';
+import HarvestFlowDashboard from './components/harvestflow/HarvestFlowDashboard';
+import FlavorCoreManagerDashboard from './components/flavorcore/FlavorCoreManagerDashboard';
+import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard'; // Named import - CORRECTED
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Define the navigation routes
@@ -65,7 +65,7 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Render appropriate dashboard based on user role with CORRECT PROPS
+  // FIXED: Render appropriate dashboard based on user role with NO PROPS
   const renderDashboard = () => {
     if (!user) return null;
 
@@ -73,34 +73,13 @@ const AppContent: React.FC = () => {
 
     switch (user.role) {
       case 'admin':
-        return (
-          <AdminDashboard 
-            userId={user.id} 
-            userRole={user.role} 
-            onLogout={logout} 
-          />
-        );
+        return <AdminDashboard />; // REMOVED PROPS
       
       case 'harvestflow_manager':
-        return (
-          <HarvestFlowDashboard 
-            currentUser={{
-              id: user.id,
-              staff_id: user.staff_id,
-              full_name: user.full_name,
-              role: user.role
-            }} 
-          />
-        );
+        return <HarvestFlowDashboard />; // REMOVED PROPS
       
       case 'flavorcore_manager':
-        return (
-          <FlavorCoreManagerDashboard 
-            userId={user.id}
-            userRole={user.role}
-            onLogout={logout}
-          />
-        );
+        return <FlavorCoreManagerDashboard />; // REMOVED PROPS
       
       case 'flavorcore_supervisor':
         return (
@@ -113,7 +92,7 @@ const AppContent: React.FC = () => {
             }}
             onLogout={logout}
           />
-        );
+        ); // KEPT PROPS FOR SUPERVISOR DASHBOARD
       
       default:
         return (
