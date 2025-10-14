@@ -247,6 +247,92 @@ class ApiClient {
     return this.request('/api/workers');
   }
 
+  async getProvisions() {
+    return this.request('/api/provisions');
+  }
+
+  async getOnboardingRequests() {
+    return this.request('/api/onboarding/requests');
+  }
+
+  async getTodayAttendance() {
+    return this.request('/api/attendance/today');
+  }
+
+  async createWorker(data: any) {
+    return this.request('/api/workers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWorker(id: string, data: any) {
+    return this.request(`/api/workers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteWorker(id: string) {
+    return this.request(`/api/workers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createJobType(data: any) {
+    return this.request('/api/job-types', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateJobType(id: string, data: any) {
+    return this.request(`/api/job-types/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteJobType(id: string) {
+    return this.request(`/api/job-types/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createProvision(data: any) {
+    return this.request('/api/provisions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateProvision(id: string, data: any) {
+    return this.request(`/api/provisions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteProvision(id: string) {
+    return this.request(`/api/provisions/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async approveOnboarding(id: string, data: any) {
+    return this.request(`/api/onboarding/requests/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async rejectOnboarding(id: string, data: any) {
+    return this.request(`/api/onboarding/requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getWorkerById(id: string) {
     return this.request(`/api/workers/${id}`);
   }
