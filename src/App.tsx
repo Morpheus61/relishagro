@@ -21,11 +21,19 @@ const AppContent: React.FC = () => {
     setCurrentRoute(route);
   };
 
-  // Debug user changes
+  // Enhanced debug logging for user changes
   useEffect(() => {
-    console.log('🔄 App.tsx: User state changed:', user);
+    console.log('🔄 App.tsx: User state changed:', {
+      user: user,
+      hasUser: !!user,
+      userId: user?.id,
+      userRole: user?.role,
+      userStaffId: user?.staff_id,
+      userFullName: user?.full_name
+    });
     console.log('🔄 App.tsx: isLoading:', isLoading);
     console.log('🔄 App.tsx: error:', error);
+    console.log('🔄 App.tsx: Will show:', !isLoading && !user ? 'LOGIN' : !isLoading && user ? 'DASHBOARD' : 'LOADING');
   }, [user, isLoading, error]);
 
   // Show loading spinner while checking authentication
@@ -55,23 +63,38 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Handle login from LoginScreen
+  // Enhanced login handler with better error handling
   const handleLogin = async (staffId: string, role: string) => {
     console.log('🚀 App.tsx: handleLogin called with:', { staffId, role });
+    console.log('🚀 App.tsx: Current user state before login:', user);
     
     try {
+      console.log('🚀 App.tsx: Calling AuthContext login...');
       await login(staffId);
-      console.log('✅ App.tsx: Login completed successfully');
+      console.log('✅ App.tsx: AuthContext login call completed');
+      console.log('✅ App.tsx: User state after login:', user);
+      
+      // Don't handle success here - let the useEffect handle user state changes
+      
     } catch (error) {
-      console.error('❌ App.tsx: Login error:', error);
+      console.error('❌ App.tsx: Login error caught:', error);
+      console.error('❌ App.tsx: Error type:', typeof error);
+      console.error('❌ App.tsx: Error details:', error);
     }
   };
 
   // FIXED: Render appropriate dashboard based on ACTUAL backend role values
   const renderDashboard = () => {
-    if (!user) return null;
+    if (!user) {
+      console.log('❌ App.tsx: renderDashboard called but no user');
+      return null;
+    }
 
-    console.log('🎯 App.tsx: Rendering dashboard for user role:', user.role);
+    console.log('🎯 App.tsx: Rendering dashboard for user:', {
+      role: user.role,
+      staff_id: user.staff_id,
+      full_name: user.full_name
+    });
 
     // Match the ACTUAL backend role values
     switch (user.role) {
@@ -103,12 +126,16 @@ const AppContent: React.FC = () => {
       
       // Legacy support for old role values (just in case)
       case 'admin':
+        console.log('📊 App.tsx: Rendering AdminDashboard (legacy)');
         return <AdminDashboard />;
       case 'harvestflow_manager':
+        console.log('🌾 App.tsx: Rendering HarvestFlowDashboard (legacy)');
         return <HarvestFlowDashboard />;
       case 'flavorcore_manager':
+        console.log('🏭 App.tsx: Rendering FlavorCoreManagerDashboard (legacy)');
         return <FlavorCoreManagerDashboard />;
       case 'flavorcore_supervisor':
+        console.log('👨‍💼 App.tsx: Rendering SupervisorDashboard (legacy)');
         return (
           <SupervisorDashboard 
             currentUser={{
