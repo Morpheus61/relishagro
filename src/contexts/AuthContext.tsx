@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Types - Updated to match App.tsx usage
+// Types - Updated to match App.tsx usage AND backend response
 interface User {
   staff_id: string;
   full_name: string;
@@ -31,7 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // Add error state
+  const [error, setError] = useState<string | null>(null);
 
   const isAuthenticated = !!user;
 
@@ -45,9 +45,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (token && savedUser) {
           const userData = JSON.parse(savedUser);
           setUser(userData);
+          console.log('🔄 AuthContext: Restored user from localStorage:', userData);
+        } else {
+          console.log('🔒 AuthContext: No saved user found');
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('❌ AuthContext: Error initializing auth:', error);
         setError('Failed to initialize authentication');
         // Clear invalid data
         localStorage.removeItem('access_token');
@@ -60,19 +63,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, []);
 
-  // Login function - Updated to handle new backend response format
+  // Login function - FIXED to handle actual backend response format
   const login = async (staffId: string, password?: string) => {
     try {
       setLoading(true);
-      setError(null); // Clear previous errors
+      setError(null);
+      
+      console.log('🚀 AuthContext: Starting login for:', staffId);
       
       const response = await fetch('https://relishagrobackend-production.up.railway.app/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ staff_id: staffId }), // Only staff_id needed
+        body: JSON.stringify({ staff_id: staffId }),
       });
+
+      console.log('📡 AuthContext: Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -80,43 +87,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const data = await response.json();
-      console.log('Backend response:', data); // Debug log
+      console.log('📦 AuthContext: Backend response:', data);
       
-      // Handle the new multi-format backend response
-      if (data.success !== false && (data.access_token || data.token)) {
-        // Extract user data from multiple possible formats
+      // FIXED: Handle the ACTUAL backend response format
+      if (data.access_token && data.staff_id && data.role) {
+        
+        // Build full name from first_name and last_name (which exist in response)
+        const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.staff_id;
+        
         const userData: User = {
           staff_id: data.staff_id,
-          full_name: data.user?.name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.staff_id,
+          full_name: fullName,
           role: data.role,
-          department: data.role, // Use role as department fallback
-          phone_number: data.user?.phone_number,
-          email: data.user?.email,
-          // Map to properties App.tsx expects
-          id: data.staff_id,           // Map staff_id to id for App.tsx line 88
-          designation: data.role       // Map role to designation for App.tsx line 181
+          department: data.role, // Use role as department
+          phone_number: data.phone_number || undefined, // Backend doesn't return this
+          email: data.email || undefined, // Backend doesn't return this
+          // Properties App.tsx expects
+          id: data.staff_id,        // Map staff_id to id
+          designation: data.role    // Map role to designation
         };
         
-        const token = data.access_token || data.token;
+        console.log('✅ AuthContext: Created user data:', userData);
         
         // Store token and user data
-        localStorage.setItem('access_token', token);
+        localStorage.setItem('access_token', data.access_token);
         localStorage.setItem('user', JSON.stringify(userData));
         
         setUser(userData);
-        
-        // Don't redirect here - let App.tsx handle it
-        console.log('Login successful, user set:', userData);
+        console.log('🎯 AuthContext: User state set successfully');
         
       } else {
-        // Handle error response
-        const errorMessage = data.message || data.error || 'Login failed';
+        const errorMessage = 'Invalid login response format';
+        console.error('❌ AuthContext: Invalid response:', data);
         setError(errorMessage);
         throw new Error(errorMessage);
       }
       
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ AuthContext: Login error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       setError(errorMessage);
       throw error;
@@ -125,32 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Role-based dashboard redirection - Updated for new role mapping
-  const redirectToDashboard = (role: string) => {
-    const roleRoutes = {
-      'Admin': '/admin-dashboard',
-      'HarvestFlow': '/harvest-flow-dashboard', 
-      'FlavorCore': '/flavorcore-dashboard',
-      'Supervisor': '/supervisor-dashboard',
-      // Legacy mappings
-      'admin': '/admin-dashboard',
-      'harvest_field': '/harvest-flow-dashboard', 
-      'flavor_core': '/flavorcore-dashboard',
-      'supervisor': '/supervisor-dashboard',
-      'quality_control': '/quality-dashboard',
-      'logistics': '/logistics-dashboard',
-      'general': '/general-dashboard'
-    };
-
-    const targetRoute = roleRoutes[role as keyof typeof roleRoutes] || '/dashboard';
-    
-    // Use replace to prevent back navigation to login
-    window.location.replace(targetRoute);
-  };
-
   // Logout function
   const logout = () => {
     try {
+      console.log('🚪 AuthContext: Logging out user');
+      
       // Clear localStorage
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
@@ -160,10 +147,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       
       // Redirect to login
-      window.location.replace('/login');
+      window.location.replace('/');
       
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ AuthContext: Logout error:', error);
       setError('Logout failed');
     }
   };
@@ -174,9 +161,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     loading,
     isAuthenticated,
-    // Add the missing properties that App.tsx expects
-    isLoading: loading,     // Alias for loading (App.tsx line 16)
-    error,                  // Error state (App.tsx line 16)
+    isLoading: loading,
+    error,
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // CORRECTED IMPORTS - Based on actual component exports
@@ -6,14 +6,14 @@ import { LoginScreen } from './components/shared/LoginScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
 import HarvestFlowDashboard from './components/harvestflow/HarvestFlowDashboard';
 import FlavorCoreManagerDashboard from './components/flavorcore/FlavorCoreManagerDashboard';
-import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard'; // Named import - CORRECTED
+import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Define the navigation routes
 type Route = 'dashboard' | 'users' | 'farms' | 'harvest' | 'processing' | 'quality' | 'reports' | 'settings';
 
 const AppContent: React.FC = () => {
-  const { user, login, logout, isLoading, error } = useAuth(); // This will now work
+  const { user, login, logout, isLoading, error } = useAuth();
   const [currentRoute, setCurrentRoute] = useState<Route>('dashboard');
 
   // Navigation handler
@@ -21,8 +21,16 @@ const AppContent: React.FC = () => {
     setCurrentRoute(route);
   };
 
+  // Debug user changes
+  useEffect(() => {
+    console.log('🔄 App.tsx: User state changed:', user);
+    console.log('🔄 App.tsx: isLoading:', isLoading);
+    console.log('🔄 App.tsx: error:', error);
+  }, [user, isLoading, error]);
+
   // Show loading spinner while checking authentication
   if (isLoading) {
+    console.log('⏳ App.tsx: Still loading...');
     return (
       <div style={{ 
         minHeight: '100vh', 
@@ -47,52 +55,74 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // FIXED: Handle login from LoginScreen - no longer expects return value
+  // Handle login from LoginScreen
   const handleLogin = async (staffId: string, role: string) => {
-    console.log('🚀 App.tsx handleLogin called with:', { staffId, role });
+    console.log('🚀 App.tsx: handleLogin called with:', { staffId, role });
     
     try {
-      // Call the AuthContext login method with the staffId (returns void)
-      await login(staffId); // FIXED: Don't expect return value
-      
-      // If we get here, login was successful (no exception thrown)
-      console.log('✅ App.tsx: Login successful, user should be set in AuthContext');
+      await login(staffId);
+      console.log('✅ App.tsx: Login completed successfully');
     } catch (error) {
       console.error('❌ App.tsx: Login error:', error);
-      // Error is now available in the error state from useAuth
     }
   };
 
-  // FIXED: Render appropriate dashboard based on user role with NO PROPS
+  // FIXED: Render appropriate dashboard based on ACTUAL backend role values
   const renderDashboard = () => {
     if (!user) return null;
 
-    console.log('🎯 App.tsx: Rendering dashboard for user:', user);
+    console.log('🎯 App.tsx: Rendering dashboard for user role:', user.role);
 
+    // Match the ACTUAL backend role values
     switch (user.role) {
-      case 'admin':
-        return <AdminDashboard />; // REMOVED PROPS
+      case 'Admin':  // Backend returns "Admin"
+        console.log('📊 App.tsx: Rendering AdminDashboard');
+        return <AdminDashboard />;
       
-      case 'harvestflow_manager':
-        return <HarvestFlowDashboard />; // REMOVED PROPS
+      case 'HarvestFlow':  // Backend returns "HarvestFlow" 
+        console.log('🌾 App.tsx: Rendering HarvestFlowDashboard');
+        return <HarvestFlowDashboard />;
       
-      case 'flavorcore_manager':
-        return <FlavorCoreManagerDashboard />; // REMOVED PROPS
+      case 'FlavorCore':  // Backend returns "FlavorCore"
+        console.log('🏭 App.tsx: Rendering FlavorCoreManagerDashboard');
+        return <FlavorCoreManagerDashboard />;
       
-      case 'flavorcore_supervisor':
+      case 'Supervisor':  // Backend returns "Supervisor"
+        console.log('👨‍💼 App.tsx: Rendering SupervisorDashboard');
         return (
           <SupervisorDashboard 
             currentUser={{
-              id: user.id,        // This will now work (User interface has id)
+              id: user.id,
               staff_id: user.staff_id,
               full_name: user.full_name,
               role: user.role
             }}
             onLogout={logout}
           />
-        ); // KEPT PROPS FOR SUPERVISOR DASHBOARD
+        );
+      
+      // Legacy support for old role values (just in case)
+      case 'admin':
+        return <AdminDashboard />;
+      case 'harvestflow_manager':
+        return <HarvestFlowDashboard />;
+      case 'flavorcore_manager':
+        return <FlavorCoreManagerDashboard />;
+      case 'flavorcore_supervisor':
+        return (
+          <SupervisorDashboard 
+            currentUser={{
+              id: user.id,
+              staff_id: user.staff_id,
+              full_name: user.full_name,
+              role: user.role
+            }}
+            onLogout={logout}
+          />
+        );
       
       default:
+        console.error('❌ App.tsx: Unknown user role:', user.role);
         return (
           <div style={{
             padding: '48px 24px',
@@ -103,7 +133,12 @@ const AppContent: React.FC = () => {
             margin: '24px'
           }}>
             <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Access Error</h2>
-            <p style={{ color: '#7f1d1d', marginBottom: '24px' }}>Unknown user role: {user.role}</p>
+            <p style={{ color: '#7f1d1d', marginBottom: '16px' }}>
+              Unknown user role: <strong>{user.role}</strong>
+            </p>
+            <p style={{ color: '#7f1d1d', marginBottom: '24px', fontSize: '14px' }}>
+              Expected roles: Admin, HarvestFlow, FlavorCore, Supervisor
+            </p>
             <button 
               onClick={logout}
               style={{
@@ -184,18 +219,18 @@ const AppContent: React.FC = () => {
               🌾
             </div>
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-              FlavorCore Agricultural Management
+              Relish Agro - FlavorCore Management
             </h1>
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: '14px', opacity: 0.9 }}>
-                Welcome, {user.full_name || user.staff_id}
+                Welcome, {user.full_name}
               </span>
               <br />
               <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                {user.designation} ({user.role.replace('_', ' ')}) {/* This will now work (User interface has designation) */}
+                {user.designation} • {user.staff_id}
               </span>
             </div>
             <button 
