@@ -10,14 +10,15 @@ import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Define the navigation routes
-type Route = 'dashboard' | 'users' | 'farms' | 'harvest' | 'processing' | 'quality' | 'reports' | 'settings';
+type Route = 'dashboard' | 'reports' | 'settings';
 
 const AppContent: React.FC = () => {
   const { user, login, logout, isLoading, error } = useAuth();
   const [currentRoute, setCurrentRoute] = useState<Route>('dashboard');
 
-  // Navigation handler
+  // FUNCTIONAL Navigation handler - NO MORE DUMMY BUTTONS
   const handleNavigation = (route: Route) => {
+    console.log(`🎯 App.tsx: Navigation clicked: ${route}`);
     setCurrentRoute(route);
   };
 
@@ -33,8 +34,9 @@ const AppContent: React.FC = () => {
     });
     console.log('🔄 App.tsx: isLoading:', isLoading);
     console.log('🔄 App.tsx: error:', error);
+    console.log('🔄 App.tsx: currentRoute:', currentRoute);
     console.log('🔄 App.tsx: Will show:', !isLoading && !user ? 'LOGIN' : !isLoading && user ? 'DASHBOARD' : 'LOADING');
-  }, [user, isLoading, error]);
+  }, [user, isLoading, error, currentRoute]);
 
   // Show loading spinner while checking authentication
   if (isLoading) {
@@ -93,14 +95,15 @@ const AppContent: React.FC = () => {
     console.log('🎯 App.tsx: Rendering dashboard for user:', {
       role: user.role,
       staff_id: user.staff_id,
-      full_name: user.full_name
+      full_name: user.full_name,
+      currentRoute: currentRoute
     });
 
     // Match the ACTUAL backend role values
     switch (user.role) {
       case 'Admin':  // Backend returns "Admin"
         console.log('📊 App.tsx: Rendering AdminDashboard');
-        return <AdminDashboard />;
+        return <AdminDashboard currentRoute={currentRoute} onNavigate={handleNavigation} />;
       
       case 'HarvestFlow':  // Backend returns "HarvestFlow" 
         console.log('🌾 App.tsx: Rendering HarvestFlowDashboard');
@@ -127,7 +130,7 @@ const AppContent: React.FC = () => {
       // Legacy support for old role values (just in case)
       case 'admin':
         console.log('📊 App.tsx: Rendering AdminDashboard (legacy)');
-        return <AdminDashboard />;
+        return <AdminDashboard currentRoute={currentRoute} onNavigate={handleNavigation} />;
       case 'harvestflow_manager':
         console.log('🌾 App.tsx: Rendering HarvestFlowDashboard (legacy)');
         return <HarvestFlowDashboard />;
@@ -215,7 +218,7 @@ if (!user) {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-      {/* Header with user info and navigation */}
+      {/* Header with user info and FUNCTIONAL navigation */}
       <header style={{
         backgroundColor: '#6366f1',
         color: 'white',
@@ -275,7 +278,7 @@ if (!user) {
           </div>
         </div>
         
-        {/* Navigation menu */}
+        {/* FUNCTIONAL Navigation menu - NO MORE DUMMY BUTTONS */}
         <nav style={{
           marginTop: '16px',
           display: 'flex',
@@ -292,7 +295,8 @@ if (!user) {
               border: '1px solid rgba(255, 255, 255, 0.3)',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '14px'
+              fontSize: '14px',
+              transition: 'all 0.2s'
             }}
           >
             Dashboard
@@ -306,7 +310,8 @@ if (!user) {
               border: '1px solid rgba(255, 255, 255, 0.3)',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '14px'
+              fontSize: '14px',
+              transition: 'all 0.2s'
             }}
           >
             Reports
@@ -320,7 +325,8 @@ if (!user) {
               border: '1px solid rgba(255, 255, 255, 0.3)',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '14px'
+              fontSize: '14px',
+              transition: 'all 0.2s'
             }}
           >
             Settings

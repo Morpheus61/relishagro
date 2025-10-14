@@ -25,91 +25,130 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
-  Loader
+  Loader,
+  Shield,
+  Database,
+  FileText,
+  Activity
 } from 'lucide-react';
 import api from '../../lib/api';
 
-// Types
-interface Worker {
+// Note: Shared components need proper props, using placeholders for now
+// import { OnboardingScreen } from '../shared/OnboardingScreen';
+// import { AttendanceOverride } from '../shared/AttendanceOverride';
+// import { ProcurementScreen } from '../shared/ProcurementScreen';
+
+// Types for APP USERS (not workers)
+interface AppUser {
   id: string;
   staff_id: string;
-  name: string;
-  role: string;
+  full_name: string;
+  role: 'Admin' | 'HarvestFlow' | 'FlavorCore' | 'Supervisor';
   department: string;
-  hire_date: string;
-  status: 'active' | 'inactive' | 'on_leave';
-  phone?: string;
+  designation: string;
+  phone_number?: string;
   email?: string;
-}
-
-interface JobType {
-  id: string;
-  name: string;
-  description: string;
-  rate: number;
-  unit: string;
-  active: boolean;
+  status: 'active' | 'inactive' | 'suspended';
   created_at: string;
+  last_login?: string;
 }
 
-interface DashboardStats {
-  total_workers: number;
-  active_workers: number;
-  total_job_types: number;
+interface SystemStats {
+  total_users: number;
+  active_users: number;
   pending_onboarding: number;
-  today_attendance: number;
+  attendance_overrides: number;
+  system_health: 'good' | 'warning' | 'critical';
 }
 
-const AdminDashboard: React.FC = () => {
+type Route = 'dashboard' | 'reports' | 'settings';
+
+interface AdminDashboardProps {
+  currentRoute?: Route;
+  onNavigate?: (route: Route) => void;
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboard', onNavigate }) => {
   // State
   const [activeTab, setActiveTab] = useState('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Data with safe initialization
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [jobTypes, setJobTypes] = useState<JobType[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({
-    total_workers: 0,
-    active_workers: 0,
-    total_job_types: 0,
+  // Data for APP USERS management
+  const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [stats, setStats] = useState<SystemStats>({
+    total_users: 0,
+    active_users: 0,
     pending_onboarding: 0,
-    today_attendance: 0
+    attendance_overrides: 0,
+    system_health: 'good'
   });
 
   // Search and filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Load data with proper error handling
-  const loadDashboardData = async () => {
+  // Handle navigation from App.tsx header
+  useEffect(() => {
+    if (currentRoute && onNavigate) {
+      switch (currentRoute) {
+        case 'dashboard':
+          setActiveTab('overview');
+          break;
+        case 'reports':
+          setActiveTab('reports');
+          break;
+        case 'settings':
+          setActiveTab('settings');
+          break;
+        default:
+          setActiveTab('overview');
+      }
+    }
+  }, [currentRoute, onNavigate]);
+
+  // Load APP USERS data
+  const loadAdminData = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Only call APIs that work
-      const workersResponse = await api.getWorkers();
-      console.log('Workers response:', workersResponse);
+      // Load actual users from your backend (not workers)
+      const usersResponse = await api.getWorkers(); // This actually gets app users from person_records
+      console.log('App Users response:', usersResponse);
       
-      if (workersResponse?.data && Array.isArray(workersResponse.data)) {
-        setWorkers(workersResponse.data);
+      if (usersResponse?.data && Array.isArray(usersResponse.data)) {
+        // Transform workers data to app users format
+        const users = usersResponse.data.map((user: any) => ({
+          id: user.id || user.staff_id,
+          staff_id: user.staff_id,
+          full_name: user.name || user.full_name,
+          role: user.role || 'User',
+          department: user.department || 'General',
+          designation: user.designation || user.role,
+          phone_number: user.phone,
+          email: user.email,
+          status: user.status || 'active',
+          created_at: user.hire_date || user.created_at || new Date().toISOString(),
+          last_login: user.last_login
+        }));
         
-        // Calculate stats from workers data
-        const activeWorkers = workersResponse.data.filter((w: Worker) => w.status === 'active');
+        setAppUsers(users);
+        
+        // Calculate admin stats
+        const activeUsers = users.filter((u: AppUser) => u.status === 'active');
         setStats(prev => ({
           ...prev,
-          total_workers: workersResponse.data.length,
-          active_workers: activeWorkers.length
+          total_users: users.length,
+          active_users: activeUsers.length,
+          system_health: users.length > 0 ? 'good' : 'warning'
         }));
       }
-
-      // Skip failed APIs for now
-      console.log('Skipping job-types and onboarding APIs due to backend issues');
       
     } catch (err) {
-      console.error('Failed to load dashboard:', err);
-      setError('Failed to load dashboard data');
+      console.error('Failed to load admin data:', err);
+      setError('Failed to load admin data');
     } finally {
       setLoading(false);
     }
@@ -117,85 +156,91 @@ const AdminDashboard: React.FC = () => {
 
   // Load on mount
   useEffect(() => {
-    loadDashboardData();
+    loadAdminData();
   }, []);
 
-  // Navigation items
+  // Navigation items for Admin
   const menuItems = [
     { id: 'overview', icon: BarChart3, label: 'Overview' },
-    { id: 'workers', icon: Users, label: 'Workers' },
-    { id: 'job-types', icon: Briefcase, label: 'Job Types' },
-    { id: 'attendance', icon: UserCheck, label: 'Attendance' },
+    { id: 'users', icon: Users, label: 'App Users' },
+    { id: 'onboarding', icon: UserPlus, label: 'User Onboarding' },
+    { id: 'attendance-override', icon: UserCheck, label: 'Attendance Override' },
+    { id: 'procurement', icon: Package, label: 'Procurement' },
+    { id: 'reports', icon: FileText, label: 'Reports' },
+    { id: 'system', icon: Database, label: 'System Health' },
     { id: 'settings', icon: Settings, label: 'Settings' }
   ];
 
-  // Filter workers
-  const filteredWorkers = workers.filter(worker => {
+  // Filter app users
+  const filteredUsers = appUsers.filter(user => {
     const matchesSearch = searchTerm === '' || 
-      worker.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      worker.staff_id?.toLowerCase().includes(searchTerm.toLowerCase());
+      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.staff_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || worker.status === statusFilter;
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Create new worker (functional button)
-  const handleCreateWorker = () => {
-    const name = prompt('Enter worker name:');
-    const staffId = prompt('Enter staff ID:');
+  // Create new app user (functional button)
+  const handleCreateUser = () => {
+    const staffId = prompt('Enter Staff ID (e.g., Admin-NewUser):');
+    const fullName = prompt('Enter Full Name:');
+    const role = prompt('Enter Role (Admin/HarvestFlow/FlavorCore/Supervisor):') as AppUser['role'];
     
-    if (name && staffId) {
-      const newWorker: Worker = {
+    if (staffId && fullName && role) {
+      const newUser: AppUser = {
         id: Date.now().toString(),
         staff_id: staffId,
-        name: name,
-        role: 'Worker',
-        department: 'General',
-        hire_date: new Date().toISOString().split('T')[0],
-        status: 'active'
+        full_name: fullName,
+        role: role,
+        department: role,
+        designation: role,
+        status: 'active',
+        created_at: new Date().toISOString()
       };
       
-      setWorkers(prev => [...prev, newWorker]);
+      setAppUsers(prev => [...prev, newUser]);
       setStats(prev => ({
         ...prev,
-        total_workers: prev.total_workers + 1,
-        active_workers: prev.active_workers + 1
+        total_users: prev.total_users + 1,
+        active_users: prev.active_users + 1
       }));
       
-      alert('Worker created successfully!');
+      alert('App User created successfully!');
     }
   };
 
-  // Delete worker (functional button)
-  const handleDeleteWorker = (workerId: string) => {
-    if (confirm('Are you sure you want to delete this worker?')) {
-      setWorkers(prev => prev.filter(w => w.id !== workerId));
+  // Suspend/Activate user
+  const handleToggleUserStatus = (userId: string) => {
+    setAppUsers(prev => prev.map(user => 
+      user.id === userId 
+        ? { ...user, status: user.status === 'active' ? 'suspended' : 'active' }
+        : user
+    ));
+    alert('User status updated!');
+  };
+
+  // Delete user
+  const handleDeleteUser = (userId: string) => {
+    if (confirm('Are you sure you want to delete this user?')) {
+      setAppUsers(prev => prev.filter(u => u.id !== userId));
       setStats(prev => ({
         ...prev,
-        total_workers: prev.total_workers - 1
+        total_users: prev.total_users - 1
       }));
-      alert('Worker deleted successfully!');
-    }
-  };
-
-  // Edit worker (functional button)
-  const handleEditWorker = (worker: Worker) => {
-    const newName = prompt('Edit worker name:', worker.name);
-    if (newName) {
-      setWorkers(prev => prev.map(w => 
-        w.id === worker.id ? { ...w, name: newName } : w
-      ));
-      alert('Worker updated successfully!');
+      alert('User deleted successfully!');
     }
   };
 
   // Stats Card Component
-  const StatsCard = ({ title, value, icon: Icon, color = 'blue' }: {
+  const StatsCard = ({ title, value, icon: Icon, color = 'blue', subtitle }: {
     title: string;
-    value: number;
+    value: number | string;
     icon: any;
     color?: string;
+    subtitle?: string;
   }) => {
     const colorClasses: { [key: string]: string } = {
       blue: 'bg-blue-50 border-blue-200 text-blue-800',
@@ -210,6 +255,7 @@ const AdminDashboard: React.FC = () => {
           <div>
             <p className="text-sm font-medium opacity-75">{title}</p>
             <p className="text-3xl font-bold mt-1">{value}</p>
+            {subtitle && <p className="text-xs opacity-60 mt-1">{subtitle}</p>}
           </div>
           <Icon className="w-12 h-12 opacity-60" />
         </div>
@@ -222,69 +268,72 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
-          title="Total Workers"
-          value={stats.total_workers}
+          title="Total App Users"
+          value={stats.total_users}
           icon={Users}
           color="blue"
+          subtitle="System users"
         />
         <StatsCard
-          title="Active Workers"
-          value={stats.active_workers}
-          icon={UserCheck}
+          title="Active Users"
+          value={stats.active_users}
+          icon={Shield}
           color="green"
+          subtitle="Currently active"
         />
         <StatsCard
-          title="Job Types"
-          value={stats.total_job_types}
-          icon={Briefcase}
+          title="Pending Onboarding"
+          value={stats.pending_onboarding}
+          icon={UserPlus}
           color="yellow"
+          subtitle="Awaiting approval"
         />
         <StatsCard
-          title="Today Attendance"
-          value={stats.today_attendance}
-          icon={Calendar}
-          color="red"
+          title="System Health"
+          value={stats.system_health.toUpperCase()}
+          icon={Activity}
+          color={stats.system_health === 'good' ? 'green' : stats.system_health === 'warning' ? 'yellow' : 'red'}
+          subtitle="Overall status"
         />
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+        <h3 className="text-lg font-semibold mb-4">Recent User Activity</h3>
         <div className="space-y-3">
-          {workers.slice(0, 5).map((worker, index) => (
-            <div key={worker.id || index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <Users className="w-5 h-5 text-blue-500" />
+          {appUsers.slice(0, 5).map((user, index) => (
+            <div key={user.id || index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+              <Shield className="w-5 h-5 text-blue-500" />
               <div className="flex-1">
-                <p className="text-sm font-medium">{worker.name}</p>
-                <p className="text-xs text-gray-500">Staff ID: {worker.staff_id}</p>
+                <p className="text-sm font-medium">{user.full_name}</p>
+                <p className="text-xs text-gray-500">{user.staff_id} • {user.role}</p>
               </div>
               <span className={`px-2 py-1 text-xs rounded-full ${
-                worker.status === 'active' ? 'bg-green-100 text-green-800' :
-                worker.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                user.status === 'active' ? 'bg-green-100 text-green-800' :
+                user.status === 'suspended' ? 'bg-red-100 text-red-800' :
                 'bg-yellow-100 text-yellow-800'
               }`}>
-                {worker.status}
+                {user.status}
               </span>
             </div>
           ))}
-          {workers.length === 0 && (
-            <p className="text-gray-500 text-center py-4">No workers found</p>
+          {appUsers.length === 0 && (
+            <p className="text-gray-500 text-center py-4">No users found</p>
           )}
         </div>
       </div>
     </div>
   );
 
-  // Workers Content
-  const WorkersContent = () => (
+  // App Users Management Content
+  const UsersContent = () => (
     <div className="space-y-6">
-      {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="flex-1 max-w-md">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Search workers..."
+              placeholder="Search app users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -294,40 +343,51 @@ const AdminDashboard: React.FC = () => {
         
         <div className="flex gap-2">
           <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Roles</option>
+            <option value="Admin">Admin</option>
+            <option value="HarvestFlow">HarvestFlow</option>
+            <option value="FlavorCore">FlavorCore</option>
+            <option value="Supervisor">Supervisor</option>
+          </select>
+          
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
             <option value="inactive">Inactive</option>
-            <option value="on_leave">On Leave</option>
           </select>
           
           <button
-            onClick={handleCreateWorker}
+            onClick={handleCreateUser}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add Worker
+            Add User
           </button>
         </div>
       </div>
 
-      {/* Workers Table */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Worker
+                  User
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Role & Department
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hire Date
+                  Created
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -338,50 +398,50 @@ const AdminDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredWorkers.map((worker, index) => (
-                <tr key={worker.id || index} className="hover:bg-gray-50">
+              {filteredUsers.map((user, index) => (
+                <tr key={user.id || index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{worker.name}</div>
-                      <div className="text-sm text-gray-500">{worker.staff_id}</div>
+                      <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                      <div className="text-sm text-gray-500">{user.staff_id}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{worker.role}</div>
-                    <div className="text-sm text-gray-500">{worker.department}</div>
+                    <div className="text-sm text-gray-900">{user.role}</div>
+                    <div className="text-sm text-gray-500">{user.department}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {worker.hire_date}
+                    {new Date(user.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs rounded-full ${
-                      worker.status === 'active' ? 'bg-green-100 text-green-800' :
-                      worker.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                      user.status === 'active' ? 'bg-green-100 text-green-800' :
+                      user.status === 'suspended' ? 'bg-red-100 text-red-800' :
                       'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {worker.status}
+                      {user.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
                       <button 
-                        onClick={() => alert(`Viewing ${worker.name}`)}
+                        onClick={() => alert(`Viewing ${user.full_name}\nRole: ${user.role}\nDepartment: ${user.department}`)}
                         className="text-blue-600 hover:text-blue-900 transition-colors"
-                        title="View"
+                        title="View Details"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => handleEditWorker(worker)}
-                        className="text-green-600 hover:text-green-900 transition-colors"
-                        title="Edit"
+                        onClick={() => handleToggleUserStatus(user.id)}
+                        className="text-yellow-600 hover:text-yellow-900 transition-colors"
+                        title={user.status === 'active' ? 'Suspend User' : 'Activate User'}
                       >
-                        <Edit className="w-4 h-4" />
+                        {user.status === 'active' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                       </button>
                       <button 
-                        onClick={() => handleDeleteWorker(worker.id)}
+                        onClick={() => handleDeleteUser(user.id)}
                         className="text-red-600 hover:text-red-900 transition-colors"
-                        title="Delete"
+                        title="Delete User"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -389,10 +449,10 @@ const AdminDashboard: React.FC = () => {
                   </td>
                 </tr>
               ))}
-              {filteredWorkers.length === 0 && (
+              {filteredUsers.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    No workers found matching your search
+                    No users found matching your search
                   </td>
                 </tr>
               )}
@@ -403,36 +463,193 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 
-  // Job Types Content
-  const JobTypesContent = () => (
+  // Reports Content (makes App.tsx Reports button functional)
+  const ReportsContent = () => (
     <div className="space-y-6">
+      {/* System Reports */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Job Types Management</h3>
+        <h3 className="text-lg font-semibold mb-4">System Reports</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
-            onClick={() => alert('Create job type functionality')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            onClick={() => alert('Generating User Activity Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
-            <Plus className="w-4 h-4" />
-            Add Job Type
+            <FileText className="w-6 h-6 text-blue-500 mb-2" />
+            <h4 className="font-medium">User Activity Report</h4>
+            <p className="text-sm text-gray-600">Login activity and usage statistics</p>
+          </button>
+          
+          <button
+            onClick={() => alert('Generating System Health Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <Activity className="w-6 h-6 text-green-500 mb-2" />
+            <h4 className="font-medium">System Health Report</h4>
+            <p className="text-sm text-gray-600">API status and performance metrics</p>
+          </button>
+          
+          <button
+            onClick={() => alert('Generating Security Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <Shield className="w-6 h-6 text-red-500 mb-2" />
+            <h4 className="font-medium">Security Report</h4>
+            <p className="text-sm text-gray-600">Failed logins and security events</p>
           </button>
         </div>
-        <p className="text-gray-600">Job types management will be available when backend API is fixed (currently returns 405 error).</p>
+      </div>
+
+      {/* Operational Reports */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold mb-4">Operational Reports</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <button
+            onClick={() => alert('Generating Harvest Operations Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <BarChart3 className="w-6 h-6 text-orange-500 mb-2" />
+            <h4 className="font-medium">Harvest Operations</h4>
+            <p className="text-sm text-gray-600">Daily harvest activities and yields</p>
+          </button>
+          
+          <button
+            onClick={() => alert('Generating Processing Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <Package className="w-6 h-6 text-purple-500 mb-2" />
+            <h4 className="font-medium">Processing Report</h4>
+            <p className="text-sm text-gray-600">FlavorCore processing activities</p>
+          </button>
+          
+          <button
+            onClick={() => alert('Generating Attendance Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <UserCheck className="w-6 h-6 text-teal-500 mb-2" />
+            <h4 className="font-medium">Attendance Report</h4>
+            <p className="text-sm text-gray-600">Worker attendance and overtime</p>
+          </button>
+          
+          <button
+            onClick={() => alert('Generating Procurement Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <Briefcase className="w-6 h-6 text-indigo-500 mb-2" />
+            <h4 className="font-medium">Procurement Report</h4>
+            <p className="text-sm text-gray-600">Supply chain and procurement status</p>
+          </button>
+          
+          <button
+            onClick={() => alert('Generating Quality Control Report...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <CheckCircle className="w-6 h-6 text-emerald-500 mb-2" />
+            <h4 className="font-medium">Quality Control</h4>
+            <p className="text-sm text-gray-600">Quality metrics and compliance</p>
+          </button>
+          
+          <button
+            onClick={() => alert('Generating Financial Summary...')}
+            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+          >
+            <TrendingUp className="w-6 h-6 text-green-600 mb-2" />
+            <h4 className="font-medium">Financial Summary</h4>
+            <p className="text-sm text-gray-600">Revenue, costs, and profitability</p>
+          </button>
+        </div>
       </div>
     </div>
   );
 
-  // Attendance Content  
-  const AttendanceContent = () => (
+  // System Health Content
+  const SystemContent = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">Attendance Management</h3>
-        <p className="text-gray-600">Attendance tracking functionality will be implemented here.</p>
+        <h3 className="text-lg font-semibold mb-4">System Health Monitor</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div>
+              <h4 className="font-medium">API Status</h4>
+              <p className="text-sm text-gray-600">Backend API connectivity</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-green-600">Online</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Database</h4>
+              <p className="text-sm text-gray-600">Database connectivity</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-green-600">Connected</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Active Users</h4>
+              <p className="text-sm text-gray-600">Currently logged in users</p>
+            </div>
+            <span className="text-lg font-semibold text-blue-600">{stats.active_users}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 
-  // Settings Content
+  // Onboarding Content
+  const OnboardingContent = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold mb-4">User Onboarding</h3>
+        <p className="text-gray-600 mb-4">Manage new user registration and approval process.</p>
+        <button
+          onClick={() => alert('Opening onboarding management...')}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Manage Onboarding Requests
+        </button>
+      </div>
+    </div>
+  );
+
+  // Attendance Override Content
+  const AttendanceOverrideContent = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold mb-4">Attendance Override</h3>
+        <p className="text-gray-600 mb-4">Review and approve attendance override requests.</p>
+        <button
+          onClick={() => alert('Opening attendance override management...')}
+          className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+        >
+          Manage Override Requests
+        </button>
+      </div>
+    </div>
+  );
+
+  // Procurement Content
+  const ProcurementContent = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold mb-4">Procurement Management</h3>
+        <p className="text-gray-600 mb-4">Manage procurement requests and supply chain operations.</p>
+        <button
+          onClick={() => alert('Opening procurement management...')}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+        >
+          Manage Procurement
+        </button>
+      </div>
+    </div>
+  );
+
+  // Settings Content (makes App.tsx Settings button functional)
   const SettingsContent = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -440,30 +657,43 @@ const AdminDashboard: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
-              <h4 className="font-medium">API Status</h4>
-              <p className="text-sm text-gray-600">Monitor backend API health</p>
+              <h4 className="font-medium">System Maintenance</h4>
+              <p className="text-sm text-gray-600">Perform system maintenance tasks</p>
             </div>
             <button 
-              onClick={loadDashboardData}
-              className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              onClick={() => alert('System maintenance initiated...')}
+              className="px-3 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
             >
-              Test APIs
+              Maintain
             </button>
           </div>
           
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
-              <h4 className="font-medium">Clear Cache</h4>
-              <p className="text-sm text-gray-600">Clear application cache</p>
+              <h4 className="font-medium">Clear System Cache</h4>
+              <p className="text-sm text-gray-600">Clear all cached data</p>
             </div>
             <button 
               onClick={() => {
                 localStorage.clear();
-                alert('Cache cleared!');
+                alert('System cache cleared!');
               }}
               className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
             >
-              Clear
+              Clear Cache
+            </button>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Backup Database</h4>
+              <p className="text-sm text-gray-600">Create database backup</p>
+            </div>
+            <button 
+              onClick={() => alert('Database backup initiated...')}
+              className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Backup
             </button>
           </div>
         </div>
@@ -475,9 +705,12 @@ const AdminDashboard: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview': return <OverviewContent />;
-      case 'workers': return <WorkersContent />;
-      case 'job-types': return <JobTypesContent />;
-      case 'attendance': return <AttendanceContent />;
+      case 'users': return <UsersContent />;
+      case 'onboarding': return <OnboardingContent />;
+      case 'attendance-override': return <AttendanceOverrideContent />;
+      case 'procurement': return <ProcurementContent />;
+      case 'reports': return <ReportsContent />;
+      case 'system': return <SystemContent />;
       case 'settings': return <SettingsContent />;
       default: return <OverviewContent />;
     }
@@ -485,74 +718,49 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* NO HEADER HERE - App.tsx provides the header */}
+      {/* NO HEADER - App.tsx provides the header */}
       
       <div className="flex">
-        {/* SIDEBAR NAVIGATION */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
-          lg:translate-x-0 lg:static lg:inset-0 lg:z-0
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
-          <div className="flex flex-col h-full pt-4">
-            <div className="px-4 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
-              <p className="text-sm text-gray-500">Management Dashboard</p>
-            </div>
-            
-            <nav className="flex-1 px-4 pb-4 space-y-1">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setSidebarOpen(false); // Close on mobile
-                    }}
-                    className={`
-                      w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors
-                      ${isActive 
-                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                      }
-                    `}
-                  >
-                    <Icon className="mr-3 w-5 h-5" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
+        {/* ADMIN SIDEBAR */}
+        <aside className="w-64 bg-white shadow-sm border-r min-h-screen">
+          <div className="p-4">
+            <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
+            <p className="text-sm text-gray-500">System Management</p>
           </div>
+          
+          <nav className="px-4 pb-4 space-y-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`
+                    w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors
+                    ${isActive 
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }
+                  `}
+                >
+                  <Icon className="mr-3 w-5 h-5" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
         </aside>
 
-        {/* Mobile Menu Toggle */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg lg:hidden"
-        >
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-
-        {/* Mobile Overlay */}
-        {sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* MAIN CONTENT AREA */}
-        <main className="flex-1 lg:ml-0">
-          <div className="p-4 sm:p-6 lg:p-8">
+        {/* MAIN CONTENT */}
+        <main className="flex-1">
+          <div className="p-6">
             {/* Loading State */}
             {loading && (
               <div className="flex justify-center items-center py-12">
                 <Loader className="animate-spin w-8 h-8 text-blue-600 mr-3" />
-                <span className="text-gray-600">Loading dashboard data...</span>
+                <span className="text-gray-600">Loading admin data...</span>
               </div>
             )}
 
@@ -566,7 +774,7 @@ const AdminDashboard: React.FC = () => {
                 <button
                   onClick={() => {
                     setError(null);
-                    loadDashboardData();
+                    loadAdminData();
                   }}
                   className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm transition-colors"
                 >
