@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import flavorCoreLogo from '../../assets/flavorcore-logo.png';
-import api from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+
+// Enhanced debug logging
+const debugLog = (message: string, data?: any) => {
+  console.log(`[LoginScreen DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+};
 
 interface LoginScreenProps {
   onLogin: (userId: string, role: string) => void;
@@ -12,59 +17,33 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [staffId, setStaffId] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleLogin = async () => {
-  if (!staffId.trim()) {
-    setError('Please enter your Staff ID');
-    return;
-  }
-
-  setIsLoading(true);
-  setError('');
-
-  try {
-    // Use the API client instead of Supabase
-    const response = await api.login(staffId.trim());
-
-    if (!response.authenticated) {
-      setError('Authentication failed');
+    if (!staffId.trim()) {
+      setError('Please enter your Staff ID');
       return;
     }
 
-    // Derive role from staff_id prefix (override person_type if needed)
-    let role = response.user.role || 'staff';
+    debugLog('Starting login process', { staffId: staffId.trim() });
+    setIsLoading(true);
+    setError('');
 
-    if (staffId.startsWith('Admin-')) {
-      role = 'admin';
-    } else if (staffId.startsWith('HF-')) {
-      role = 'harvestflow_manager';
-    } else if (staffId.startsWith('FC-')) {
-      role = 'flavorcore_manager';
-    } else if (staffId.startsWith('SUP-')) {
-      role = 'flavorcore_supervisor';
-    } else if (staffId.startsWith('VEN-')) {
-      role = 'vendor';
-    } else if (staffId.startsWith('DRI-')) {
-      role = 'driver';
+    try {
+      debugLog('Calling AuthContext login...');
+      await login(staffId.trim());
+      debugLog('Login successful - AuthContext will handle user state update');
+      
+      // The AuthContext will update the user state, which will trigger
+      // the App component to re-render and show the appropriate dashboard
+      
+    } catch (err: any) {
+      debugLog('Login error caught', err);
+      setError(err.message || 'Login failed. Please check your Staff ID.');
+    } finally {
+      setIsLoading(false);
     }
-
-    const displayName = response.user.full_name || staffId.trim();
-
-    console.log('✅ LoginScreen passing to App:', { 
-      displayName, 
-      role,
-      staffId: staffId.trim() 
-    });
-    
-    onLogin(staffId.trim(), role);
-    
-  } catch (err: any) {
-    setError(err.message || 'Login failed. Please check your connection.');
-    console.error('Login error:', err);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {
@@ -104,7 +83,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               disabled={isLoading}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Enter your assigned Staff ID (not your name)
+              Enter your assigned Staff ID (e.g., HF-Regu, Admin-001)
             </p>
             {error && (
               <p className="text-red-500 text-xs mt-1">{error}</p>
@@ -132,6 +111,16 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             🔒 Secure Access • Contact Admin for Staff ID
           </p>
         </div>
+
+        {/* Debug Info (only in development) */}
+        {import.meta.env.DEV && (
+          <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
+            <p className="font-semibold mb-1">Debug Info:</p>
+            <p>API URL: {import.meta.env.VITE_API_URL || 'https://relishagro-production.up.railway.app'}</p>
+            <p>Staff ID: {staffId}</p>
+            <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
+          </div>
+        )}
       </div>
     </div>
   );
