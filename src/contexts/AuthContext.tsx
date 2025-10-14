@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Types
+// Types - Updated to match App.tsx usage
 interface User {
   staff_id: string;
   full_name: string;
@@ -8,6 +8,9 @@ interface User {
   department: string;
   phone_number?: string;
   email?: string;
+  // Add missing properties that App.tsx expects
+  id: string;              // For App.tsx line 88: user.id
+  designation: string;     // For App.tsx line 181: user.designation
 }
 
 interface AuthContextType {
@@ -16,6 +19,9 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   isAuthenticated: boolean;
+  // Add missing properties that App.tsx expects
+  isLoading: boolean;      // For App.tsx line 16: isLoading
+  error: string | null;    // For App.tsx line 16: error
 }
 
 // Create context
@@ -25,6 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null); // Add error state
 
   const isAuthenticated = !!user;
 
@@ -41,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        setError('Failed to initialize authentication');
         // Clear invalid data
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');
@@ -52,10 +60,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, []);
 
-  // Login function
+  // Login function - Updated to handle new backend response format
   const login = async (staffId: string, password?: string) => {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
       
       const response = await fetch('https://relishagrobackend-production.up.railway.app/api/auth/login', {
         method: 'POST',
@@ -71,27 +80,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const data = await response.json();
+      console.log('Backend response:', data); // Debug log
       
-      // Store token and user data
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user_info));
-      
-      setUser(data.user_info);
-      
-      // Redirect based on role
-      redirectToDashboard(data.user_info.role);
+      // Handle the new multi-format backend response
+      if (data.success !== false && (data.access_token || data.token)) {
+        // Extract user data from multiple possible formats
+        const userData: User = {
+          staff_id: data.staff_id,
+          full_name: data.user?.name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.staff_id,
+          role: data.role,
+          department: data.role, // Use role as department fallback
+          phone_number: data.user?.phone_number,
+          email: data.user?.email,
+          // Map to properties App.tsx expects
+          id: data.staff_id,           // Map staff_id to id for App.tsx line 88
+          designation: data.role       // Map role to designation for App.tsx line 181
+        };
+        
+        const token = data.access_token || data.token;
+        
+        // Store token and user data
+        localStorage.setItem('access_token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        setUser(userData);
+        
+        // Don't redirect here - let App.tsx handle it
+        console.log('Login successful, user set:', userData);
+        
+      } else {
+        // Handle error response
+        const errorMessage = data.message || data.error || 'Login failed';
+        setError(errorMessage);
+        throw new Error(errorMessage);
+      }
       
     } catch (error) {
       console.error('Login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      setError(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  // Role-based dashboard redirection
+  // Role-based dashboard redirection - Updated for new role mapping
   const redirectToDashboard = (role: string) => {
     const roleRoutes = {
+      'Admin': '/admin-dashboard',
+      'HarvestFlow': '/harvest-flow-dashboard', 
+      'FlavorCore': '/flavorcore-dashboard',
+      'Supervisor': '/supervisor-dashboard',
+      // Legacy mappings
       'admin': '/admin-dashboard',
       'harvest_field': '/harvest-flow-dashboard', 
       'flavor_core': '/flavorcore-dashboard',
@@ -114,14 +155,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
       
-      // Clear user state
+      // Clear user state and errors
       setUser(null);
+      setError(null);
       
       // Redirect to login
       window.location.replace('/login');
       
     } catch (error) {
       console.error('Logout error:', error);
+      setError('Logout failed');
     }
   };
 
@@ -131,6 +174,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     loading,
     isAuthenticated,
+    // Add the missing properties that App.tsx expects
+    isLoading: loading,     // Alias for loading (App.tsx line 16)
+    error,                  // Error state (App.tsx line 16)
   };
 
   return (

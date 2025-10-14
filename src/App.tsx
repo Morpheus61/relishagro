@@ -13,7 +13,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 type Route = 'dashboard' | 'users' | 'farms' | 'harvest' | 'processing' | 'quality' | 'reports' | 'settings';
 
 const AppContent: React.FC = () => {
-  const { user, login, logout, isLoading, error } = useAuth();
+  const { user, login, logout, isLoading, error } = useAuth(); // This will now work
   const [currentRoute, setCurrentRoute] = useState<Route>('dashboard');
 
   // Navigation handler
@@ -47,21 +47,19 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // FIXED: Handle login from LoginScreen - now calls AuthContext login properly
+  // FIXED: Handle login from LoginScreen - no longer expects return value
   const handleLogin = async (staffId: string, role: string) => {
     console.log('🚀 App.tsx handleLogin called with:', { staffId, role });
     
     try {
-      // Call the AuthContext login method with the staffId
-      const success = await login(staffId);
+      // Call the AuthContext login method with the staffId (returns void)
+      await login(staffId); // FIXED: Don't expect return value
       
-      if (success) {
-        console.log('✅ App.tsx: Login successful, user should be set in AuthContext');
-      } else {
-        console.log('❌ App.tsx: Login failed');
-      }
+      // If we get here, login was successful (no exception thrown)
+      console.log('✅ App.tsx: Login successful, user should be set in AuthContext');
     } catch (error) {
       console.error('❌ App.tsx: Login error:', error);
+      // Error is now available in the error state from useAuth
     }
   };
 
@@ -85,7 +83,7 @@ const AppContent: React.FC = () => {
         return (
           <SupervisorDashboard 
             currentUser={{
-              id: user.id,
+              id: user.id,        // This will now work (User interface has id)
               staff_id: user.staff_id,
               full_name: user.full_name,
               role: user.role
@@ -128,9 +126,28 @@ const AppContent: React.FC = () => {
   if (!user) {
     console.log('🔒 App.tsx: No user found, showing LoginScreen');
     return (
-      <LoginScreen 
-        onLogin={handleLogin}
-      />
+      <div>
+        <LoginScreen 
+          onLogin={handleLogin}
+        />
+        {/* Show error message if login failed */}
+        {error && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            padding: '16px',
+            color: '#dc2626',
+            maxWidth: '300px',
+            zIndex: 1000
+          }}>
+            <strong>Login Error:</strong> {error}
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -178,7 +195,7 @@ const AppContent: React.FC = () => {
               </span>
               <br />
               <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                {user.designation} ({user.role.replace('_', ' ')})
+                {user.designation} ({user.role.replace('_', ' ')}) {/* This will now work (User interface has designation) */}
               </span>
             </div>
             <button 
