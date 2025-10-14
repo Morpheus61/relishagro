@@ -129,13 +129,6 @@ const AdminDashboard: React.FC = () => {
     { id: 'settings', icon: Settings, label: 'Settings' }
   ];
 
-  // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    window.location.href = '/';
-  };
-
   // Filter workers
   const filteredWorkers = workers.filter(worker => {
     const matchesSearch = searchTerm === '' || 
@@ -492,63 +485,21 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* SINGLE HEADER ONLY - NO DUPLICATES */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Left: Logo & Menu Toggle */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 lg:hidden transition-colors"
-              >
-                {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-              
-              <div className="flex items-center gap-3">
-                <img 
-                  src="/flavorcore-logo.png" 
-                  alt="FlavorCore" 
-                  className="h-8 w-8 object-contain"
-                  onError={(e) => {
-                    // Fallback if logo not found
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                <div>
-                  <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
-                  <p className="text-sm text-gray-500 hidden sm:block">FlavorCore Management</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: User Info & Logout */}
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">Admin User</p>
-                <p className="text-xs text-gray-500">Administrator</p>
-              </div>
-              
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+      {/* NO HEADER HERE - App.tsx provides the header */}
+      
       <div className="flex">
-        {/* SIDEBAR - POSITIONED ON LEFT ONLY */}
+        {/* SIDEBAR NAVIGATION */}
         <aside className={`
           fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
           lg:translate-x-0 lg:static lg:inset-0 lg:z-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
-          <div className="flex flex-col h-full pt-20 lg:pt-4">
+          <div className="flex flex-col h-full pt-4">
+            <div className="px-4 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
+              <p className="text-sm text-gray-500">Management Dashboard</p>
+            </div>
+            
             <nav className="flex-1 px-4 pb-4 space-y-1">
               {menuItems.map((item) => {
                 const Icon = item.icon;
@@ -577,6 +528,14 @@ const AdminDashboard: React.FC = () => {
             </nav>
           </div>
         </aside>
+
+        {/* Mobile Menu Toggle */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg lg:hidden"
+        >
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
 
         {/* Mobile Overlay */}
         {sidebarOpen && (
