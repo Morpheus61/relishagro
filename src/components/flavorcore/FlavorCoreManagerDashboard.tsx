@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+
+// Import UI components with correct paths for flavorcore subfolder
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -7,40 +10,31 @@ import { Textarea } from '../ui/textarea';
 import { 
   Users, 
   DollarSign, 
-  TrendingUp, 
-  AlertTriangle,
-  UserPlus,
   CheckCircle,
   XCircle,
   Search,
-  Filter,
   Download,
-  MoreHorizontal,
   Eye,
   Edit,
-  Trash2,
-  Mail,
-  Phone,
-  Calendar,
-  MapPin,
-  Star,
-  Award,
-  Activity,
-  Zap,
-  Target,
-  BarChart,
-  PieChart,
   Clock,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
   Menu,
   X,
-  Building,
-  Package
+  Package,
+  Truck,
+  FileText,
+  Calendar,
+  AlertTriangle,
+  TrendingUp,
+  Activity,
+  Settings,
+  UserCheck,
+  Clipboard
 } from 'lucide-react';
 
-// Enhanced Navigation Component - Built into this file
+// Enhanced Navigation Component for FlavorCore Manager
 interface NavigationItem {
   id: string;
   label: string;
@@ -94,7 +88,7 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
                   setShowMobileMenu(false);
                 }}
                 className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors ${
-                  activeTab === item.id ? 'bg-blue-50 text-blue-600 font-medium' : ''
+                  activeTab === item.id ? 'bg-purple-50 text-purple-600 font-medium' : ''
                 }`}
               >
                 {item.label}
@@ -149,95 +143,111 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   );
 };
 
-// API interfaces
-interface User {
+// FlavorCore Specific Interfaces
+interface FlavorCoreStaff {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
+  staff_id: string;
+  full_name: string;
   role: string;
-  status: 'active' | 'inactive' | 'pending';
-  joinDate: string;
-  lastActive: string;
-  avatar?: string;
+  phone: string;
+  daily_wage: number;
+  status: 'active' | 'inactive';
+  hire_date: string;
+  department: 'processing' | 'quality_control' | 'packaging' | 'maintenance';
 }
 
-interface YieldData {
+interface AttendanceRecord {
   id: string;
-  farmerId: string;
-  farmerName: string;
-  crop: string;
-  variety: string;
+  staff_id: string;
+  full_name: string;
+  date: string;
+  time_in: string;
+  time_out?: string;
+  hours_worked: number;
+  status: 'present' | 'absent' | 'half_day';
+  overtime_hours: number;
+}
+
+interface WageRecord {
+  id: string;
+  staff_id: string;
+  full_name: string;
+  period_start: string;
+  period_end: string;
+  regular_hours: number;
+  overtime_hours: number;
+  daily_wage: number;
+  gross_pay: number;
+  deductions: number;
+  net_pay: number;
+  status: 'pending' | 'paid';
+  paid_date?: string;
+}
+
+interface ProductionData {
+  batch_id: string;
+  lot_id: string;
+  product_type: string;
+  input_weight: number;
+  output_weight: number;
+  yield_percentage: number;
+  processing_date: string;
+  status: 'in_progress' | 'completed' | 'quality_check' | 'approved';
+  quality_score: number;
+  supervisor_id: string;
+}
+
+interface FinishedProductForm {
+  id: string;
+  batch_id: string;
+  product_name: string;
   quantity: number;
   unit: string;
-  harvestDate: string;
-  qualityGrade: 'A' | 'B' | 'C';
-  pricePerUnit: number;
-  totalValue: number;
+  quality_grade: 'A' | 'B' | 'C';
+  packaging_type: string;
+  production_date: string;
+  expiry_date: string;
+  supervisor_id: string;
+  status: 'pending_approval' | 'approved' | 'rejected';
+  submitted_date: string;
+  notes?: string;
+}
+
+interface InventoryItem {
+  id: string;
+  product_name: string;
+  current_stock: number;
+  unit: string;
   location: string;
-  verified: boolean;
+  last_updated: string;
+  minimum_threshold: number;
+  status: 'adequate' | 'low_stock' | 'critical';
 }
 
-interface OnboardingRequest {
+interface ProcurementRequest {
   id: string;
-  applicantName: string;
-  email: string;
-  phone: string;
-  farmLocation: string;
-  farmSize: number;
-  primaryCrops: string[];
-  experienceYears: number;
-  applicationDate: string;
-  status: 'pending' | 'approved' | 'rejected';
-  documents: {
-    idProof: boolean;
-    landOwnership: boolean;
-    bankDetails: boolean;
-    cropCertificates: boolean;
-  };
-  reviewNotes?: string;
-}
-
-interface Worker {
-  id: string;
-  name: string;
-  staff_id: string;
-  role: string;
-  phone: string;
-  department: string;
-  status: 'active' | 'inactive';
-  created_at: string;
-}
-
-interface JobType {
-  id: string;
-  name: string;
-  description: string;
-  department: string;
-  created_at: string;
-}
-
-interface Provision {
-  id: string;
+  requested_by: string;
   item_name: string;
   quantity: number;
   unit: string;
-  supplier: string;
-  cost: number;
-  status: 'ordered' | 'delivered' | 'pending';
-  created_at: string;
+  urgency: 'low' | 'medium' | 'high';
+  purpose: string;
+  requested_date: string;
+  required_by: string;
+  status: 'pending' | 'approved' | 'rejected' | 'fulfilled';
+  notes?: string;
 }
 
-const AdminDashboard: React.FC = () => {
+const FlavorCoreManagerDashboard: React.FC = () => {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
-  const [users, setUsers] = useState<User[]>([]);
-  const [yieldData, setYieldData] = useState<YieldData[]>([]);
-  const [onboardingRequests, setOnboardingRequests] = useState<OnboardingRequest[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [jobTypes, setJobTypes] = useState<JobType[]>([]);
-  const [provisions, setProvisions] = useState<Provision[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUserStatus, setSelectedUserStatus] = useState<string>('all');
+  const [flavorCoreStaff, setFlavorCoreStaff] = useState<FlavorCoreStaff[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [wageRecords, setWageRecords] = useState<WageRecord[]>([]);
+  const [productionData, setProductionData] = useState<ProductionData[]>([]);
+  const [finishedProductForms, setFinishedProductForms] = useState<FinishedProductForm[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [procurementRequests, setProcurementRequests] = useState<ProcurementRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -246,7 +256,7 @@ const AdminDashboard: React.FC = () => {
 
   // Get auth token
   const getAuthToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
+    return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
   };
 
   // API headers with authentication
@@ -258,236 +268,329 @@ const AdminDashboard: React.FC = () => {
     };
   };
 
-  // API Functions
-  const fetchUsers = async () => {
+  // FlavorCore Specific API Functions
+  const fetchFlavorCoreStaff = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/admin/users`, {
-        headers: getHeaders()
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch users: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setUsers(data);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      // Fallback to mock data
-      setUsers([
-        {
-          id: '1',
-          name: 'John Smith',
-          email: 'john.smith@example.com',
-          phone: '+1-555-0123',
-          role: 'Farmer',
-          status: 'active',
-          joinDate: '2024-01-15',
-          lastActive: '2024-03-15'
-        },
-        {
-          id: '2',
-          name: 'Sarah Johnson',
-          email: 'sarah.j@example.com',
-          phone: '+1-555-0124',
-          role: 'Buyer',
-          status: 'active',
-          joinDate: '2024-02-01',
-          lastActive: '2024-03-14'
-        }
-      ]);
-    }
-  };
-
-  const fetchWorkers = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/workers`, {
+      const response = await fetch(`${API_BASE}/api/flavorcore/staff`, {
         headers: getHeaders()
       });
       
       if (response.ok) {
         const data = await response.json();
-        setWorkers(data);
-      }
-    } catch (err) {
-      console.error('Error fetching workers:', err);
-      setWorkers([
-        {
-          id: '1',
-          name: 'Mike Wilson',
-          staff_id: 'SW-001',
-          role: 'Field Worker',
-          phone: '+1-555-0125',
-          department: 'Farming',
-          status: 'active',
-          created_at: '2024-01-10'
-        }
-      ]);
-    }
-  };
-
-  const fetchJobTypes = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/job-types`, {
-        headers: getHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setJobTypes(data);
-      }
-    } catch (err) {
-      console.error('Error fetching job types:', err);
-      setJobTypes([
-        {
-          id: '1',
-          name: 'Planting',
-          description: 'Crop planting activities',
-          department: 'Farming',
-          created_at: '2024-01-01'
-        },
-        {
-          id: '2',
-          name: 'Harvesting',
-          description: 'Crop harvesting activities',
-          department: 'Farming',
-          created_at: '2024-01-01'
-        }
-      ]);
-    }
-  };
-
-  const fetchProvisions = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/provisions`, {
-        headers: getHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProvisions(data);
-      }
-    } catch (err) {
-      console.error('Error fetching provisions:', err);
-      setProvisions([
-        {
-          id: '1',
-          item_name: 'Fertilizer',
-          quantity: 100,
-          unit: 'bags',
-          supplier: 'Agro Supplies Inc.',
-          cost: 5000,
-          status: 'delivered',
-          created_at: '2024-03-01'
-        }
-      ]);
-    }
-  };
-
-  const fetchOnboardingRequests = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/onboarding/requests`, {
-        headers: getHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setOnboardingRequests(data);
+        setFlavorCoreStaff(data);
       } else {
-        // Mock data for onboarding requests
-        setOnboardingRequests([
+        // Mock data for FlavorCore staff
+        setFlavorCoreStaff([
           {
             id: '1',
-            applicantName: 'David Brown',
-            email: 'david.brown@email.com',
-            phone: '+1-555-0200',
-            farmLocation: 'Valley Springs, CA',
-            farmSize: 25,
-            primaryCrops: ['Corn', 'Soybeans'],
-            experienceYears: 8,
-            applicationDate: '2024-03-10',
-            status: 'pending',
-            documents: {
-              idProof: true,
-              landOwnership: true,
-              bankDetails: false,
-              cropCertificates: true
-            }
+            staff_id: 'FC-001',
+            full_name: 'John Martinez',
+            role: 'Processing Operator',
+            phone: '+1-555-0150',
+            daily_wage: 250,
+            status: 'active',
+            hire_date: '2024-01-15',
+            department: 'processing'
+          },
+          {
+            id: '2',
+            staff_id: 'FC-002',
+            full_name: 'Maria Santos',
+            role: 'Quality Controller',
+            phone: '+1-555-0151',
+            daily_wage: 280,
+            status: 'active',
+            hire_date: '2024-02-01',
+            department: 'quality_control'
+          },
+          {
+            id: '3',
+            staff_id: 'FC-003',
+            full_name: 'David Chen',
+            role: 'Packaging Specialist',
+            phone: '+1-555-0152',
+            daily_wage: 230,
+            status: 'active',
+            hire_date: '2024-01-20',
+            department: 'packaging'
           }
         ]);
       }
     } catch (err) {
-      console.error('Error fetching onboarding requests:', err);
-      setOnboardingRequests([]);
+      console.error('Error fetching FlavorCore staff:', err);
     }
   };
 
-  // Navigation items
+  const fetchAttendanceRecords = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/attendance`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAttendanceRecords(data);
+      } else {
+        // Mock attendance data
+        setAttendanceRecords([
+          {
+            id: '1',
+            staff_id: 'FC-001',
+            full_name: 'John Martinez',
+            date: '2024-03-15',
+            time_in: '08:00',
+            time_out: '17:00',
+            hours_worked: 8,
+            status: 'present',
+            overtime_hours: 0
+          },
+          {
+            id: '2',
+            staff_id: 'FC-002',
+            full_name: 'Maria Santos',
+            date: '2024-03-15',
+            time_in: '08:15',
+            time_out: '17:15',
+            hours_worked: 8,
+            status: 'present',
+            overtime_hours: 0
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching attendance records:', err);
+    }
+  };
+
+  const fetchProductionData = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/production`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProductionData(data);
+      } else {
+        // Mock production data
+        setProductionData([
+          {
+            batch_id: 'FC-B-001',
+            lot_id: 'HF-L-012',
+            product_type: 'Premium Tomato Sauce',
+            input_weight: 5000,
+            output_weight: 4250,
+            yield_percentage: 85,
+            processing_date: '2024-03-15',
+            status: 'completed',
+            quality_score: 92,
+            supervisor_id: 'SUP-001'
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching production data:', err);
+    }
+  };
+
+  const fetchFinishedProductForms = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/finished-products`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFinishedProductForms(data);
+      } else {
+        // Mock finished product forms
+        setFinishedProductForms([
+          {
+            id: '1',
+            batch_id: 'FC-B-001',
+            product_name: 'Premium Tomato Sauce',
+            quantity: 850,
+            unit: 'bottles',
+            quality_grade: 'A',
+            packaging_type: 'Glass Bottles 500ml',
+            production_date: '2024-03-15',
+            expiry_date: '2025-03-15',
+            supervisor_id: 'SUP-001',
+            status: 'pending_approval',
+            submitted_date: '2024-03-15',
+            notes: 'High quality batch, excellent color and consistency'
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching finished product forms:', err);
+    }
+  };
+
+  const fetchInventoryItems = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/inventory`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setInventoryItems(data);
+      } else {
+        // Mock inventory data
+        setInventoryItems([
+          {
+            id: '1',
+            product_name: 'Premium Tomato Sauce',
+            current_stock: 1250,
+            unit: 'bottles',
+            location: 'Warehouse A-1',
+            last_updated: '2024-03-15',
+            minimum_threshold: 200,
+            status: 'adequate'
+          },
+          {
+            id: '2',
+            product_name: 'Organic Onion Paste',
+            current_stock: 85,
+            unit: 'jars',
+            location: 'Warehouse A-2',
+            last_updated: '2024-03-14',
+            minimum_threshold: 100,
+            status: 'low_stock'
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching inventory items:', err);
+    }
+  };
+
+  const fetchProcurementRequests = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/procurement-requests`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProcurementRequests(data);
+      } else {
+        // Mock procurement requests
+        setProcurementRequests([
+          {
+            id: '1',
+            requested_by: 'HF-Manager',
+            item_name: 'Industrial Salt',
+            quantity: 500,
+            unit: 'kg',
+            urgency: 'medium',
+            purpose: 'Tomato sauce production',
+            requested_date: '2024-03-14',
+            required_by: '2024-03-20',
+            status: 'pending',
+            notes: 'Food grade industrial salt for processing'
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching procurement requests:', err);
+    }
+  };
+
+  // FlavorCore Manager specific actions
+  const approveFinishedProduct = async (formId: string, notes: string = '') => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/approve-finished-product/${formId}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ 
+          approved_by: user?.staff_id,
+          notes 
+        })
+      });
+
+      if (response.ok) {
+        setFinishedProductForms(prev => 
+          prev.map(form => 
+            form.id === formId 
+              ? { ...form, status: 'approved' as const }
+              : form
+          )
+        );
+        
+        // Add to inventory after approval
+        const approvedForm = finishedProductForms.find(f => f.id === formId);
+        if (approvedForm) {
+          await addToInventory(approvedForm);
+        }
+      }
+    } catch (err) {
+      console.error('Error approving finished product:', err);
+    }
+  };
+
+  const addToInventory = async (product: FinishedProductForm) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/add-to-inventory`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          product_name: product.product_name,
+          quantity: product.quantity,
+          unit: product.unit,
+          batch_id: product.batch_id,
+          production_date: product.production_date,
+          expiry_date: product.expiry_date,
+          quality_grade: product.quality_grade
+        })
+      });
+
+      if (response.ok) {
+        await fetchInventoryItems(); // Refresh inventory
+      }
+    } catch (err) {
+      console.error('Error adding to inventory:', err);
+    }
+  };
+
+  const respondToProcurementRequest = async (requestId: string, status: 'approved' | 'rejected', notes: string = '') => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flavorcore/respond-procurement/${requestId}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ 
+          status,
+          response_by: user?.staff_id,
+          notes 
+        })
+      });
+
+      if (response.ok) {
+        setProcurementRequests(prev => 
+          prev.map(req => 
+            req.id === requestId 
+              ? { ...req, status: status as any }
+              : req
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error responding to procurement request:', err);
+    }
+  };
+
+  // Navigation items for FlavorCore Manager
   const navigationItems = [
-    { id: 'overview', label: 'Dashboard Overview' },
-    { id: 'users', label: 'User Management' },
-    { id: 'workers', label: 'Worker Management' },
-    { id: 'jobs', label: 'Job Types' },
-    { id: 'provisions', label: 'Provisions' },
-    { id: 'onboarding', label: 'Onboarding Approvals' },
-    { id: 'yields', label: 'Yield Analytics' },
-    { id: 'reports', label: 'System Reports' },
-    { id: 'settings', label: 'Admin Settings' }
+    { id: 'overview', label: 'Processing Overview' },
+    { id: 'staff', label: 'FlavorCore Staff' },
+    { id: 'attendance', label: 'Daily Attendance' },
+    { id: 'wages', label: 'Wages & Salaries' },
+    { id: 'production', label: 'Production Data' },
+    { id: 'approvals', label: 'Product Approvals' },
+    { id: 'inventory', label: 'Inventory' },
+    { id: 'procurement', label: 'Procurement Requests' }
   ];
-
-  // Filter users based on search and status
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = selectedUserStatus === 'all' || user.status === selectedUserStatus;
-    return matchesSearch && matchesStatus;
-  });
-
-  const handleApproveOnboarding = async (requestId: string, notes: string = '') => {
-    try {
-      const response = await fetch(`${API_BASE}/api/onboarding/approve/${requestId}`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ notes })
-      });
-
-      if (response.ok) {
-        setOnboardingRequests(prev => 
-          prev.map(req => 
-            req.id === requestId 
-              ? { ...req, status: 'approved' as const, reviewNotes: notes }
-              : req
-          )
-        );
-      }
-    } catch (err) {
-      console.error('Error approving onboarding:', err);
-      alert('Error approving onboarding request');
-    }
-  };
-
-  const handleRejectOnboarding = async (requestId: string, notes: string = '') => {
-    try {
-      const response = await fetch(`${API_BASE}/api/onboarding/reject/${requestId}`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ notes })
-      });
-
-      if (response.ok) {
-        setOnboardingRequests(prev => 
-          prev.map(req => 
-            req.id === requestId 
-              ? { ...req, status: 'rejected' as const, reviewNotes: notes }
-              : req
-          )
-        );
-      }
-    } catch (err) {
-      console.error('Error rejecting onboarding:', err);
-      alert('Error rejecting onboarding request');
-    }
-  };
 
   // Initial data fetch
   useEffect(() => {
@@ -497,14 +600,15 @@ const AdminDashboard: React.FC = () => {
       
       try {
         await Promise.all([
-          fetchUsers(),
-          fetchWorkers(),
-          fetchJobTypes(),
-          fetchProvisions(),
-          fetchOnboardingRequests()
+          fetchFlavorCoreStaff(),
+          fetchAttendanceRecords(),
+          fetchProductionData(),
+          fetchFinishedProductForms(),
+          fetchInventoryItems(),
+          fetchProcurementRequests()
         ]);
       } catch (err: any) {
-        console.error('Error fetching data:', err);
+        console.error('Error fetching FlavorCore data:', err);
         setError(`Error loading dashboard: ${err.message}`);
       } finally {
         setLoading(false);
@@ -514,22 +618,22 @@ const AdminDashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
-  // Calculate statistics
-  const totalUsers = users.length;
-  const activeUsers = users.filter(u => u.status === 'active').length;
-  const pendingUsers = users.filter(u => u.status === 'pending').length;
-  const totalWorkers = workers.length;
-  const activeWorkers = workers.filter(w => w.status === 'active').length;
-  const pendingOnboardingCount = onboardingRequests.filter(req => req.status === 'pending').length;
-  const totalProvisions = provisions.reduce((sum, p) => sum + p.cost, 0);
+  // Calculate dashboard statistics
+  const totalStaff = flavorCoreStaff.length;
+  const activeStaff = flavorCoreStaff.filter(s => s.status === 'active').length;
+  const todayAttendance = attendanceRecords.filter(a => a.date === new Date().toISOString().split('T')[0]);
+  const presentToday = todayAttendance.filter(a => a.status === 'present').length;
+  const pendingApprovals = finishedProductForms.filter(f => f.status === 'pending_approval').length;
+  const pendingProcurement = procurementRequests.filter(r => r.status === 'pending').length;
+  const lowStockItems = inventoryItems.filter(i => i.status === 'low_stock' || i.status === 'critical').length;
 
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading admin dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading FlavorCore Manager Dashboard...</p>
         </div>
       </div>
     );
@@ -538,7 +642,7 @@ const AdminDashboard: React.FC = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-8">
         <Card className="border-red-200 bg-red-50 p-6">
           <div className="flex items-center gap-2 text-red-600">
             <AlertTriangle className="w-5 h-5" />
@@ -559,34 +663,25 @@ const AdminDashboard: React.FC = () => {
 
   const renderOverview = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-3xl font-bold text-gray-900">{totalUsers}</p>
+              <p className="text-sm font-medium text-gray-600">FlavorCore Staff</p>
+              <p className="text-3xl font-bold text-purple-600">{activeStaff}/{totalStaff}</p>
             </div>
-            <Users className="h-8 w-8 text-blue-600" />
+            <Users className="h-8 w-8 text-purple-600" />
           </div>
         </Card>
         
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Active Workers</p>
-              <p className="text-3xl font-bold text-green-600">{activeWorkers}</p>
+              <p className="text-sm font-medium text-gray-600">Present Today</p>
+              <p className="text-3xl font-bold text-green-600">{presentToday}</p>
             </div>
-            <CheckCircle className="h-8 w-8 text-green-600" />
-          </div>
-        </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Provisions</p>
-              <p className="text-3xl font-bold text-green-600">₹{totalProvisions.toLocaleString()}</p>
-            </div>
-            <Package className="h-8 w-8 text-green-600" />
+            <UserCheck className="h-8 w-8 text-green-600" />
           </div>
         </Card>
         
@@ -594,224 +689,196 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
-              <p className="text-3xl font-bold text-orange-600">{pendingOnboardingCount}</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingApprovals}</p>
             </div>
-            <AlertTriangle className="h-8 w-8 text-orange-600" />
+            <Clipboard className="h-8 w-8 text-orange-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Low Stock Items</p>
+              <p className="text-3xl font-bold text-red-600">{lowStockItems}</p>
+            </div>
+            <AlertTriangle className="h-8 w-8 text-red-600" />
           </div>
         </Card>
       </div>
 
+      {/* Current Processing Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Recent User Activity</h3>
-          <div className="space-y-3">
-            {users.slice(0, 5).map(user => (
-              <div key={user.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                <div>
-                  <p className="font-medium">{user.name}</p>
-                  <p className="text-sm text-gray-600">{user.role}</p>
+          <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <Activity className="h-5 w-5 mr-2 text-purple-600" />
+            Current Production
+          </h3>
+          <div className="space-y-4">
+            {productionData.slice(0, 3).map(batch => (
+              <div key={batch.batch_id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="font-semibold">{batch.batch_id}</h4>
+                    <p className="text-sm text-gray-600">{batch.product_type}</p>
+                  </div>
+                  <Badge variant={batch.status === 'completed' ? 'default' : 'outline'}>
+                    {batch.status}
+                  </Badge>
                 </div>
-                <Badge variant={user.status === 'active' ? 'default' : 'outline'}>
-                  {user.status}
-                </Badge>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Yield:</span>
+                    <span className="ml-2 font-medium">{batch.yield_percentage}%</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Quality:</span>
+                    <span className="ml-2 font-medium">{batch.quality_score}/100</span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">System Health</h3>
+          <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <Clock className="h-5 w-5 mr-2 text-blue-600" />
+            Pending Actions
+          </h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Server Status</span>
-              <Badge variant="default">Online</Badge>
+            <div className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <div>
+                <p className="font-medium text-orange-800">Product Approvals</p>
+                <p className="text-sm text-orange-600">{pendingApprovals} forms awaiting approval</p>
+              </div>
+              <Badge variant="outline" className="border-orange-300 text-orange-700">
+                {pendingApprovals}
+              </Badge>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Database Connection</span>
-              <Badge variant="default">Connected</Badge>
+            
+            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div>
+                <p className="font-medium text-blue-800">Procurement Requests</p>
+                <p className="text-sm text-blue-600">{pendingProcurement} requests pending response</p>
+              </div>
+              <Badge variant="outline" className="border-blue-300 text-blue-700">
+                {pendingProcurement}
+              </Badge>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">API Response Time</span>
-              <Badge variant="default">Fast</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Storage Usage</span>
-              <Badge variant="outline">68%</Badge>
-            </div>
+            
+            {lowStockItems > 0 && (
+              <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div>
+                  <p className="font-medium text-red-800">Low Stock Alert</p>
+                  <p className="text-sm text-red-600">{lowStockItems} items need restocking</p>
+                </div>
+                <Badge variant="outline" className="border-red-300 text-red-700">
+                  {lowStockItems}
+                </Badge>
+              </div>
+            )}
           </div>
         </Card>
       </div>
     </div>
   );
 
-  const renderUserManagement = () => (
+  const renderStaffManagement = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h3 className="text-lg font-semibold">User Management</h3>
+        <h3 className="text-lg font-semibold">FlavorCore Staff Management</h3>
         <div className="flex gap-2">
-          <Button>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
-            Export
+            Export Staff List
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <select
-          value={selectedUserStatus}
-          onChange={(e) => setSelectedUserStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md bg-white"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="pending">Pending</option>
-        </select>
-      </div>
-
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-4">User</th>
-                <th className="text-left p-4">Role</th>
-                <th className="text-left p-4">Status</th>
-                <th className="text-left p-4">Join Date</th>
-                <th className="text-left p-4">Last Active</th>
-                <th className="text-left p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map(user => (
-                <tr key={user.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4">
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-sm text-gray-600">{user.email}</p>
-                    </div>
-                  </td>
-                  <td className="p-4">{user.role}</td>
-                  <td className="p-4">
-                    <Badge variant={user.status === 'active' ? 'default' : 'outline'}>
-                      {user.status}
-                    </Badge>
-                  </td>
-                  <td className="p-4">{user.joinDate}</td>
-                  <td className="p-4">{user.lastActive}</td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-
-  const renderWorkerManagement = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h3 className="text-lg font-semibold">Worker Management</h3>
-        <div className="flex gap-2">
-          <Button>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Worker
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Workers</p>
-              <p className="text-3xl font-bold text-gray-900">{totalWorkers}</p>
+              <p className="text-sm font-medium text-gray-600">Processing Staff</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {flavorCoreStaff.filter(s => s.department === 'processing').length}
+              </p>
             </div>
-            <Users className="h-8 w-8 text-blue-600" />
+            <Settings className="h-6 w-6 text-purple-600" />
           </div>
         </Card>
         
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Active Workers</p>
-              <p className="text-3xl font-bold text-green-600">{activeWorkers}</p>
+              <p className="text-sm font-medium text-gray-600">Quality Control</p>
+              <p className="text-2xl font-bold text-green-600">
+                {flavorCoreStaff.filter(s => s.department === 'quality_control').length}
+              </p>
             </div>
-            <CheckCircle className="h-8 w-8 text-green-600" />
+            <CheckCircle className="h-6 w-6 text-green-600" />
           </div>
         </Card>
         
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Job Types</p>
-              <p className="text-3xl font-bold text-purple-600">{jobTypes.length}</p>
+              <p className="text-sm font-medium text-gray-600">Packaging</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {flavorCoreStaff.filter(s => s.department === 'packaging').length}
+              </p>
             </div>
-            <Target className="h-8 w-8 text-purple-600" />
+            <Package className="h-6 w-6 text-blue-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Maintenance</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {flavorCoreStaff.filter(s => s.department === 'maintenance').length}
+              </p>
+            </div>
+            <Settings className="h-6 w-6 text-yellow-600" />
           </div>
         </Card>
       </div>
 
       <Card>
         <div className="p-6">
-          <h4 className="text-lg font-semibold mb-4">Workers List</h4>
+          <h4 className="text-lg font-semibold mb-4">Staff Directory</h4>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-4">Worker</th>
-                  <th className="text-left p-4">Staff ID</th>
+                  <th className="text-left p-4">Staff</th>
                   <th className="text-left p-4">Role</th>
                   <th className="text-left p-4">Department</th>
+                  <th className="text-left p-4">Daily Wage</th>
                   <th className="text-left p-4">Status</th>
                   <th className="text-left p-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {workers.map(worker => (
-                  <tr key={worker.id} className="border-b hover:bg-gray-50">
+                {flavorCoreStaff.map(staff => (
+                  <tr key={staff.id} className="border-b hover:bg-gray-50">
                     <td className="p-4">
                       <div>
-                        <p className="font-medium">{worker.name}</p>
-                        <p className="text-sm text-gray-600">{worker.phone}</p>
+                        <p className="font-medium">{staff.full_name}</p>
+                        <p className="text-sm text-gray-600">{staff.staff_id} • {staff.phone}</p>
                       </div>
                     </td>
-                    <td className="p-4">{worker.staff_id}</td>
-                    <td className="p-4">{worker.role}</td>
-                    <td className="p-4">{worker.department}</td>
+                    <td className="p-4">{staff.role}</td>
                     <td className="p-4">
-                      <Badge variant={worker.status === 'active' ? 'default' : 'outline'}>
-                        {worker.status}
+                      <Badge variant="outline">
+                        {staff.department.replace('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="p-4">₹{staff.daily_wage}/day</td>
+                    <td className="p-4">
+                      <Badge variant={staff.status === 'active' ? 'default' : 'outline'}>
+                        {staff.status}
                       </Badge>
                     </td>
                     <td className="p-4">
@@ -834,224 +901,81 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 
-  const renderJobTypes = () => (
+  const renderProductApprovals = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h3 className="text-lg font-semibold">Job Types Management</h3>
-        <Button>
-          <Target className="h-4 w-4 mr-2" />
-          Add Job Type
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {jobTypes.map(jobType => (
-          <Card key={jobType.id} className="p-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">{jobType.name}</h4>
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-sm text-gray-600">{jobType.description}</p>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Department:</span>
-                <Badge variant="outline">{jobType.department}</Badge>
-              </div>
-              <div className="text-xs text-gray-400">
-                Created: {new Date(jobType.created_at).toLocaleDateString()}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderProvisions = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h3 className="text-lg font-semibold">Provisions Management</h3>
-        <Button>
-          <Package className="h-4 w-4 mr-2" />
-          Add Provision
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Cost</p>
-              <p className="text-3xl font-bold text-green-600">₹{totalProvisions.toLocaleString()}</p>
-            </div>
-            <DollarSign className="h-8 w-8 text-green-600" />
-          </div>
-        </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Delivered</p>
-              <p className="text-3xl font-bold text-blue-600">
-                {provisions.filter(p => p.status === 'delivered').length}
-              </p>
-            </div>
-            <CheckCircle className="h-8 w-8 text-blue-600" />
-          </div>
-        </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-3xl font-bold text-orange-600">
-                {provisions.filter(p => p.status === 'pending').length}
-              </p>
-            </div>
-            <Clock className="h-8 w-8 text-orange-600" />
-          </div>
-        </Card>
-      </div>
-
-      <Card>
-        <div className="p-6">
-          <h4 className="text-lg font-semibold mb-4">Provisions List</h4>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-4">Item</th>
-                  <th className="text-left p-4">Quantity</th>
-                  <th className="text-left p-4">Supplier</th>
-                  <th className="text-left p-4">Cost</th>
-                  <th className="text-left p-4">Status</th>
-                  <th className="text-left p-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {provisions.map(provision => (
-                  <tr key={provision.id} className="border-b hover:bg-gray-50">
-                    <td className="p-4">
-                      <p className="font-medium">{provision.item_name}</p>
-                    </td>
-                    <td className="p-4">{provision.quantity} {provision.unit}</td>
-                    <td className="p-4">{provision.supplier}</td>
-                    <td className="p-4">₹{provision.cost.toLocaleString()}</td>
-                    <td className="p-4">
-                      <Badge variant={provision.status === 'delivered' ? 'default' : 'outline'}>
-                        {provision.status}
-                      </Badge>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-
-  const renderOnboardingApprovals = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h3 className="text-lg font-semibold">Onboarding Approvals</h3>
-        <Badge variant="outline">
-          {pendingOnboardingCount} Pending Reviews
+        <h3 className="text-lg font-semibold">Finished Product Approvals</h3>
+        <Badge variant="outline" className="border-orange-300 text-orange-700">
+          {pendingApprovals} Pending Reviews
         </Badge>
       </div>
 
       <div className="grid gap-6">
-        {onboardingRequests.map(request => (
-          <Card key={request.id} className="p-6">
+        {finishedProductForms.map(form => (
+          <Card key={form.id} className="p-6">
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h4 className="text-lg font-semibold">{request.applicantName}</h4>
-                  <p className="text-gray-600">{request.email} • {request.phone}</p>
+                  <h4 className="text-lg font-semibold">{form.product_name}</h4>
+                  <p className="text-gray-600">Batch: {form.batch_id} • Supervisor: {form.supervisor_id}</p>
                 </div>
                 <Badge variant={
-                  request.status === 'approved' ? 'default' :
-                  request.status === 'rejected' ? 'outline' : 'outline'
+                  form.status === 'approved' ? 'default' :
+                  form.status === 'rejected' ? 'outline' : 'outline'
                 }>
-                  {request.status}
+                  {form.status.replace('_', ' ')}
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <h5 className="font-medium mb-2">Farm Details</h5>
+                  <h5 className="font-medium mb-2">Product Details</h5>
                   <div className="space-y-1 text-sm">
-                    <p><MapPin className="inline h-4 w-4 mr-1" />{request.farmLocation}</p>
-                    <p><Target className="inline h-4 w-4 mr-1" />{request.farmSize} acres</p>
-                    <p><Activity className="inline h-4 w-4 mr-1" />{request.experienceYears} years experience</p>
-                    <p><Star className="inline h-4 w-4 mr-1" />Crops: {request.primaryCrops.join(', ')}</p>
+                    <p><Package className="inline h-4 w-4 mr-1" />Quantity: {form.quantity} {form.unit}</p>
+                    <p><CheckCircle className="inline h-4 w-4 mr-1" />Grade: {form.quality_grade}</p>
+                    <p><Calendar className="inline h-4 w-4 mr-1" />Production: {form.production_date}</p>
+                    <p><Clock className="inline h-4 w-4 mr-1" />Expiry: {form.expiry_date}</p>
                   </div>
                 </div>
-
+                
                 <div>
-                  <h5 className="font-medium mb-2">Document Status</h5>
+                  <h5 className="font-medium mb-2">Packaging</h5>
                   <div className="space-y-1 text-sm">
-                    <div className="flex items-center">
-                      {request.documents.idProof ? 
-                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
-                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
-                      }
-                      ID Proof
-                    </div>
-                    <div className="flex items-center">
-                      {request.documents.landOwnership ? 
-                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
-                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
-                      }
-                      Land Ownership
-                    </div>
-                    <div className="flex items-center">
-                      {request.documents.bankDetails ? 
-                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
-                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
-                      }
-                      Bank Details
-                    </div>
-                    <div className="flex items-center">
-                      {request.documents.cropCertificates ? 
-                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
-                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
-                      }
-                      Crop Certificates
-                    </div>
+                    <p><Package className="inline h-4 w-4 mr-1" />{form.packaging_type}</p>
+                    <p><Calendar className="inline h-4 w-4 mr-1" />Submitted: {form.submitted_date}</p>
                   </div>
+                </div>
+                
+                <div>
+                  <h5 className="font-medium mb-2">Notes</h5>
+                  <p className="text-sm text-gray-600">
+                    {form.notes || 'No additional notes provided'}
+                  </p>
                 </div>
               </div>
 
-              {request.status === 'pending' && (
+              {form.status === 'pending_approval' && (
                 <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
                   <div className="flex-1">
-                    <Textarea placeholder="Review notes (optional)" className="w-full" />
+                    <Textarea 
+                      placeholder="Approval notes (optional)" 
+                      className="w-full" 
+                      id={`notes-${form.id}`}
+                    />
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => handleApproveOnboarding(request.id)}
+                      onClick={() => {
+                        const notes = (document.getElementById(`notes-${form.id}`) as HTMLTextAreaElement)?.value || '';
+                        approveFinishedProduct(form.id, notes);
+                      }}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Approve
+                      Approve & Add to Inventory
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => handleRejectOnboarding(request.id)}
                       className="border-red-600 text-red-600 hover:bg-red-50"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
@@ -1060,11 +984,187 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
-              {request.reviewNotes && (
-                <div className="pt-4 border-t">
-                  <h5 className="font-medium mb-2">Review Notes</h5>
-                  <p className="text-sm text-gray-600">{request.reviewNotes}</p>
+  const renderInventory = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Inventory Management</h3>
+        <div className="flex gap-2">
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export Inventory
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Products</p>
+              <p className="text-3xl font-bold text-blue-600">{inventoryItems.length}</p>
+            </div>
+            <Package className="h-8 w-8 text-blue-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Adequate Stock</p>
+              <p className="text-3xl font-bold text-green-600">
+                {inventoryItems.filter(i => i.status === 'adequate').length}
+              </p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Low Stock</p>
+              <p className="text-3xl font-bold text-red-600">{lowStockItems}</p>
+            </div>
+            <AlertTriangle className="h-8 w-8 text-red-600" />
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <div className="p-6">
+          <h4 className="text-lg font-semibold mb-4">Current Inventory</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-4">Product</th>
+                  <th className="text-left p-4">Current Stock</th>
+                  <th className="text-left p-4">Location</th>
+                  <th className="text-left p-4">Minimum Threshold</th>
+                  <th className="text-left p-4">Status</th>
+                  <th className="text-left p-4">Last Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryItems.map(item => (
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
+                      <p className="font-medium">{item.product_name}</p>
+                    </td>
+                    <td className="p-4">{item.current_stock} {item.unit}</td>
+                    <td className="p-4">{item.location}</td>
+                    <td className="p-4">{item.minimum_threshold} {item.unit}</td>
+                    <td className="p-4">
+                      <Badge variant={
+                        item.status === 'adequate' ? 'default' : 
+                        item.status === 'low_stock' ? 'outline' : 'outline'
+                      }>
+                        {item.status.replace('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="p-4">{item.last_updated}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const renderProcurementRequests = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Procurement Requests from HarvestFlow</h3>
+        <Badge variant="outline" className="border-blue-300 text-blue-700">
+          {pendingProcurement} Pending Responses
+        </Badge>
+      </div>
+
+      <div className="grid gap-6">
+        {procurementRequests.map(request => (
+          <Card key={request.id} className="p-6">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-lg font-semibold">{request.item_name}</h4>
+                  <p className="text-gray-600">Requested by: {request.requested_by}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Badge variant={
+                    request.urgency === 'high' ? 'default' :
+                    request.urgency === 'medium' ? 'outline' : 'outline'
+                  }>
+                    {request.urgency} priority
+                  </Badge>
+                  <Badge variant={
+                    request.status === 'approved' ? 'default' :
+                    request.status === 'rejected' ? 'outline' : 'outline'
+                  }>
+                    {request.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h5 className="font-medium mb-2">Request Details</h5>
+                  <div className="space-y-1 text-sm">
+                    <p><Package className="inline h-4 w-4 mr-1" />Quantity: {request.quantity} {request.unit}</p>
+                    <p><FileText className="inline h-4 w-4 mr-1" />Purpose: {request.purpose}</p>
+                    <p><Calendar className="inline h-4 w-4 mr-1" />Requested: {request.requested_date}</p>
+                    <p><Clock className="inline h-4 w-4 mr-1" />Required by: {request.required_by}</p>
+                  </div>
+                </div>
+                
+                {request.notes && (
+                  <div>
+                    <h5 className="font-medium mb-2">Additional Notes</h5>
+                    <p className="text-sm text-gray-600">{request.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {request.status === 'pending' && (
+                <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
+                  <div className="flex-1">
+                    <Textarea 
+                      placeholder="Response notes (optional)" 
+                      className="w-full" 
+                      id={`response-notes-${request.id}`}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        const notes = (document.getElementById(`response-notes-${request.id}`) as HTMLTextAreaElement)?.value || '';
+                        respondToProcurementRequest(request.id, 'approved', notes);
+                      }}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve Request
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const notes = (document.getElementById(`response-notes-${request.id}`) as HTMLTextAreaElement)?.value || '';
+                        respondToProcurementRequest(request.id, 'rejected', notes);
+                      }}
+                      variant="outline"
+                      className="border-red-600 text-red-600 hover:bg-red-50"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject Request
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1074,153 +1174,73 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 
-  const renderYieldAnalytics = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold">Yield Analytics</h3>
-      <Card className="p-6">
-        <p className="text-gray-600">Yield analytics data will be displayed here when integrated with the backend system.</p>
-      </Card>
-    </div>
-  );
-
-  const renderReports = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold">System Reports</h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold">User Activity Report</h4>
-              <p className="text-sm text-gray-600 mt-1">Daily active users and engagement metrics</p>
-            </div>
-            <Activity className="h-8 w-8 text-blue-600" />
-          </div>
-          <Button variant="outline" className="w-full mt-4">
-            <Download className="h-4 w-4 mr-2" />
-            Generate Report
-          </Button>
-        </Card>
-
-        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold">Worker Management Report</h4>
-              <p className="text-sm text-gray-600 mt-1">Worker performance and analytics</p>
-            </div>
-            <Users className="h-8 w-8 text-green-600" />
-          </div>
-          <Button variant="outline" className="w-full mt-4">
-            <Download className="h-4 w-4 mr-2" />
-            Generate Report
-          </Button>
-        </Card>
-
-        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold">Financial Summary</h4>
-              <p className="text-sm text-gray-600 mt-1">Revenue and expense analytics</p>
-            </div>
-            <DollarSign className="h-8 w-8 text-yellow-600" />
-          </div>
-          <Button variant="outline" className="w-full mt-4">
-            <Download className="h-4 w-4 mr-2" />
-            Generate Report
-          </Button>
-        </Card>
-      </div>
-    </div>
-  );
-
-  const renderSettings = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold">Admin Settings</h3>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h4 className="font-semibold mb-4">System Configuration</h4>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">System Maintenance Mode</label>
-              <Button variant="outline">Toggle Maintenance</Button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Auto-approval Threshold</label>
-              <Input type="number" placeholder="Enter threshold value" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Email Notifications</label>
-              <Button variant="outline">Configure Notifications</Button>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h4 className="font-semibold mb-4">Security Settings</h4>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Admin Password</label>
-              <Button variant="outline">Change Password</Button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Two-Factor Authentication</label>
-              <Button variant="outline">Enable 2FA</Button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Session Timeout</label>
-              <Input type="number" placeholder="Minutes" />
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
         return renderOverview();
-      case 'users':
-        return renderUserManagement();
-      case 'workers':
-        return renderWorkerManagement();
-      case 'jobs':
-        return renderJobTypes();
-      case 'provisions':
-        return renderProvisions();
-      case 'onboarding':
-        return renderOnboardingApprovals();
-      case 'yields':
-        return renderYieldAnalytics();
-      case 'reports':
-        return renderReports();
-      case 'settings':
-        return renderSettings();
+      case 'staff':
+        return renderStaffManagement();
+      case 'attendance':
+        return <div className="p-8 text-center text-gray-600">Attendance management coming soon...</div>;
+      case 'wages':
+        return <div className="p-8 text-center text-gray-600">Wages & salary management coming soon...</div>;
+      case 'production':
+        return <div className="p-8 text-center text-gray-600">Production data analytics coming soon...</div>;
+      case 'approvals':
+        return renderProductApprovals();
+      case 'inventory':
+        return renderInventory();
+      case 'procurement':
+        return renderProcurementRequests();
       default:
         return renderOverview();
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+      {/* SINGLE CLEAN HEADER */}
+      <header className="bg-gradient-to-r from-purple-600 via-purple-700 to-purple-800 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
-            </div>
+          <div className="flex justify-between items-center h-16">
+            {/* Logo and Title */}
             <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+              <img 
+                src="/flavorcore-logo.png" 
+                alt="FlavorCore Logo" 
+                className="h-10 w-10 rounded-lg bg-white/10 p-1"
+                onError={(e) => {
+                  console.error('Logo failed to load from /flavorcore-logo.png');
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <div>
+                <h1 className="text-xl font-bold">FlavorCore Agricultural Management</h1>
+                <p className="text-purple-100 text-sm">Post-Harvest Processing Dashboard</p>
+              </div>
+            </div>
+
+            {/* User Info and Logout */}
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="font-medium">Welcome, {user?.full_name || 'User'}</p>
+                <p className="text-purple-100 text-sm">
+                  FlavorCore Manager ({user?.staff_id})
+                </p>
+              </div>
+              <Button 
+                onClick={logout}
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                Logout
               </Button>
-              <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
+      {/* MAIN DASHBOARD CONTENT */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <EnhancedNavigation
           items={navigationItems}
@@ -1236,4 +1256,4 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-export default AdminDashboard;
+export default FlavorCoreManagerDashboard;

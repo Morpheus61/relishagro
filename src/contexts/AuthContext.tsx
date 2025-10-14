@@ -1,159 +1,146 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../lib/api';
 
-// User interface - updated to match your backend response
+// Types
 interface User {
-  id: string;
   staff_id: string;
-  username: string; // We'll use staff_id as username for compatibility
-  role: 'admin' | 'harvestflow_manager' | 'flavorcore_manager' | 'flavorcore_supervisor';
   full_name: string;
-  designation: string;
+  role: string;
+  department: string;
+  phone_number?: string;
   email?: string;
-  firstName?: string;
-  lastName?: string;
 }
 
-// Auth context interface
 interface AuthContextType {
   user: User | null;
-  login: (staffId: string, password?: string) => Promise<boolean>; // Made password optional since backend doesn't use it
+  login: (staffId: string, password?: string) => Promise<void>;
   logout: () => void;
-  isLoading: boolean;
+  loading: boolean;
   isAuthenticated: boolean;
-  error: string | null;
 }
 
 // Create context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Provider props interface
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
-// Auth Provider component
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+// Auth Provider Component
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Check for existing session on mount
+  const isAuthenticated = !!user;
+
+  // Initialize auth state from localStorage
   useEffect(() => {
-    const checkAuthStatus = async (): Promise<void> => {
+    const initializeAuth = async () => {
       try {
-        const savedUser = localStorage.getItem('user_data'); // Use same key as api.ts
-        const savedToken = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('access_token');
+        const savedUser = localStorage.getItem('user');
         
-        if (savedUser && savedToken) {
-          const parsedUser = JSON.parse(savedUser);
-          
-          // Convert backend user format to our User interface
-          const formattedUser: User = {
-            id: parsedUser.id,
-            staff_id: parsedUser.staff_id,
-            username: parsedUser.staff_id, // Use staff_id as username for compatibility
-            role: parsedUser.role || 'admin', // Default to admin if role is missing
-            full_name: parsedUser.full_name,
-            designation: parsedUser.designation,
-            firstName: parsedUser.full_name?.split(' ')[0],
-            lastName: parsedUser.full_name?.split(' ').slice(1).join(' ')
-          };
-          
-          setUser(formattedUser);
-          console.log('✅ AuthContext: Restored user from localStorage:', formattedUser);
+        if (token && savedUser) {
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
         }
       } catch (error) {
-        console.error('❌ Error checking auth status:', error);
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('auth_token');
+        console.error('Error initializing auth:', error);
+        // Clear invalid data
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    checkAuthStatus();
+    initializeAuth();
   }, []);
 
-  // Login function - now uses real backend API
-  const login = async (staffId: string, password?: string): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    
+  // Login function
+  const login = async (staffId: string, password?: string) => {
     try {
-      console.log('🔐 AuthContext: Attempting login with staffId:', staffId);
+      setLoading(true);
       
-      // Use the API client to login
-      const response = await api.login(staffId);
-      
-      console.log('📡 AuthContext: API response:', response);
+      const response = await fetch('https://relishagrobackend-production.up.railway.app/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ staff_id: staffId }), // Only staff_id needed
+      });
 
-      if (!response.authenticated || !response.user) {
-        setError('Authentication failed');
-        return false;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Login failed');
       }
 
-      // Convert backend user format to our User interface
-      const formattedUser: User = {
-        id: response.user.id,
-        staff_id: response.user.staff_id,
-        username: response.user.staff_id, // Use staff_id as username for compatibility
-        role: response.user.role || 'admin',
-        full_name: response.user.full_name,
-        designation: response.user.designation,
-        firstName: response.user.full_name?.split(' ')[0],
-        lastName: response.user.full_name?.split(' ').slice(1).join(' ')
-      };
-
-      setUser(formattedUser);
-      console.log('✅ AuthContext: User set successfully:', formattedUser);
+      const data = await response.json();
       
-      // The api.login() already saves to localStorage, but let's ensure consistency
-      localStorage.setItem('user_data', JSON.stringify(response.user));
+      // Store token and user data
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user_info));
       
-      return true;
-
-    } catch (error: any) {
-      console.error('❌ AuthContext: Login error:', error);
-      setError(error.message || 'Login failed. Please check your connection.');
-      return false;
+      setUser(data.user_info);
+      
+      // Redirect based on role
+      redirectToDashboard(data.user_info.role);
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Logout function
-  const logout = (): void => {
-    console.log('🚪 AuthContext: Logging out user');
-    setUser(null);
-    setError(null);
+  // Role-based dashboard redirection
+  const redirectToDashboard = (role: string) => {
+    const roleRoutes = {
+      'admin': '/admin-dashboard',
+      'harvest_field': '/harvest-flow-dashboard', 
+      'flavor_core': '/flavorcore-dashboard',
+      'supervisor': '/supervisor-dashboard',
+      'quality_control': '/quality-dashboard',
+      'logistics': '/logistics-dashboard',
+      'general': '/general-dashboard'
+    };
+
+    const targetRoute = roleRoutes[role as keyof typeof roleRoutes] || '/dashboard';
     
-    // Clear both AuthContext and API storage
-    localStorage.removeItem('user_data');
-    localStorage.removeItem('auth_token');
-    
-    // Also clear API client auth
-    api.clearAuth();
+    // Use replace to prevent back navigation to login
+    window.location.replace(targetRoute);
   };
 
-  // Context value
-  const contextValue: AuthContextType = {
+  // Logout function
+  const logout = () => {
+    try {
+      // Clear localStorage
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+      
+      // Clear user state
+      setUser(null);
+      
+      // Redirect to login
+      window.location.replace('/login');
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const value: AuthContextType = {
     user,
     login,
     logout,
-    isLoading,
-    isAuthenticated: user !== null,
-    error
+    loading,
+    isAuthenticated,
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Hook to use auth context
+// Custom hook to use auth context
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -161,6 +148,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-
-// Export types
-export type { User, AuthContextType };
