@@ -142,21 +142,23 @@ class ApiClient {
   private token: string | null = null;
 
   constructor() {
-    this.token = localStorage.getItem('auth_token');
+    // FIXED: Use same token key as AuthContext expects
+    this.token = localStorage.getItem('access_token');
     debugLog('ApiClient initialized', { hasToken: !!this.token, baseUrl: API_BASE_URL });
   }
 
   setToken(token: string) {
     debugLog('Setting API token');
     this.token = token;
-    localStorage.setItem('auth_token', token);
+    // FIXED: Use same token key as AuthContext expects  
+    localStorage.setItem('access_token', token);
   }
 
   clearAuth() {
     debugLog('Clearing API authentication');
     this.token = null;
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user');
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
@@ -207,28 +209,34 @@ class ApiClient {
 
     debugLog('Login response received', response);
 
-    // Handle your actual backend response format
-    if (response.authenticated && response.user && response.token) {
-      this.setToken(response.token);
+    // FIXED: Handle your actual backend response format
+    if (response.access_token && response.staff_id && response.role) {
+      debugLog('Setting token from access_token field');
+      this.setToken(response.access_token);
       
+      // Create user data matching AuthContext expectations
       const userData = {
-        staff_id: response.user.staff_id,
-        role: response.user.role,
-        full_name: response.user.full_name,
-        department: response.user.role,
-        id: response.user.id,
-        designation: response.user.designation
+        staff_id: response.staff_id,
+        role: response.role,
+        full_name: `${response.first_name} ${response.last_name}`.trim(),
+        department: response.role,
+        id: response.staff_id,
+        designation: response.role,
+        phone_number: response.phone_number,
+        email: response.email
       };
       
-      localStorage.setItem('user_data', JSON.stringify(userData));
+      debugLog('Storing user data', userData);
+      localStorage.setItem('user', JSON.stringify(userData));
       
       return {
         authenticated: true,
         user: userData,
-        token: response.token
+        access_token: response.access_token
       };
     }
 
+    debugLog('Login failed - missing required fields in response');
     return {
       authenticated: false,
       user: null

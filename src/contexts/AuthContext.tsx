@@ -47,8 +47,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize auth state from localStorage
   useEffect(() => {
     debugLog('AuthProvider initializing...');
-    const token = localStorage.getItem('auth_token');
-    const savedUser = localStorage.getItem('user_data');
+    // FIXED: Use same token key as api.ts
+    const token = localStorage.getItem('access_token');
+    const savedUser = localStorage.getItem('user');
     
     if (token && savedUser) {
       try {
@@ -58,8 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         api.setToken(token);
       } catch (error) {
         debugLog('Error parsing stored user data', error);
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_data');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
         api.clearAuth();
       }
     } else {
@@ -83,13 +84,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           staff_id: response.user.staff_id,
           full_name: response.user.full_name || response.user.staff_id,
           role: response.user.role,
-          department: response.user.role,
+          department: response.user.department,
           id: response.user.id,
           designation: response.user.designation
         };
         
         debugLog('Setting user data', userData);
         setUser(userData);
+        debugLog('Login successful - React Router will handle navigation');
       } else {
         debugLog('Authentication failed', response);
         throw new Error('Authentication failed');
