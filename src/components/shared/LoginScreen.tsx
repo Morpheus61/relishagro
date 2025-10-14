@@ -9,11 +9,7 @@ const debugLog = (message: string, data?: any) => {
   console.log(`[LoginScreen DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
 };
 
-interface LoginScreenProps {
-  onLogin: (userId: string, role: string) => void;
-}
-
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+export function LoginScreen() {
   const [staffId, setStaffId] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,10 +29,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       debugLog('Calling AuthContext login...');
       await login(staffId.trim());
       debugLog('Login successful - AuthContext will handle user state update');
-      
-      // The AuthContext will update the user state, which will trigger
-      // the App component to re-render and show the appropriate dashboard
-      
     } catch (err: any) {
       debugLog('Login error caught', err);
       setError(err.message || 'Login failed. Please check your Staff ID.');
@@ -111,16 +103,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             🔒 Secure Access • Contact Admin for Staff ID
           </p>
         </div>
-
-        {/* Debug Info (only in development) */}
-        {import.meta.env.DEV && (
-          <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-            <p className="font-semibold mb-1">Debug Info:</p>
-            <p>API URL: {import.meta.env.VITE_API_URL || 'https://relishagro-production.up.railway.app'}</p>
-            <p>Staff ID: {staffId}</p>
-            <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
-          </div>
-        )}
       </div>
     </div>
   );

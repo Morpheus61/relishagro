@@ -185,33 +185,31 @@ const AppContent: React.FC = () => {
   };
 
   // If user is not authenticated, show login screen
-  if (!user) {
-    console.log('🔒 App.tsx: No user found, showing LoginScreen');
-    return (
-      <div>
-        <LoginScreen 
-          onLogin={handleLogin}
-        />
-        {/* Show error message if login failed */}
-        {error && (
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            padding: '16px',
-            color: '#dc2626',
-            maxWidth: '300px',
-            zIndex: 1000
-          }}>
-            <strong>Login Error:</strong> {error}
-          </div>
-        )}
-      </div>
-    );
-  }
+if (!user) {
+  console.log('🔒 App.tsx: No user found, showing LoginScreen');
+  return (
+    <div>
+      <LoginScreen />
+      {/* Show error message if login failed */}
+      {error && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '8px',
+          padding: '16px',
+          color: '#dc2626',
+          maxWidth: '300px',
+          zIndex: 1000
+        }}>
+          <strong>Login Error:</strong> {error}
+        </div>
+      )}
+    </div>
+  );
+}
 
   console.log('✅ App.tsx: User authenticated, showing dashboard for:', user);
 

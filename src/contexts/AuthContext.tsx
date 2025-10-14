@@ -12,8 +12,6 @@ interface User {
   full_name: string;
   role: string;
   department: string;
-  phone_number?: string;
-  email?: string;
   id: string;
   designation: string;
 }
@@ -49,20 +47,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize auth state from localStorage
   useEffect(() => {
     debugLog('AuthProvider initializing...');
-    const token = localStorage.getItem('access_token');
-    const savedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('auth_token');
+    const savedUser = localStorage.getItem('user_data');
     
     if (token && savedUser) {
       try {
         const userData = JSON.parse(savedUser);
         debugLog('Restoring user from localStorage', userData);
         setUser(userData);
-        // Make sure api client has the token
         api.setToken(token);
       } catch (error) {
         debugLog('Error parsing stored user data', error);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
         api.clearAuth();
       }
     } else {
@@ -78,26 +75,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       setError(null);
       
-      // Use your api.ts login method
       const response = await api.login(staffId);
       debugLog('API login response', response);
       
       if (response.authenticated && response.user) {
-        // Create user object in your expected format
         const userData: User = {
           staff_id: response.user.staff_id,
           full_name: response.user.full_name || response.user.staff_id,
           role: response.user.role,
           department: response.user.role,
-          phone_number: response.user.phone_number,
-          email: response.user.email,
-          id: response.user.staff_id,
-          designation: response.user.role
+          id: response.user.id,
+          designation: response.user.designation
         };
         
         debugLog('Setting user data', userData);
         setUser(userData);
-        debugLog('Login successful - React Router will handle navigation');
       } else {
         debugLog('Authentication failed', response);
         throw new Error('Authentication failed');
@@ -107,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       debugLog('Login error', error);
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       setError(errorMessage);
-      throw error; // Re-throw so calling component can handle it
+      throw error;
     } finally {
       setLoading(false);
     }

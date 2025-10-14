@@ -3,8 +3,7 @@
  * Base URL: https://relishagrobackend-production.up.railway.app
  */
 
-// CORRECTED: Use your actual Railway URL from the dashboard
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://relishagrobackend-production.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
 
 // Enhanced debug logging
 const debugLog = (message: string, data?: any) => {
@@ -143,23 +142,21 @@ class ApiClient {
   private token: string | null = null;
 
   constructor() {
-    // FIXED: Use same token key as AuthContext
-    this.token = localStorage.getItem('access_token');
+    this.token = localStorage.getItem('auth_token');
     debugLog('ApiClient initialized', { hasToken: !!this.token, baseUrl: API_BASE_URL });
   }
 
   setToken(token: string) {
     debugLog('Setting API token');
     this.token = token;
-    // FIXED: Use same token key as AuthContext
-    localStorage.setItem('access_token', token);
+    localStorage.setItem('auth_token', token);
   }
 
   clearAuth() {
     debugLog('Clearing API authentication');
     this.token = null;
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
@@ -210,60 +207,34 @@ class ApiClient {
 
     debugLog('Login response received', response);
 
-    // Handle different response formats from your backend
-    if (response.access_token) {
-      debugLog('Setting token from access_token field');
-      this.setToken(response.access_token);
-      
-      // Store user data in same format as AuthContext expects
-      const userData = {
-        staff_id: response.staff_id,
-        role: response.role,
-        full_name: response.full_name || (response.first_name && response.last_name ? `${response.first_name} ${response.last_name}` : staffId),
-        department: response.role,
-        phone_number: response.phone_number,
-        email: response.email,
-        id: response.staff_id,
-        designation: response.role
-      };
-      
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      return {
-        authenticated: true,
-        user: userData,
-        access_token: response.access_token
-      };
-    } else if (response.token) {
-      debugLog('Setting token from token field');
+    // Handle your actual backend response format
+    if (response.authenticated && response.user && response.token) {
       this.setToken(response.token);
       
-      const userData = response.user || {
-        staff_id: staffId,
-        role: response.role || 'staff',
-        full_name: response.full_name || staffId,
-        department: response.role || 'staff',
-        id: staffId,
-        designation: response.role || 'staff'
+      const userData = {
+        staff_id: response.user.staff_id,
+        role: response.user.role,
+        full_name: response.user.full_name,
+        department: response.user.role,
+        id: response.user.id,
+        designation: response.user.designation
       };
       
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user_data', JSON.stringify(userData));
       
       return {
         authenticated: true,
         user: userData,
-        access_token: response.token
+        token: response.token
       };
     }
 
-    debugLog('Login failed - no token in response');
     return {
       authenticated: false,
       user: null
     };
   }
 
-  // ... rest of your methods remain exactly the same ...
   async getWorkers() {
     return this.request('/api/workers');
   }
