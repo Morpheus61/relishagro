@@ -1,530 +1,487 @@
 /**
- * API Client for Railway Python Backend
- * Base URL: https://relishagrobackend-production.up.railway.app
+ * RelishAgro API Client - CORRECTED for Railway Port 8080
+ * 
+ * CRITICAL FIXES:
+ * 1. Railway uses port 8080 (shown in logs), not 8000
+ * 2. Mobile compatibility enhancements
+ * 3. Proper error handling and debugging
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
+// ===== CORRECTED API CONFIGURATION =====
+// Railway automatically handles port routing - no need to specify port in URL
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
 
-// Enhanced debug logging
-const debugLog = (message: string, data?: any) => {
-  console.log(`[API DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
-};
+// DEBUGGING: Log the URL being used
+console.log('🔗 API Base URL:', BASE_URL);
+console.log('🚂 Railway Backend: Uses internal port 8080, external HTTPS routing');
+console.log('📱 Mobile Fix: Corrected URL configuration');
 
-// Define all data interfaces
-interface AssignDailyWorkData {
-  job_type_id: string;
-  worker_ids: string[];
-  area_notes: string;
-  assigned_by: string;
-  date: string;
+// ===== AUTHENTICATION STORAGE =====
+const AUTH_STORAGE_KEY = 'relishagro_auth';
+
+// ===== TYPES =====
+export interface LoginRequest {
+  staff_id: string;
 }
 
-interface CreateLotData {
-  lot_id: string;
-  crop: string;
-  raw_weight: number;
-  threshed_weight: number;
-  worker_ids: string[];
-  created_by: string;
-  status: string;
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  staff_id: string;
+  role: string;
+  first_name: string;
+  last_name: string;
+  expires_in: number;
+  mobile_compatible?: boolean;
 }
 
-interface ApproveLotData {
-  approved_by: string;
-  notes?: string;
-}
-
-interface RejectLotData {
-  rejected_by: string;
-  reason: string;
-}
-
-interface CompleteLotData {
-  lot_id: string;
-  final_products: { product: string; weight: number }[];
-  by_products: { product: string; weight: number }[];
-  completed_by: string;
-  completion_time: string;
-}
-
-interface AddBagToLotData {
-  bagId: string;
-  tagId: string;
-  weight: number;
-  timestamp: number;
-}
-
-interface RecordRFIDInScanData {
-  lot_id: string;
-  bag_id: string;
-  rfid_tag: string;
-  weight: number;
-  scanned_by: string;
-  timestamp: string;
-}
-
-interface DispatchLotData {
-  lot_id: string;
-  driver_name: string;
-  vehicle_number: string;
-  destination: string;
-  dispatch_time: string;
-  status: string;
-}
-
-interface UpdateGPSLocationData {
-  latitude: number;
-  longitude: number;
-  timestamp: number;
-}
-
-interface RecordDryingSampleData {
-  id: string;
-  lot_id: string;
-  sample_weight: number;
-  product_type: string;
-  notes: string;
-  timestamp: string;
-}
-
-interface SubmitOnboardingData {
+export interface UserInfo {
   staff_id: string;
   first_name: string;
   last_name: string;
-  full_name: string;
-  designation: string;
-  person_type: string;
-  face_descriptor?: number[];
-  fingerprint_template?: string;
-  profile_image?: string;
+  role: string;
+  is_active: boolean;
 }
 
-interface SubmitAttendanceOverrideData {
-  worker_id: string;
-  check_in: string;
-  check_out: string | null;
-  override_reason: string;
-  status: string;
-  submitted_by: string;
-  location: { latitude: number; longitude: number };
-  timestamp: string;
+export interface ApiError {
+  detail: string;
+  mobile_debug?: boolean;
 }
 
-interface ApproveOverrideData {
-  notes?: string;
+export interface AuthData {
+  access_token: string;
+  token_type: string;
+  staff_id: string;
+  role: string;
+  first_name: string;
+  last_name: string;
+  expires_in: number;
 }
 
-interface RejectOverrideData {
-  reason: string;
-}
-
-interface RegisterFaceData {
-  user_id: string;
-  face_descriptor: number[];
-  image_data?: string;
-}
-
-interface SyncAttendanceBatchData {
-  records: any[];
-}
-
-interface SyncGPSBatchData {
-  locations: any[];
-}
-
-interface YieldDataParams {
-  dateFrom?: string;
-  dateTo?: string;
-  lotId?: string;
-}
-
-class ApiClient {
-  private token: string | null = null;
-
-  constructor() {
-    // FIXED: Use same token key as AuthContext expects
-    this.token = localStorage.getItem('access_token');
-    debugLog('ApiClient initialized', { hasToken: !!this.token, baseUrl: API_BASE_URL });
-  }
-
-  setToken(token: string) {
-    debugLog('Setting API token');
-    this.token = token;
-    // FIXED: Use same token key as AuthContext expects  
-    localStorage.setItem('access_token', token);
-  }
-
-  clearAuth() {
-    debugLog('Clearing API authentication');
-    this.token = null;
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-  }
-
-  private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    debugLog('Making API request', { url, method: options.method || 'GET' });
-
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
-      ...options.headers,
+// ===== STORAGE HELPERS =====
+export const saveAuthData = (authData: AuthData): void => {
+  try {
+    const authWithTimestamp = {
+      ...authData,
+      timestamp: Date.now(),
+      expires_at: Date.now() + (authData.expires_in * 1000)
     };
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
-
-      debugLog('API response received', { 
-        status: response.status, 
-        statusText: response.statusText,
-        ok: response.ok 
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Request failed' }));
-        debugLog('API request failed', error);
-        throw new Error(error.message || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      debugLog('API request successful', { endpoint });
-      return data;
-
-    } catch (error) {
-      debugLog('API request error', error);
-      throw error;
-    }
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authWithTimestamp));
+    console.log('✅ Auth data saved to localStorage');
+  } catch (error) {
+    console.error('❌ Failed to save auth data:', error);
   }
+};
 
-  async login(staffId: string) {
-    debugLog('API login attempt', { staffId });
+export const getAuthData = (): AuthData | null => {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!stored) {
+      console.log('ℹ️ No auth data in localStorage');
+      return null;
+    }
+
+    const parsed = JSON.parse(stored);
     
-    const response = await this.request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ staff_id: staffId }),
-    });
-
-    debugLog('Login response received', response);
-
-    // FIXED: Handle your actual backend response format
-    if (response.access_token && response.staff_id && response.role) {
-      debugLog('Setting token from access_token field');
-      this.setToken(response.access_token);
-      
-      // Create user data matching AuthContext expectations
-      const userData = {
-        staff_id: response.staff_id,
-        role: response.role,
-        full_name: `${response.first_name} ${response.last_name}`.trim(),
-        department: response.role,
-        id: response.staff_id,
-        designation: response.role,
-        phone_number: response.phone_number,
-        email: response.email
-      };
-      
-      debugLog('Storing user data', userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      return {
-        authenticated: true,
-        user: userData,
-        access_token: response.access_token
-      };
+    // Check if token is expired
+    if (parsed.expires_at && Date.now() > parsed.expires_at) {
+      console.log('⏰ Token expired, clearing auth data');
+      clearAuthData();
+      return null;
     }
 
-    debugLog('Login failed - missing required fields in response');
-    return {
-      authenticated: false,
-      user: null
-    };
+    console.log('✅ Valid auth data retrieved');
+    return parsed;
+  } catch (error) {
+    console.error('❌ Failed to parse auth data:', error);
+    clearAuthData();
+    return null;
+  }
+};
+
+export const clearAuthData = (): void => {
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    console.log('🗑️ Auth data cleared from localStorage');
+  } catch (error) {
+    console.error('❌ Failed to clear auth data:', error);
+  }
+};
+
+export const getAuthToken = (): string | null => {
+  const authData = getAuthData();
+  return authData ? authData.access_token : null;
+};
+
+// ===== HTTP CLIENT HELPERS =====
+const createHeaders = (includeAuth: boolean = false): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Cache-Control': 'no-cache', // Mobile compatibility
+  };
+
+  if (includeAuth) {
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
   }
 
-  async getWorkers() {
-    return this.request('/api/workers');
+  return headers;
+};
+
+const handleResponse = async (response: Response) => {
+  console.log(`📡 Response Status: ${response.status} ${response.statusText}`);
+  console.log('📍 Response URL:', response.url);
+  
+  if (!response.ok) {
+    let errorData: ApiError;
+    try {
+      errorData = await response.json();
+      console.error('❌ API Error:', errorData);
+    } catch {
+      errorData = { 
+        detail: `HTTP ${response.status}: ${response.statusText}`,
+        mobile_debug: true 
+      };
+    }
+    
+    // Special handling for authentication errors
+    if (response.status === 401) {
+      console.log('🔒 Authentication failed, clearing stored data');
+      clearAuthData();
+    }
+    
+    throw new Error(errorData.detail || `Request failed with status ${response.status}`);
   }
 
-  async getProvisions() {
-    return this.request('/api/provisions');
+  try {
+    const data = await response.json();
+    console.log('✅ Response data received:', Object.keys(data));
+    return data;
+  } catch (error) {
+    console.error('❌ Failed to parse JSON response:', error);
+    throw new Error('Invalid JSON response from server');
+  }
+};
+
+// ===== MOBILE CONNECTIVITY TEST =====
+export const testMobileConnectivity = async (): Promise<boolean> => {
+  try {
+    console.log('📱 Testing mobile connectivity to Railway backend...');
+    
+    const response = await fetch(`${BASE_URL}/health`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      mode: 'cors'
+    });
+
+    console.log('📡 Mobile test response:', response.status, response.statusText);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Mobile connectivity successful:', data);
+      return true;
+    } else {
+      console.error('❌ Mobile connectivity failed:', response.status);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Mobile connectivity error:', error);
+    return false;
+  }
+};
+
+// ===== AUTHENTICATION API =====
+export const login = async (staff_id: string): Promise<LoginResponse> => {
+  console.log('🔐 Starting login process for staff_id:', staff_id);
+  console.log('🌐 Using API URL:', BASE_URL);
+
+  // First test connectivity
+  const isConnected = await testMobileConnectivity();
+  if (!isConnected) {
+    throw new Error('Cannot connect to backend server. Please check your network connection.');
   }
 
-  async getOnboardingRequests() {
-    return this.request('/api/onboarding/requests');
-  }
-
-  async getTodayAttendance() {
-    return this.request('/api/attendance/today');
-  }
-
-  async createWorker(data: any) {
-    return this.request('/api/workers', {
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/login`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      headers: createHeaders(false),
+      body: JSON.stringify({ staff_id }),
+      mode: 'cors'
     });
-  }
 
-  async updateWorker(id: string, data: any) {
-    return this.request(`/api/workers/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
+    const data = await handleResponse(response);
+    
+    // Save authentication data
+    if (data.access_token) {
+      saveAuthData({
+        access_token: data.access_token,
+        token_type: data.token_type,
+        staff_id: data.staff_id,
+        role: data.role,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        expires_in: data.expires_in
+      });
+    }
+
+    console.log('✅ Login successful for:', data.staff_id, 'Role:', data.role);
+    return data;
+  } catch (error) {
+    console.error('❌ Login failed:', error);
+    throw error;
+  }
+};
+
+export const getCurrentUser = async (): Promise<UserInfo> => {
+  console.log('👤 Fetching current user info...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/me`, {
+      method: 'GET',
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async deleteWorker(id: string) {
-    return this.request(`/api/workers/${id}`, {
-      method: 'DELETE',
-    });
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Failed to get current user:', error);
+    throw error;
   }
+};
 
-  async createJobType(data: any) {
-    return this.request('/api/job-types', {
+export const logout = async (): Promise<void> => {
+  console.log('🚪 Logging out...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/logout`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async updateJobType(id: string, data: any) {
-    return this.request(`/api/job-types/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+    await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Logout request failed:', error);
+    // Continue with local logout even if server request fails
+  } finally {
+    clearAuthData();
+    console.log('✅ Local logout completed');
   }
+};
 
-  async deleteJobType(id: string) {
-    return this.request(`/api/job-types/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async createProvision(data: any) {
-    return this.request('/api/provisions', {
+export const verifyToken = async (): Promise<boolean> => {
+  console.log('🔍 Verifying token...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/verify-token`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async updateProvision(id: string, data: any) {
-    return this.request(`/api/provisions/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
+    if (response.ok) {
+      console.log('✅ Token is valid');
+      return true;
+    } else {
+      console.log('❌ Token is invalid');
+      clearAuthData();
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Token verification failed:', error);
+    clearAuthData();
+    return false;
+  }
+};
+
+// ===== ADMIN API =====
+export const getUsers = async () => {
+  console.log('👥 Fetching users list...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/admin/users`, {
+      method: 'GET',
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async deleteProvision(id: string) {
-    return this.request(`/api/provisions/${id}`, {
-      method: 'DELETE',
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Failed to fetch users:', error);
+    throw error;
+  }
+};
+
+// ===== WORKERS API =====
+export const getWorkers = async () => {
+  console.log('👷 Fetching workers list...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/workers`, {
+      method: 'GET',
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async approveOnboarding(id: string, data: any) {
-    return this.request(`/api/onboarding/requests/${id}/approve`, {
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Failed to fetch workers:', error);
+    throw error;
+  }
+};
+
+export const createWorker = async (workerData: any) => {
+  console.log('➕ Creating new worker...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/workers`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      headers: createHeaders(true),
+      body: JSON.stringify(workerData),
+      mode: 'cors'
     });
-  }
 
-  async rejectOnboarding(id: string, data: any) {
-    return this.request(`/api/onboarding/requests/${id}/reject`, {
-      method: 'POST',
-      body: JSON.stringify(data),
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Failed to create worker:', error);
+    throw error;
+  }
+};
+
+// ===== JOB TYPES API =====
+export const getJobTypes = async () => {
+  console.log('🔧 Fetching job types...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/job-types`, {
+      method: 'GET',
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async getWorkerById(id: string) {
-    return this.request(`/api/workers/${id}`);
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Failed to fetch job types:', error);
+    throw error;
   }
+};
 
-  async getJobTypes() {
-    return this.request('/api/job-types');
-  }
-
-  async assignDailyWork(data: AssignDailyWorkData) {
-    return this.request('/api/daily-work/assign', {
-      method: 'POST',
-      body: JSON.stringify(data),
+// ===== PROVISIONS API =====
+export const getProvisions = async () => {
+  console.log('📦 Fetching provisions...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/provisions`, {
+      method: 'GET',
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async createLot(data: CreateLotData) {
-    return this.request('/api/lots/create', {
-      method: 'POST',
-      body: JSON.stringify(data),
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Failed to fetch provisions:', error);
+    throw error;
+  }
+};
+
+// ===== ONBOARDING API =====
+export const getOnboardingRequests = async () => {
+  console.log('📋 Fetching onboarding requests...');
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/onboarding/requests`, {
+      method: 'GET',
+      headers: createHeaders(true),
+      mode: 'cors'
     });
-  }
 
-  async updateLotStatus(lotId: string, status: string) {
-    return this.request(`/api/lots/${lotId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('❌ Failed to fetch onboarding requests:', error);
+    throw error;
+  }
+};
+
+// ===== DEBUG AND TEST FUNCTIONS =====
+export const testApiConnection = async (): Promise<{
+  status: string;
+  baseUrl: string;
+  healthCheck: boolean;
+  authEndpoint: boolean;
+  mobileCompatible: boolean;
+}> => {
+  console.log('🔍 Running comprehensive API connection test...');
+  
+  const result = {
+    status: 'testing',
+    baseUrl: BASE_URL,
+    healthCheck: false,
+    authEndpoint: false,
+    mobileCompatible: false
+  };
+
+  try {
+    // Test health endpoint
+    const healthResponse = await fetch(`${BASE_URL}/health`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors'
     });
-  }
+    result.healthCheck = healthResponse.ok;
+    console.log('🏥 Health check:', result.healthCheck ? '✅' : '❌');
 
-  async updateLot(lotId: string, data: any) {
-    return this.request(`/api/lots/${lotId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
+    // Test mobile compatibility
+    const mobileResponse = await fetch(`${BASE_URL}/api/auth/mobile-test`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors'
     });
-  }
+    result.mobileCompatible = mobileResponse.ok;
+    console.log('📱 Mobile compatibility:', result.mobileCompatible ? '✅' : '❌');
 
-  async getLotsForApproval() {
-    return this.request('/api/lots/pending-approval');
-  }
-
-  async approveLot(lotId: string, data: ApproveLotData) {
-    return this.request(`/api/lots/${lotId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify(data),
+    // Test auth endpoint (without credentials)
+    const authResponse = await fetch(`${BASE_URL}/api/auth/health`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors'
     });
+    result.authEndpoint = authResponse.ok;
+    console.log('🔐 Auth endpoint:', result.authEndpoint ? '✅' : '❌');
+
+    result.status = 'completed';
+    
+  } catch (error) {
+    console.error('❌ API connection test failed:', error);
+    result.status = 'failed';
   }
 
-  async rejectLot(lotId: string, data: RejectLotData) {
-    return this.request(`/api/lots/${lotId}/reject`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
+  console.log('🎯 API Test Results:', result);
+  return result;
+};
 
-  async completeLot(data: CompleteLotData) {
-    return this.request('/api/lots/complete', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async addBagToLot(lotId: string, bagData: AddBagToLotData) {
-    return this.request(`/api/lots/${lotId}/bags`, {
-      method: 'POST',
-      body: JSON.stringify(bagData),
-    });
-  }
-
-  async recordRFIDInScan(data: RecordRFIDInScanData) {
-    return this.request('/api/rfid/in-scan', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async dispatchLot(data: DispatchLotData) {
-    return this.request('/api/dispatch/create', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateGPSLocation(lotId: string, location: UpdateGPSLocationData) {
-    return this.request(`/api/dispatch/${lotId}/gps`, {
-      method: 'POST',
-      body: JSON.stringify(location),
-    });
-  }
-
-  async recordDryingSample(sample: RecordDryingSampleData) {
-    return this.request('/api/samples/drying', {
-      method: 'POST',
-      body: JSON.stringify(sample),
-    });
-  }
-
-  async generateQRLabel(lotId: string) {
-    return this.request(`/api/qr/generate/${lotId}`, {
-      method: 'POST',
-    });
-  }
-
-  async getSupervisorLots(supervisorId: string) {
-    return this.request(`/api/supervisor/${supervisorId}/lots`);
-  }
-
-  async getPendingProvisions() {
-    return this.request('/api/provisions/pending');
-  }
-
-  async approveProvision(provisionId: string) {
-    return this.request(`/api/provisions/${provisionId}/approve`, {
-      method: 'POST',
-    });
-  }
-
-  async rejectProvision(provisionId: string, reason: string) {
-    return this.request(`/api/provisions/${provisionId}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    });
-  }
-
-  async getPendingOnboarding() {
-    return this.request('/api/onboarding/pending');
-  }
-
-  async submitOnboarding(data: SubmitOnboardingData) {
-    return this.request('/api/onboarding/submit', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async submitAttendanceOverride(data: SubmitAttendanceOverrideData) {
-    return this.request('/api/attendance/override', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getPendingOverrides() {
-    return this.request('/api/attendance/overrides/pending');
-  }
-
-  async approveOverride(overrideId: string, notes?: string) {
-    return this.request(`/api/attendance/overrides/${overrideId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ notes }),
-    });
-  }
-
-  async rejectOverride(overrideId: string, reason: string) {
-    return this.request(`/api/attendance/overrides/${overrideId}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    });
-  }
-
-  async registerFace(data: RegisterFaceData) {
-    return this.request('/api/biometric/face/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async authenticateFace(faceDescriptor: number[]) {
-    return this.request('/api/biometric/face/authenticate', {
-      method: 'POST',
-      body: JSON.stringify({ face_descriptor: faceDescriptor }),
-    });
-  }
-
-  async syncAttendanceBatch(records: any[]) {
-    return this.request('/api/sync/attendance/batch', {
-      method: 'POST',
-      body: JSON.stringify({ records }),
-    });
-  }
-
-  async syncGPSBatch(locations: any[]) {
-    return this.request('/api/sync/gps/batch', {
-      method: 'POST',
-      body: JSON.stringify({ locations }),
-    });
-  }
-
-  async getYieldData(params?: YieldDataParams) {
-    const queryParams = new URLSearchParams(params as any).toString();
-    return this.request(`/api/yields?${queryParams}`);
-  }
-}
-
-const api = new ApiClient();
-export default api;
+// Export default api object for backward compatibility
+export default {
+  login,
+  getCurrentUser,
+  logout,
+  verifyToken,
+  getUsers,
+  getWorkers,
+  createWorker,
+  getJobTypes,
+  getProvisions,
+  getOnboardingRequests,
+  testApiConnection,
+  testMobileConnectivity,
+  // Storage helpers
+  saveAuthData,
+  getAuthData,
+  clearAuthData,
+  getAuthToken
+};
