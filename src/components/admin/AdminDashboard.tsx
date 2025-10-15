@@ -909,6 +909,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               <span className="text-sm text-green-600">Online</span>
             </div>
           </div>
+          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Database</h4>
@@ -919,6 +920,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               <span className="text-sm text-green-600">Connected</span>
             </div>
           </div>
+          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Active Users</h4>
@@ -956,6 +958,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               Maintain
             </button>
           </div>
+          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Clear System Cache</h4>
@@ -971,6 +974,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               Clear Cache
             </button>
           </div>
+          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Backup Database</h4>
@@ -1022,10 +1026,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
       {/* NO HEADER - App.tsx provides the header */}
       
       <div className="flex">
-        {/* ADMIN SIDEBAR - MOBILE RESPONSIVE */}
+        {/* ADMIN SIDEBAR - MOBILE SLIDE-OUT MENU */}
         <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-sm border-r min-h-screen transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
           <div className="p-4">
-            <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
             <p className="text-sm text-gray-500">System Management</p>
           </div>
           
@@ -1060,6 +1072,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
         {/* MAIN CONTENT */}
         <main className={`flex-1 ${isMenuOpen ? 'ml-64' : ''} md:ml-64 transition-all duration-300 ease-in-out`}>
           <div className="p-6">
+            {/* Mobile Menu Toggle Button */}
+            <div className="md:hidden mb-4">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 bg-gray-100 rounded-lg"
+              >
+                {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
+
             {/* Loading State */}
             {loading && (
               <div className="flex justify-center items-center py-12">
