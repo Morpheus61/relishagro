@@ -1,12 +1,14 @@
 /**
- * RelishAgro API Client - COMPLETE CORRECTED VERSION
+ * RelishAgro API Client - ABSOLUTELY COMPLETE VERSION
  * 
- * FIXES:
- * 1. Railway port 8080 compatibility (correct URL)
- * 2. Mobile browser compatibility
- * 3. ALL missing functions from original API
- * 4. Correct LoginResponse interface
- * 5. Enhanced error handling and debugging
+ * INCLUDES:
+ * 1. ALL functions from the original comprehensive version
+ * 2. CORRECT user object with ALL required properties  
+ * 3. Railway port compatibility
+ * 4. Mobile compatibility enhancements
+ * 5. Every single function that was in previous versions
+ * 
+ * NO TRUNCATION - EVERYTHING INCLUDED - NO DUPLICATE EXPORTS
  */
 
 // ===== CORRECTED API CONFIGURATION =====
@@ -16,6 +18,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-
 console.log('🔗 API Base URL:', API_BASE_URL);
 console.log('🚂 Railway Backend: Corrected for port 8080');
 console.log('📱 Mobile Fix: Enhanced compatibility');
+
+// ===== AUTHENTICATION STORAGE =====
+const AUTH_STORAGE_KEY = 'relishagro_auth';
 
 // ===== ALL INTERFACES FROM ORIGINAL API =====
 interface AssignDailyWorkData {
@@ -163,10 +168,18 @@ export interface LoginResponse {
   // Support for existing frontend expectations:
   authenticated: boolean;
   user: {
+    id: string;              // REQUIRED by AuthContext
     staff_id: string;
     role: string;
     first_name: string;
     last_name: string;
+    full_name: string;       // REQUIRED by AuthContext
+    designation: string;     // REQUIRED by AuthContext
+    department: string;      // REQUIRED by AuthContext
+    username: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
   };
 }
 
@@ -183,6 +196,71 @@ export interface ApiError {
   message?: string;
   mobile_debug?: boolean;
 }
+
+export interface AuthData {
+  access_token: string;
+  token_type: string;
+  staff_id: string;
+  role: string;
+  first_name: string;
+  last_name: string;
+  expires_in: number;
+}
+
+// ===== STORAGE HELPERS =====
+export const saveAuthData = (authData: AuthData): void => {
+  try {
+    const authWithTimestamp = {
+      ...authData,
+      timestamp: Date.now(),
+      expires_at: Date.now() + (authData.expires_in * 1000)
+    };
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authWithTimestamp));
+    console.log('✅ Auth data saved to localStorage');
+  } catch (error) {
+    console.error('❌ Failed to save auth data:', error);
+  }
+};
+
+export const getAuthData = (): AuthData | null => {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!stored) {
+      console.log('ℹ️ No auth data in localStorage');
+      return null;
+    }
+
+    const parsed = JSON.parse(stored);
+    
+    // Check if token is expired
+    if (parsed.expires_at && Date.now() > parsed.expires_at) {
+      console.log('⏰ Token expired, clearing auth data');
+      clearAuthData();
+      return null;
+    }
+
+    console.log('✅ Valid auth data retrieved');
+    return parsed;
+  } catch (error) {
+    console.error('❌ Failed to parse auth data:', error);
+    clearAuthData();
+    return null;
+  }
+};
+
+export const clearAuthData = (): void => {
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    console.log('🗑️ Auth data cleared from localStorage');
+  } catch (error) {
+    console.error('❌ Failed to clear auth data:', error);
+  }
+};
+
+export const getAuthToken = (): string | null => {
+  const authData = getAuthData();
+  return authData ? authData.access_token : null;
+};
 
 // ===== COMPLETE API CLIENT CLASS =====
 class ApiClient {
@@ -202,6 +280,30 @@ class ApiClient {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
     localStorage.removeItem('relishagro_auth'); // Clear new auth storage too
+  }
+
+  // Helper function to get designation from role
+  private getRoleDesignation(role: string): string {
+    const designationMap: { [key: string]: string } = {
+      'Admin': 'System Administrator',
+      'HarvestFlow': 'Harvest Flow Manager',
+      'FlavorCore': 'Flavor Core Manager', 
+      'Supervisor': 'Field Supervisor',
+      'Worker': 'Field Worker'
+    };
+    return designationMap[role] || 'Staff Member';
+  }
+
+  // Helper function to get department from role
+  private getRoleDepartment(role: string): string {
+    const departmentMap: { [key: string]: string } = {
+      'Admin': 'Administration',
+      'HarvestFlow': 'Harvest Operations',
+      'FlavorCore': 'Processing Department',
+      'Supervisor': 'Field Operations',
+      'Worker': 'Field Operations'
+    };
+    return departmentMap[role] || 'General';
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
@@ -261,17 +363,38 @@ class ApiClient {
       if (token) {
         this.setToken(token);
         
-        // Create user object for compatibility
+        // Create COMPLETE user object with ALL required properties
         const user = {
-          staff_id: response.staff_id,
+          id: response.staff_id || staffId, // Use staff_id as id if no separate id
+          staff_id: response.staff_id || staffId,
           role: response.role,  
-          first_name: response.first_name,
-          last_name: response.last_name
+          first_name: response.first_name || '',
+          last_name: response.last_name || '',
+          full_name: `${response.first_name || ''} ${response.last_name || ''}`.trim() || response.staff_id,
+          designation: this.getRoleDesignation(response.role),
+          department: this.getRoleDepartment(response.role),
+          username: response.staff_id || staffId,
+          email: `${response.staff_id}@relishagro.com`, // Generate email if needed
+          firstName: response.first_name,
+          lastName: response.last_name
         };
         
         localStorage.setItem('user_data', JSON.stringify(user));
         
-        // Return in expected format
+        // Save authentication data using helper
+        if (response.access_token) {
+          saveAuthData({
+            access_token: response.access_token,
+            token_type: response.token_type,
+            staff_id: response.staff_id,
+            role: response.role,
+            first_name: response.first_name,
+            last_name: response.last_name,
+            expires_in: response.expires_in
+          });
+        }
+        
+        // Return in expected format with COMPLETE user object
         const loginResponse: LoginResponse = {
           ...response,
           token: token, // For backward compatibility
@@ -294,18 +417,86 @@ class ApiClient {
   // ===== MOBILE COMPATIBILITY METHODS =====
   async testMobileConnectivity(): Promise<boolean> {
     try {
-      console.log('📱 Testing mobile connectivity...');
+      console.log('📱 Testing mobile connectivity to Railway backend...');
+      
       const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
         mode: 'cors'
       });
+
+      console.log('📡 Mobile test response:', response.status, response.statusText);
       
-      const isConnected = response.ok;
-      console.log('📱 Mobile connectivity:', isConnected ? '✅' : '❌');
-      return isConnected;
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Mobile connectivity successful:', data);
+        return true;
+      } else {
+        console.error('❌ Mobile connectivity failed:', response.status);
+        return false;
+      }
     } catch (error) {
-      console.error('❌ Mobile connectivity test failed:', error);
+      console.error('❌ Mobile connectivity error:', error);
+      return false;
+    }
+  }
+
+  async getCurrentUser(): Promise<UserInfo> {
+    console.log('👤 Fetching current user info...');
+    
+    try {
+      const response = await this.request('/api/auth/me', {
+        method: 'GET'
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to get current user:', error);
+      throw error;
+    }
+  }
+
+  async logout(): Promise<void> {
+    console.log('🚪 Logging out...');
+    
+    try {
+      const response = await this.request('/api/auth/logout', {
+        method: 'POST'
+      });
+    } catch (error) {
+      console.error('❌ Logout request failed:', error);
+      // Continue with local logout even if server request fails
+    } finally {
+      this.clearAuth();
+      clearAuthData();
+      console.log('✅ Local logout completed');
+    }
+  }
+
+  async verifyToken(): Promise<boolean> {
+    console.log('🔍 Verifying token...');
+    
+    try {
+      const response = await this.request('/api/auth/verify-token', {
+        method: 'POST'
+      });
+
+      if (response.valid === true) {
+        console.log('✅ Token is valid');
+        return true;
+      } else {
+        console.log('❌ Token is invalid');
+        this.clearAuth();
+        clearAuthData();
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Token verification failed:', error);
+      this.clearAuth();
+      clearAuthData();
       return false;
     }
   }
@@ -521,39 +712,67 @@ class ApiClient {
     return this.request(`/api/yields?${queryParams}`);
   }
 
-  // ===== ADDITIONAL API METHODS FOR COMPATIBILITY =====
-  async getCurrentUser(): Promise<UserInfo> {
+  // ===== ADMIN API =====
+  async getUsers() {
+    console.log('👥 Fetching users list...');
+    
     try {
-      return await this.request('/api/auth/me');
+      const response = await this.request('/api/admin/users', {
+        method: 'GET'
+      });
+
+      return response;
     } catch (error) {
-      console.error('❌ Failed to get current user:', error);
+      console.error('❌ Failed to fetch users:', error);
       throw error;
     }
   }
 
-  async logout(): Promise<void> {
+  async createWorker(workerData: any) {
+    console.log('➕ Creating new worker...');
+    
     try {
-      await this.request('/api/auth/logout', {
-        method: 'POST'
+      const response = await this.request('/api/workers', {
+        method: 'POST',
+        body: JSON.stringify(workerData)
       });
+
+      return response;
     } catch (error) {
-      console.error('❌ Logout request failed:', error);
-    } finally {
-      this.clearAuth();
-      console.log('✅ Local logout completed');
+      console.error('❌ Failed to create worker:', error);
+      throw error;
     }
   }
 
-  async verifyToken(): Promise<boolean> {
+  // ===== PROVISIONS API =====
+  async getProvisions() {
+    console.log('📦 Fetching provisions...');
+    
     try {
-      const response = await this.request('/api/auth/verify-token', {
-        method: 'POST'
+      const response = await this.request('/api/provisions', {
+        method: 'GET'
       });
-      return response.valid === true;
+
+      return response;
     } catch (error) {
-      console.error('❌ Token verification failed:', error);
-      this.clearAuth();
-      return false;
+      console.error('❌ Failed to fetch provisions:', error);
+      throw error;
+    }
+  }
+
+  // ===== ONBOARDING API =====
+  async getOnboardingRequests() {
+    console.log('📋 Fetching onboarding requests...');
+    
+    try {
+      const response = await this.request('/api/onboarding/requests', {
+        method: 'GET'
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to fetch onboarding requests:', error);
+      throw error;
     }
   }
 
@@ -583,22 +802,25 @@ class ApiClient {
         mode: 'cors'
       });
       result.healthCheck = healthResponse.ok;
+      console.log('🏥 Health check:', result.healthCheck ? '✅' : '❌');
 
       // Test mobile compatibility
-      const mobileResponse = await fetch(`${API_BASE_URL}/mobile-test`, {
+      const mobileResponse = await fetch(`${API_BASE_URL}/api/auth/mobile-test`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         mode: 'cors'
       });
       result.mobileCompatible = mobileResponse.ok;
+      console.log('📱 Mobile compatibility:', result.mobileCompatible ? '✅' : '❌');
 
-      // Test auth endpoint
+      // Test auth endpoint (without credentials)
       const authResponse = await fetch(`${API_BASE_URL}/api/auth/health`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         mode: 'cors'
       });
       result.authEndpoint = authResponse.ok;
+      console.log('🔐 Auth endpoint:', result.authEndpoint ? '✅' : '❌');
 
       result.status = 'completed';
       
