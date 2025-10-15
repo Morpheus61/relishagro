@@ -1,5 +1,5 @@
 /**
- * RelishAgro API Client - ABSOLUTELY COMPLETE VERSION
+ * RelishAgro API Client - ABSOLUTELY COMPLETE VERSION WITH ADMIN USER MANAGEMENT
  * 
  * INCLUDES:
  * 1. ALL functions from the original comprehensive version
@@ -7,6 +7,7 @@
  * 3. Railway port compatibility
  * 4. Mobile compatibility enhancements
  * 5. Every single function that was in previous versions
+ * 6. ADDED: Complete Admin User Management functions
  * 
  * NO TRUNCATION - EVERYTHING INCLUDED - NO DUPLICATE EXPORTS
  */
@@ -18,6 +19,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-
 console.log('🔗 API Base URL:', API_BASE_URL);
 console.log('🚂 Railway Backend: Corrected for port 8080');
 console.log('📱 Mobile Fix: Enhanced compatibility');
+console.log('👥 Admin User Management: Added');
 
 // ===== AUTHENTICATION STORAGE =====
 const AUTH_STORAGE_KEY = 'relishagro_auth';
@@ -207,6 +209,50 @@ export interface AuthData {
   expires_in: number;
 }
 
+// ===== NEW ADMIN USER MANAGEMENT INTERFACES =====
+export interface AdminStats {
+  total_users: number;
+  active_users: number;
+  total_admins: number;
+  total_supervisors: number;
+  total_harvestflow_users: number;
+  total_flavorcore_users: number;
+  recent_registrations: number;
+  system_health: string;
+}
+
+export interface UserSummary {
+  staff_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  is_active: boolean;
+  created_at?: string;
+  last_login?: string;
+}
+
+export interface AdminUserResponse {
+  users: UserSummary[];
+  total_count: number;
+  page: number;
+  per_page: number;
+}
+
+export interface UserCreateRequest {
+  staff_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  is_active?: boolean;
+}
+
+export interface UserUpdateRequest {
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+  is_active?: boolean;
+}
+
 // ===== STORAGE HELPERS =====
 export const saveAuthData = (authData: AuthData): void => {
   try {
@@ -311,6 +357,7 @@ class ApiClient {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'Cache-Control': 'no-cache', // Mobile compatibility
+      'User-Agent': navigator.userAgent, // Mobile detection
       ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
       ...options.headers,
     };
@@ -320,7 +367,8 @@ class ApiClient {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
-      mode: 'cors' // Explicit CORS for mobile
+      mode: 'cors', // Explicit CORS for mobile
+      credentials: 'include' // Mobile compatibility
     });
 
     console.log(`📡 Response Status: ${response.status} ${response.statusText}`);
@@ -419,13 +467,15 @@ class ApiClient {
     try {
       console.log('📱 Testing mobile connectivity to Railway backend...');
       
-      const response = await fetch(`${API_BASE_URL}/health`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/mobile-test`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache',
+          'User-Agent': navigator.userAgent
         },
-        mode: 'cors'
+        mode: 'cors',
+        credentials: 'include'
       });
 
       console.log('📡 Mobile test response:', response.status, response.statusText);
@@ -499,6 +549,70 @@ class ApiClient {
       clearAuthData();
       return false;
     }
+  }
+
+  // ===== NEW ADMIN USER MANAGEMENT FUNCTIONS =====
+  async getAdminStats(): Promise<AdminStats> {
+    console.log('📊 Fetching admin statistics...');
+    return this.request('/api/admin/stats', { method: 'GET' });
+  }
+
+  async getUsers(page: number = 1, per_page: number = 20, role?: string, search?: string): Promise<AdminUserResponse> {
+    console.log('👥 Fetching users from person_records table...');
+    
+    const params = new URLSearchParams({
+      page: page.toString(),
+      per_page: per_page.toString(),
+      ...(role && { role }),
+      ...(search && { search })
+    });
+    
+    try {
+      const response = await this.request(`/api/admin/users?${params}`, {
+        method: 'GET'
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to fetch users:', error);
+      throw error;
+    }
+  }
+
+  async getUserById(staffId: string) {
+    console.log(`👤 Fetching user details for: ${staffId}`);
+    return this.request(`/api/admin/users/${staffId}`, { method: 'GET' });
+  }
+
+  async createUser(userData: UserCreateRequest) {
+    console.log('➕ Creating new app user...');
+    return this.request('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    });
+  }
+
+  async updateUser(staffId: string, userData: UserUpdateRequest) {
+    console.log(`📝 Updating user: ${staffId}`);
+    return this.request(`/api/admin/users/${staffId}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData)
+    });
+  }
+
+  async deleteUser(staffId: string) {
+    console.log(`🗑️ Deleting user: ${staffId}`);
+    return this.request(`/api/admin/users/${staffId}`, { method: 'DELETE' });
+  }
+
+  async getAvailableRoles() {
+    console.log('🏷️ Fetching available roles...');
+    return this.request('/api/admin/roles', { method: 'GET' });
+  }
+
+  async getSystemHealth() {
+    console.log('🏥 Checking system health...');
+    return this.request('/api/admin/system/health', { method: 'GET' });
   }
 
   // ===== WORKER MANAGEMENT =====
@@ -710,22 +824,6 @@ class ApiClient {
   async getYieldData(params?: YieldDataParams) {
     const queryParams = new URLSearchParams(params as any).toString();
     return this.request(`/api/yields?${queryParams}`);
-  }
-
-  // ===== ADMIN API =====
-  async getUsers() {
-    console.log('👥 Fetching users list...');
-    
-    try {
-      const response = await this.request('/api/admin/users', {
-        method: 'GET'
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to fetch users:', error);
-      throw error;
-    }
   }
 
   async createWorker(workerData: any) {
