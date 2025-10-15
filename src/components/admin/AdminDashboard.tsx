@@ -68,6 +68,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // For mobile slide-out menu
 
   // Data for APP USERS management
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
@@ -476,295 +477,295 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
 
   // Reports Content (makes App.tsx Reports button functional)
   const ReportsContent = () => {
-  const [selectedReport, setSelectedReport] = useState<string | null>(null);
-  const [reportData, setReportData] = useState<any>(null);
+    const [selectedReport, setSelectedReport] = useState<string | null>(null);
+    const [reportData, setReportData] = useState<any>(null);
 
-  // Generate report data structure (for display AND download)
-  const generateReportData = (reportType: string) => {
-    const timestamp = new Date().toLocaleString();
-    
-    switch (reportType) {
-      case 'user-activity':
-        return {
-          title: 'User Activity Report',
-          timestamp,
-          sections: [
-            { label: 'Total Users', value: stats.total_users },
-            { label: 'Active Users', value: stats.active_users },
-            { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
-            { label: 'Inactive Users', value: appUsers.filter(u => u.status === 'inactive').length }
-          ]
-        };
+    // Generate report data structure (for display AND download)
+    const generateReportData = (reportType: string) => {
+      const timestamp = new Date().toLocaleString();
       
-      case 'system-health':
-        return {
-          title: 'System Health Report',
-          timestamp,
-          sections: [
-            { label: 'API Status', value: 'Online' },
-            { label: 'Database Connection', value: 'Connected' },
-            { label: 'Active Users', value: stats.active_users },
-            { label: 'System Health', value: stats.system_health.toUpperCase() }
-          ]
-        };
-      
-      case 'security':
-        return {
-          title: 'Security Report',
-          timestamp,
-          sections: [
-            { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
-            { label: 'Failed Login Attempts', value: 0 },
-            { label: 'Security Events', value: 'None' }
-          ]
-        };
-      
-      case 'harvest-operations':
-        return {
-          title: 'Harvest Operations Report',
-          timestamp,
-          sections: [
-            { label: 'Harvest Activities', value: 'In Progress' },
-            { label: 'Daily Yields', value: 'Data Available' },
-            { label: 'Worker Assignments', value: 'Active' }
-          ]
-        };
-      
-      case 'processing':
-        return {
-          title: 'FlavorCore Processing Report',
-          timestamp,
-          sections: [
-            { label: 'Processing Status', value: 'Active' },
-            { label: 'Quality Control', value: 'Passed' },
-            { label: 'Production Metrics', value: 'Available' }
-          ]
-        };
-      
-      case 'attendance':
-        return {
-          title: 'Attendance Report',
-          timestamp,
-          sections: [
-            { label: 'Total Workers', value: stats.total_users },
-            { label: 'Present Today', value: stats.active_users },
-            { label: 'Overtime Hours', value: 0 }
-          ]
-        };
-      
-      case 'procurement':
-        return {
-          title: 'Procurement Report',
-          timestamp,
-          sections: [
-            { label: 'Active Suppliers', value: 5 },
-            { label: 'Pending Orders', value: 3 },
-            { label: 'Delivery Status', value: 'On Time' }
-          ]
-        };
-      
-      case 'quality-control':
-        return {
-          title: 'Quality Control Report',
-          timestamp,
-          sections: [
-            { label: 'Quality Tests', value: '15 Passed' },
-            { label: 'Compliance Status', value: '100%' },
-            { label: 'Defect Rate', value: '0%' }
-          ]
-        };
-      
-      case 'financial':
-        return {
-          title: 'Financial Summary',
-          timestamp,
-          sections: [
-            { label: 'Revenue', value: '$25,000' },
-            { label: 'Costs', value: '$18,000' },
-            { label: 'Profit', value: '$7,000' },
-            { label: 'ROI', value: '28%' }
-          ]
-        };
-      
-      default:
-        return null;
-    }
-  };
+      switch (reportType) {
+        case 'user-activity':
+          return {
+            title: 'User Activity Report',
+            timestamp,
+            sections: [
+              { label: 'Total Users', value: stats.total_users },
+              { label: 'Active Users', value: stats.active_users },
+              { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
+              { label: 'Inactive Users', value: appUsers.filter(u => u.status === 'inactive').length }
+            ]
+          };
+        
+        case 'system-health':
+          return {
+            title: 'System Health Report',
+            timestamp,
+            sections: [
+              { label: 'API Status', value: 'Online' },
+              { label: 'Database Connection', value: 'Connected' },
+              { label: 'Active Users', value: stats.active_users },
+              { label: 'System Health', value: stats.system_health.toUpperCase() }
+            ]
+          };
+        
+        case 'security':
+          return {
+            title: 'Security Report',
+            timestamp,
+            sections: [
+              { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
+              { label: 'Failed Login Attempts', value: 0 },
+              { label: 'Security Events', value: 'None' }
+            ]
+          };
+        
+        case 'harvest-operations':
+          return {
+            title: 'Harvest Operations Report',
+            timestamp,
+            sections: [
+              { label: 'Harvest Activities', value: 'In Progress' },
+              { label: 'Daily Yields', value: 'Data Available' },
+              { label: 'Worker Assignments', value: 'Active' }
+            ]
+          };
+        
+        case 'processing':
+          return {
+            title: 'FlavorCore Processing Report',
+            timestamp,
+            sections: [
+              { label: 'Processing Status', value: 'Active' },
+              { label: 'Quality Control', value: 'Passed' },
+              { label: 'Production Metrics', value: 'Available' }
+            ]
+          };
+        
+        case 'attendance':
+          return {
+            title: 'Attendance Report',
+            timestamp,
+            sections: [
+              { label: 'Total Workers', value: stats.total_users },
+              { label: 'Present Today', value: stats.active_users },
+              { label: 'Overtime Hours', value: 0 }
+            ]
+          };
+        
+        case 'procurement':
+          return {
+            title: 'Procurement Report',
+            timestamp,
+            sections: [
+              { label: 'Active Suppliers', value: 5 },
+              { label: 'Pending Orders', value: 3 },
+              { label: 'Delivery Status', value: 'On Time' }
+            ]
+          };
+        
+        case 'quality-control':
+          return {
+            title: 'Quality Control Report',
+            timestamp,
+            sections: [
+              { label: 'Quality Tests', value: '15 Passed' },
+              { label: 'Compliance Status', value: '100%' },
+              { label: 'Defect Rate', value: '0%' }
+            ]
+          };
+        
+        case 'financial':
+          return {
+            title: 'Financial Summary',
+            timestamp,
+            sections: [
+              { label: 'Revenue', value: '$25,000' },
+              { label: 'Costs', value: '$18,000' },
+              { label: 'Profit', value: '$7,000' },
+              { label: 'ROI', value: '28%' }
+            ]
+          };
+        
+        default:
+          return null;
+      }
+    };
 
-  // Handle viewing report (SHOW on screen)
-  const handleViewReport = (reportType: string) => {
-    const data = generateReportData(reportType);
-    if (data) {
-      setReportData(data);
-      setSelectedReport(reportType);
-    }
-  };
+    // Handle viewing report (SHOW on screen)
+    const handleViewReport = (reportType: string) => {
+      const data = generateReportData(reportType);
+      if (data) {
+        setReportData(data);
+        setSelectedReport(reportType);
+      }
+    };
 
-  // Handle downloading report (SAVE as file)
-  const handleDownloadReport = () => {
-    if (!reportData) return;
-    
-    let textContent = `${reportData.title.toUpperCase()}\n`;
-    textContent += `Generated: ${reportData.timestamp}\n`;
-    textContent += `${'='.repeat(50)}\n\n`;
-    
-    reportData.sections.forEach((section: any) => {
-      textContent += `${section.label}: ${section.value}\n`;
-    });
-    
-    const blob = new Blob([textContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${reportData.title.toLowerCase().replace(/\s+/g, '_')}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    // Handle downloading report (SAVE as file)
+    const handleDownloadReport = () => {
+      if (!reportData) return;
+      
+      let textContent = `${reportData.title.toUpperCase()}\n`;
+      textContent += `Generated: ${reportData.timestamp}\n`;
+      textContent += `${'='.repeat(50)}\n\n`;
+      
+      reportData.sections.forEach((section: any) => {
+        textContent += `${section.label}: ${section.value}\n`;
+      });
+      
+      const blob = new Blob([textContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${reportData.title.toLowerCase().replace(/\s+/g, '_')}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
 
-  // Go back to report grid
-  const handleCloseReport = () => {
-    setSelectedReport(null);
-    setReportData(null);
-  };
+    // Go back to report grid
+    const handleCloseReport = () => {
+      setSelectedReport(null);
+      setReportData(null);
+    };
 
-  // If viewing a specific report
-  if (selectedReport && reportData) {
-    return (
-      <div className="space-y-4">
-        <button
-          onClick={handleCloseReport}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
-        >
-          ← Back to Reports
-        </button>
+    // If viewing a specific report
+    if (selectedReport && reportData) {
+      return (
+        <div className="space-y-4">
+          <button
+            onClick={handleCloseReport}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
+          >
+            ← Back to Reports
+          </button>
 
-        <div className="bg-blue-50 rounded-lg border p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">{reportData.title}</h2>
-              <p className="text-sm text-gray-600 mt-1">Generated: {reportData.timestamp}</p>
+          <div className="bg-blue-50 rounded-lg border p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{reportData.title}</h2>
+                <p className="text-sm text-gray-600 mt-1">Generated: {reportData.timestamp}</p>
+              </div>
+              <button
+                onClick={handleDownloadReport}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
             </div>
+          </div>
+
+          <div className="bg-white rounded-lg border p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Data</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {reportData.sections.map((section: any, index: number) => (
+                <div key={index} className="p-4 bg-gray-50 rounded-lg border">
+                  <p className="text-sm font-medium text-gray-600 mb-1">{section.label}</p>
+                  <p className="text-xl font-bold text-gray-900">{section.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Default: Show report grid
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">System Reports</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <button
-              onClick={handleDownloadReport}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              onClick={() => handleViewReport('user-activity')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
             >
-              <Download className="w-4 h-4" />
-              Download
+              <FileText className="w-6 h-6 text-blue-500 mb-2" />
+              <h4 className="font-medium">User Activity Report</h4>
+              <p className="text-sm text-gray-600">Login activity and usage statistics</p>
+            </button>
+            
+            <button
+              onClick={() => handleViewReport('system-health')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <Activity className="w-6 h-6 text-green-500 mb-2" />
+              <h4 className="font-medium">System Health Report</h4>
+              <p className="text-sm text-gray-600">API status and performance metrics</p>
+            </button>
+            
+            <button
+              onClick={() => handleViewReport('security')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <Shield className="w-6 h-6 text-red-500 mb-2" />
+              <h4 className="font-medium">Security Report</h4>
+              <p className="text-sm text-gray-600">Failed logins and security events</p>
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Data</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {reportData.sections.map((section: any, index: number) => (
-              <div key={index} className="p-4 bg-gray-50 rounded-lg border">
-                <p className="text-sm font-medium text-gray-600 mb-1">{section.label}</p>
-                <p className="text-xl font-bold text-gray-900">{section.value}</p>
-              </div>
-            ))}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4">Operational Reports</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <button
+              onClick={() => handleViewReport('harvest-operations')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <BarChart3 className="w-6 h-6 text-orange-500 mb-2" />
+              <h4 className="font-medium">Harvest Operations</h4>
+              <p className="text-sm text-gray-600">Daily harvest activities and yields</p>
+            </button>
+            
+            <button
+              onClick={() => handleViewReport('processing')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <Package className="w-6 h-6 text-purple-500 mb-2" />
+              <h4 className="font-medium">Processing Report</h4>
+              <p className="text-sm text-gray-600">FlavorCore processing activities</p>
+            </button>
+            
+            <button
+              onClick={() => handleViewReport('attendance')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <UserCheck className="w-6 h-6 text-teal-500 mb-2" />
+              <h4 className="font-medium">Attendance Report</h4>
+              <p className="text-sm text-gray-600">Worker attendance and overtime</p>
+            </button>
+            
+            <button
+              onClick={() => handleViewReport('procurement')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <Briefcase className="w-6 h-6 text-indigo-500 mb-2" />
+              <h4 className="font-medium">Procurement Report</h4>
+              <p className="text-sm text-gray-600">Supply chain and procurement status</p>
+            </button>
+            
+            <button
+              onClick={() => handleViewReport('quality-control')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <CheckCircle className="w-6 h-6 text-emerald-500 mb-2" />
+              <h4 className="font-medium">Quality Control</h4>
+              <p className="text-sm text-gray-600">Quality metrics and compliance</p>
+            </button>
+            
+            <button
+              onClick={() => handleViewReport('financial')}
+              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
+            >
+              <TrendingUp className="w-6 h-6 text-green-600 mb-2" />
+              <h4 className="font-medium">Financial Summary</h4>
+              <p className="text-sm text-gray-600">Revenue, costs, and profitability</p>
+            </button>
           </div>
         </div>
       </div>
     );
-  }
-
-  // Default: Show report grid
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">System Reports</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <button
-            onClick={() => handleViewReport('user-activity')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <FileText className="w-6 h-6 text-blue-500 mb-2" />
-            <h4 className="font-medium">User Activity Report</h4>
-            <p className="text-sm text-gray-600">Login activity and usage statistics</p>
-          </button>
-          
-          <button
-            onClick={() => handleViewReport('system-health')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <Activity className="w-6 h-6 text-green-500 mb-2" />
-            <h4 className="font-medium">System Health Report</h4>
-            <p className="text-sm text-gray-600">API status and performance metrics</p>
-          </button>
-          
-          <button
-            onClick={() => handleViewReport('security')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <Shield className="w-6 h-6 text-red-500 mb-2" />
-            <h4 className="font-medium">Security Report</h4>
-            <p className="text-sm text-gray-600">Failed logins and security events</p>
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">Operational Reports</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <button
-            onClick={() => handleViewReport('harvest-operations')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <BarChart3 className="w-6 h-6 text-orange-500 mb-2" />
-            <h4 className="font-medium">Harvest Operations</h4>
-            <p className="text-sm text-gray-600">Daily harvest activities and yields</p>
-          </button>
-          
-          <button
-            onClick={() => handleViewReport('processing')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <Package className="w-6 h-6 text-purple-500 mb-2" />
-            <h4 className="font-medium">Processing Report</h4>
-            <p className="text-sm text-gray-600">FlavorCore processing activities</p>
-          </button>
-          
-          <button
-            onClick={() => handleViewReport('attendance')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <UserCheck className="w-6 h-6 text-teal-500 mb-2" />
-            <h4 className="font-medium">Attendance Report</h4>
-            <p className="text-sm text-gray-600">Worker attendance and overtime</p>
-          </button>
-          
-          <button
-            onClick={() => handleViewReport('procurement')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <Briefcase className="w-6 h-6 text-indigo-500 mb-2" />
-            <h4 className="font-medium">Procurement Report</h4>
-            <p className="text-sm text-gray-600">Supply chain and procurement status</p>
-          </button>
-          
-          <button
-            onClick={() => handleViewReport('quality-control')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <CheckCircle className="w-6 h-6 text-emerald-500 mb-2" />
-            <h4 className="font-medium">Quality Control</h4>
-            <p className="text-sm text-gray-600">Quality metrics and compliance</p>
-          </button>
-          
-          <button
-            onClick={() => handleViewReport('financial')}
-            className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-          >
-            <TrendingUp className="w-6 h-6 text-green-600 mb-2" />
-            <h4 className="font-medium">Financial Summary</h4>
-            <p className="text-sm text-gray-600">Revenue, costs, and profitability</p>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+  };
 
   // Onboarding Content
   const OnboardingContent = () => (
@@ -908,7 +909,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               <span className="text-sm text-green-600">Online</span>
             </div>
           </div>
-          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Database</h4>
@@ -919,7 +919,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               <span className="text-sm text-green-600">Connected</span>
             </div>
           </div>
-          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Active Users</h4>
@@ -957,7 +956,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               Maintain
             </button>
           </div>
-          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Clear System Cache</h4>
@@ -973,7 +971,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               Clear Cache
             </button>
           </div>
-          
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
               <h4 className="font-medium">Backup Database</h4>
@@ -1025,8 +1022,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
       {/* NO HEADER - App.tsx provides the header */}
       
       <div className="flex">
-        {/* ADMIN SIDEBAR */}
-        <aside className="w-64 bg-white shadow-sm border-r min-h-screen">
+        {/* ADMIN SIDEBAR - MOBILE RESPONSIVE */}
+        <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-sm border-r min-h-screen transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
           <div className="p-4">
             <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
             <p className="text-sm text-gray-500">System Management</p>
@@ -1040,7 +1037,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setIsMenuOpen(false); // Close menu on mobile
+                  }}
                   className={`
                     w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors
                     ${isActive 
@@ -1058,7 +1058,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
         </aside>
 
         {/* MAIN CONTENT */}
-        <main className="flex-1">
+        <main className={`flex-1 ${isMenuOpen ? 'ml-64' : ''} md:ml-64 transition-all duration-300 ease-in-out`}>
           <div className="p-6">
             {/* Loading State */}
             {loading && (
