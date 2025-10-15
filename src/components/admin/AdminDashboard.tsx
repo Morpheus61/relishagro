@@ -475,23 +475,208 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
   );
 
   // Reports Content (makes App.tsx Reports button functional)
-  const ReportsContent = () => (
+  const ReportsContent = () => {
+  const [selectedReport, setSelectedReport] = useState<string | null>(null);
+  const [reportData, setReportData] = useState<any>(null);
+
+  // Generate report data structure (for display AND download)
+  const generateReportData = (reportType: string) => {
+    const timestamp = new Date().toLocaleString();
+    
+    switch (reportType) {
+      case 'user-activity':
+        return {
+          title: 'User Activity Report',
+          timestamp,
+          sections: [
+            { label: 'Total Users', value: stats.total_users },
+            { label: 'Active Users', value: stats.active_users },
+            { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
+            { label: 'Inactive Users', value: appUsers.filter(u => u.status === 'inactive').length }
+          ]
+        };
+      
+      case 'system-health':
+        return {
+          title: 'System Health Report',
+          timestamp,
+          sections: [
+            { label: 'API Status', value: 'Online' },
+            { label: 'Database Connection', value: 'Connected' },
+            { label: 'Active Users', value: stats.active_users },
+            { label: 'System Health', value: stats.system_health.toUpperCase() }
+          ]
+        };
+      
+      case 'security':
+        return {
+          title: 'Security Report',
+          timestamp,
+          sections: [
+            { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
+            { label: 'Failed Login Attempts', value: 0 },
+            { label: 'Security Events', value: 'None' }
+          ]
+        };
+      
+      case 'harvest-operations':
+        return {
+          title: 'Harvest Operations Report',
+          timestamp,
+          sections: [
+            { label: 'Harvest Activities', value: 'In Progress' },
+            { label: 'Daily Yields', value: 'Data Available' },
+            { label: 'Worker Assignments', value: 'Active' }
+          ]
+        };
+      
+      case 'processing':
+        return {
+          title: 'FlavorCore Processing Report',
+          timestamp,
+          sections: [
+            { label: 'Processing Status', value: 'Active' },
+            { label: 'Quality Control', value: 'Passed' },
+            { label: 'Production Metrics', value: 'Available' }
+          ]
+        };
+      
+      case 'attendance':
+        return {
+          title: 'Attendance Report',
+          timestamp,
+          sections: [
+            { label: 'Total Workers', value: stats.total_users },
+            { label: 'Present Today', value: stats.active_users },
+            { label: 'Overtime Hours', value: 0 }
+          ]
+        };
+      
+      case 'procurement':
+        return {
+          title: 'Procurement Report',
+          timestamp,
+          sections: [
+            { label: 'Active Suppliers', value: 5 },
+            { label: 'Pending Orders', value: 3 },
+            { label: 'Delivery Status', value: 'On Time' }
+          ]
+        };
+      
+      case 'quality-control':
+        return {
+          title: 'Quality Control Report',
+          timestamp,
+          sections: [
+            { label: 'Quality Tests', value: '15 Passed' },
+            { label: 'Compliance Status', value: '100%' },
+            { label: 'Defect Rate', value: '0%' }
+          ]
+        };
+      
+      case 'financial':
+        return {
+          title: 'Financial Summary',
+          timestamp,
+          sections: [
+            { label: 'Revenue', value: '$25,000' },
+            { label: 'Costs', value: '$18,000' },
+            { label: 'Profit', value: '$7,000' },
+            { label: 'ROI', value: '28%' }
+          ]
+        };
+      
+      default:
+        return null;
+    }
+  };
+
+  // Handle viewing report (SHOW on screen)
+  const handleViewReport = (reportType: string) => {
+    const data = generateReportData(reportType);
+    if (data) {
+      setReportData(data);
+      setSelectedReport(reportType);
+    }
+  };
+
+  // Handle downloading report (SAVE as file)
+  const handleDownloadReport = () => {
+    if (!reportData) return;
+    
+    let textContent = `${reportData.title.toUpperCase()}\n`;
+    textContent += `Generated: ${reportData.timestamp}\n`;
+    textContent += `${'='.repeat(50)}\n\n`;
+    
+    reportData.sections.forEach((section: any) => {
+      textContent += `${section.label}: ${section.value}\n`;
+    });
+    
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${reportData.title.toLowerCase().replace(/\s+/g, '_')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Go back to report grid
+  const handleCloseReport = () => {
+    setSelectedReport(null);
+    setReportData(null);
+  };
+
+  // If viewing a specific report
+  if (selectedReport && reportData) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={handleCloseReport}
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
+        >
+          ← Back to Reports
+        </button>
+
+        <div className="bg-blue-50 rounded-lg border p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{reportData.title}</h2>
+              <p className="text-sm text-gray-600 mt-1">Generated: {reportData.timestamp}</p>
+            </div>
+            <button
+              onClick={handleDownloadReport}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Data</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {reportData.sections.map((section: any, index: number) => (
+              <div key={index} className="p-4 bg-gray-50 rounded-lg border">
+                <p className="text-sm font-medium text-gray-600 mb-1">{section.label}</p>
+                <p className="text-xl font-bold text-gray-900">{section.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Default: Show report grid
+  return (
     <div className="space-y-6">
-      {/* System Reports */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold mb-4">System Reports</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
-            onClick={() => {
-              const reportData = `USER ACTIVITY REPORT\n\nTotal Users: ${stats.total_users}\nActive Users: ${stats.active_users}\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'user_activity_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('user-activity')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <FileText className="w-6 h-6 text-blue-500 mb-2" />
@@ -500,16 +685,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
           </button>
           
           <button
-            onClick={() => {
-              const reportData = `SYSTEM HEALTH REPORT\n\nAPI Status: Online\nDatabase: Connected\nActive Users: ${stats.active_users}\nSystem Health: ${stats.system_health}\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'system_health_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('system-health')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <Activity className="w-6 h-6 text-green-500 mb-2" />
@@ -518,16 +694,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
           </button>
           
           <button
-            onClick={() => {
-              const reportData = `SECURITY REPORT\n\nSuspended Users: ${appUsers.filter(u => u.status === 'suspended').length}\nFailed Login Attempts: 0\nSecurity Events: None\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'security_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('security')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <Shield className="w-6 h-6 text-red-500 mb-2" />
@@ -537,21 +704,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
         </div>
       </div>
 
-      {/* Operational Reports */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold mb-4">Operational Reports</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
-            onClick={() => {
-              const reportData = `HARVEST OPERATIONS REPORT\n\nHarvest Activities: In Progress\nDaily Yields: Data Available\nWorker Assignments: Active\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'harvest_operations_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('harvest-operations')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <BarChart3 className="w-6 h-6 text-orange-500 mb-2" />
@@ -560,16 +717,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
           </button>
           
           <button
-            onClick={() => {
-              const reportData = `FLAVORCORE PROCESSING REPORT\n\nProcessing Status: Active\nQuality Control: Passed\nProduction Metrics: Available\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'processing_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('processing')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <Package className="w-6 h-6 text-purple-500 mb-2" />
@@ -578,16 +726,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
           </button>
           
           <button
-            onClick={() => {
-              const reportData = `ATTENDANCE REPORT\n\nTotal Workers: ${stats.total_users}\nPresent Today: ${stats.active_users}\nOvertime Hours: 0\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'attendance_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('attendance')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <UserCheck className="w-6 h-6 text-teal-500 mb-2" />
@@ -596,16 +735,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
           </button>
           
           <button
-            onClick={() => {
-              const reportData = `PROCUREMENT REPORT\n\nActive Suppliers: 5\nPending Orders: 3\nDelivery Status: On Time\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'procurement_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('procurement')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <Briefcase className="w-6 h-6 text-indigo-500 mb-2" />
@@ -614,16 +744,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
           </button>
           
           <button
-            onClick={() => {
-              const reportData = `QUALITY CONTROL REPORT\n\nQuality Tests: 15 Passed\nCompliance Status: 100%\nDefect Rate: 0%\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'quality_control_report.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('quality-control')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <CheckCircle className="w-6 h-6 text-emerald-500 mb-2" />
@@ -632,16 +753,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
           </button>
           
           <button
-            onClick={() => {
-              const reportData = `FINANCIAL SUMMARY\n\nRevenue: $25,000\nCosts: $18,000\nProfit: $7,000\nROI: 28%\nGenerated: ${new Date().toLocaleString()}`;
-              const blob = new Blob([reportData], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'financial_summary.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => handleViewReport('financial')}
             className="p-4 border rounded-lg hover:bg-gray-50 text-left"
           >
             <TrendingUp className="w-6 h-6 text-green-600 mb-2" />
@@ -652,6 +764,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
       </div>
     </div>
   );
+};
 
   // Onboarding Content
   const OnboardingContent = () => (
