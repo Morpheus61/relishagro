@@ -32,6 +32,7 @@ import {
   Activity
 } from 'lucide-react';
 import api from '../../lib/api';
+import { AttendanceOverride, AttendanceOverrideApproval } from '../shared/AttendanceOverride';
 
 type Route = 'dashboard' | 'reports' | 'settings';
 
@@ -63,6 +64,21 @@ interface SystemStats {
   system_health: 'good' | 'warning' | 'critical';
 }
 
+// ADDED: Attendance Override interfaces
+interface AttendanceOverrideRequest {
+  id: string;
+  worker_id: string;
+  worker_name: string;
+  check_in: string;
+  check_out?: string;
+  override_reason: string;
+  status: 'pending_approval' | 'approved' | 'rejected';
+  submitted_by: string;
+  location: { latitude: number; longitude: number };
+  timestamp: string;
+  approval_notes?: string;
+}
+
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboard', onNavigate }) => {
   // State
   const [activeTab, setActiveTab] = useState('overview');
@@ -79,6 +95,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
     attendance_overrides: 0,
     system_health: 'good'
   });
+
+  // ADDED: Attendance override state
+  const [attendanceOverrides, setAttendanceOverrides] = useState<AttendanceOverrideRequest[]>([]);
+  const [showAttendanceOverride, setShowAttendanceOverride] = useState(false);
+  const [selectedWorkerForOverride, setSelectedWorkerForOverride] = useState<{id: string, name: string} | null>(null);
 
   // Search and filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -184,17 +205,58 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
     }
   };
 
+  // ADDED: Load attendance override requests
+  const loadAttendanceOverrides = async () => {
+    try {
+      // Mock data - replace with actual API call
+      setAttendanceOverrides([
+        {
+          id: '1',
+          worker_id: 'W-001',
+          worker_name: 'John Doe',
+          check_in: '2024-01-15T08:00:00Z',
+          check_out: '2024-01-15T17:00:00Z',
+          override_reason: 'Biometric device malfunction',
+          status: 'pending_approval',
+          submitted_by: 'HF-Manager',
+          location: { latitude: 12.9716, longitude: 77.5946 },
+          timestamp: '2024-01-15T08:05:00Z'
+        },
+        {
+          id: '2',
+          worker_id: 'W-002',
+          worker_name: 'Jane Smith',
+          check_in: '2024-01-15T08:30:00Z',
+          override_reason: 'Face recognition failed',
+          status: 'pending_approval',
+          submitted_by: 'FC-Manager',
+          location: { latitude: 12.9716, longitude: 77.5946 },
+          timestamp: '2024-01-15T08:35:00Z'
+        }
+      ]);
+      
+      // Update stats with override count
+      setStats(prev => ({
+        ...prev,
+        attendance_overrides: 2
+      }));
+    } catch (err) {
+      console.error('Failed to load attendance overrides:', err);
+    }
+  };
+
   // Load on mount
   useEffect(() => {
     loadAdminData();
+    loadAttendanceOverrides();
   }, []);
 
-  // Navigation items for Admin
+  // Navigation items for Admin - ADDED attendance-override
   const menuItems = [
     { id: 'overview', icon: BarChart3, label: 'Overview' },
     { id: 'users', icon: Users, label: 'App Users' },
     { id: 'onboarding', icon: UserPlus, label: 'User Onboarding' },
-    { id: 'attendance-override', icon: UserCheck, label: 'Attendance Override' },
+    { id: 'attendance-override', icon: UserCheck, label: 'Attendance Override' }, // ADDED
     { id: 'procurement', icon: Package, label: 'Procurement' },
     { id: 'reports', icon: FileText, label: 'Reports' },
     { id: 'system', icon: Database, label: 'System Health' },
@@ -212,6 +274,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
     
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  // ADDED: Handle attendance override approval
+  const handleApproveAttendanceOverride = async (overrideId: string) => {
+    try {
+      // Update status to approved
+      setAttendanceOverrides(prev => 
+        prev.map(req => 
+          req.id === overrideId 
+            ? { ...req, status: 'approved' as const }
+            : req
+        )
+      );
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        attendance_overrides: prev.attendance_overrides - 1
+      }));
+      
+      alert('Attendance override approved successfully!');
+    } catch (err) {
+      console.error('Failed to approve override:', err);
+      alert('Failed to approve attendance override');
+    }
+  };
+
+  // ADDED: Handle attendance override rejection  
+  const handleRejectAttendanceOverride = async (overrideId: string) => {
+    try {
+      // Update status to rejected
+      setAttendanceOverrides(prev => 
+        prev.map(req => 
+          req.id === overrideId 
+            ? { ...req, status: 'rejected' as const }
+            : req
+        )
+      );
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        attendance_overrides: prev.attendance_overrides - 1
+      }));
+      
+      alert('Attendance override rejected.');
+    } catch (err) {
+      console.error('Failed to reject override:', err);
+      alert('Failed to reject attendance override');
+    }
+  };
 
   // FIXED: Create new app user using correct API
   const handleCreateUser = async () => {
@@ -508,6 +620,71 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
       </div>
     </div>
   );
+
+  // ADDED: Attendance Override Content with shared component integration
+  const AttendanceOverrideContent = () => {
+    const pendingOverrides = attendanceOverrides.filter(req => req.status === 'pending_approval');
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <h3 className="text-lg font-semibold">Attendance Override Requests</h3>
+          <div className="flex gap-2 items-center">
+            <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+              {pendingOverrides.length} Pending Approvals
+            </span>
+            <button
+              onClick={() => {
+                setSelectedWorkerForOverride({ id: 'demo-worker', name: 'Demo Worker' });
+                setShowAttendanceOverride(true);
+              }}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+            >
+              <UserCheck className="w-4 h-4" />
+              Submit Override
+            </button>
+          </div>
+        </div>
+
+        {/* Pending Override Requests */}
+        <div className="grid gap-6">
+          {pendingOverrides.map((override) => (
+            <AttendanceOverrideApproval
+              key={override.id}
+              override={override}
+              onApprove={() => handleApproveAttendanceOverride(override.id)}
+              onReject={() => handleRejectAttendanceOverride(override.id)}
+            />
+          ))}
+        </div>
+
+        {pendingOverrides.length === 0 && (
+          <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+            <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Pending Override Requests</h4>
+            <p className="text-gray-500">All attendance override requests have been processed.</p>
+          </div>
+        )}
+
+        {/* Attendance Override Modal */}
+        {showAttendanceOverride && selectedWorkerForOverride && (
+          <AttendanceOverride
+            workerId={selectedWorkerForOverride.id}
+            workerName={selectedWorkerForOverride.name}
+            onComplete={() => {
+              setShowAttendanceOverride(false);
+              setSelectedWorkerForOverride(null);
+              loadAttendanceOverrides(); // Refresh data
+            }}
+            onCancel={() => {
+              setShowAttendanceOverride(false);
+              setSelectedWorkerForOverride(null);
+            }}
+          />
+        )}
+      </div>
+    );
+  };
 
   // Reports Content (makes App.tsx Reports button functional)
   const ReportsContent = () => {
@@ -839,44 +1016,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
     </div>
   );
 
-  // Attendance Override Content
-  const AttendanceOverrideContent = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">Attendance Override</h3>
-        <p className="text-gray-600 mb-4">Review and approve attendance override requests.</p>
-        <div className="space-y-4">
-          <button
-            onClick={() => {
-              const overrides = [
-                { id: 1, worker: 'Worker-001', date: new Date().toLocaleDateString(), status: 'pending' },
-                { id: 2, worker: 'Worker-002', date: new Date().toLocaleDateString(), status: 'pending' }
-              ];
-              console.log('Attendance overrides:', overrides);
-              alert(`Found ${overrides.length} pending override requests`);
-            }}
-            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 mr-2"
-          >
-            View Override Requests
-          </button>
-          <button
-            onClick={() => {
-              const workerId = prompt('Enter Worker ID:');
-              const reason = prompt('Enter override reason:');
-              if (workerId && reason) {
-                console.log('Attendance override:', { workerId, reason, date: new Date() });
-                alert(`Override request submitted for ${workerId}`);
-              }
-            }}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-          >
-            Submit Override
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   // Procurement Content
   const ProcurementContent = () => (
     <div className="space-y-6">
@@ -1046,7 +1185,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
       case 'overview': return <OverviewContent />;
       case 'users': return <UsersContent />;
       case 'onboarding': return <OnboardingContent />;
-      case 'attendance-override': return <AttendanceOverrideContent />;
+      case 'attendance-override': return <AttendanceOverrideContent />; // ADDED
       case 'procurement': return <ProcurementContent />;
       case 'reports': return <ReportsContent />;
       case 'system': return <SystemContent />;
@@ -1061,7 +1200,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
       
       <div className="flex">
         {/* ADMIN SIDEBAR - MOBILE SLIDE-OUT MENU */}
-        <aside className={`fixed inset-y-0 left-0 z-50 w-80 bg-white shadow-sm border-r min-h-screen transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
+        <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-sm border-r min-h-screen transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
           <div className="p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
@@ -1097,6 +1236,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
                 >
                   <Icon className="mr-3 w-5 h-5" />
                   {item.label}
+                  {/* ADDED: Show badge for attendance overrides */}
+                  {item.id === 'attendance-override' && stats.attendance_overrides > 0 && (
+                    <span className="ml-auto bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
+                      {stats.attendance_overrides}
+                    </span>
+                  )}
                 </button>
               );
             })}

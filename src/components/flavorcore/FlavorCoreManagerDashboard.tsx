@@ -34,6 +34,10 @@ import {
   Clipboard
 } from 'lucide-react';
 
+// ADDED: Import shared components
+import { OnboardingScreen } from '../shared/OnboardingScreen';
+import { ProcurementScreen } from '../shared/ProcurementScreen';
+
 // Enhanced Navigation Component for FlavorCore Manager
 interface NavigationItem {
   id: string;
@@ -266,6 +270,11 @@ const FlavorCoreManagerDashboard: React.FC = () => {
       'Content-Type': 'application/json',
       'Authorization': token ? `Bearer ${token}` : ''
     };
+  };
+
+  // ADDED: Navigation function for shared components
+  const navigateToScreen = (screen: string) => {
+    setActiveTab(screen);
   };
 
   // FlavorCore Specific API Functions
@@ -580,7 +589,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     }
   };
 
-  // Navigation items for FlavorCore Manager
+  // Navigation items for FlavorCore Manager - ADDED new tabs
   const navigationItems = [
     { id: 'overview', label: 'Processing Overview' },
     { id: 'staff', label: 'FlavorCore Staff' },
@@ -589,7 +598,9 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     { id: 'production', label: 'Production Data' },
     { id: 'approvals', label: 'Product Approvals' },
     { id: 'inventory', label: 'Inventory' },
-    { id: 'procurement', label: 'Procurement Requests' }
+    { id: 'procurement', label: 'Procurement Requests' },
+    { id: 'onboarding', label: 'Worker Onboarding' }, // ADDED
+    { id: 'procurement-request', label: 'Request Procurement' } // ADDED
   ];
 
   // Initial data fetch
@@ -627,6 +638,28 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   const pendingProcurement = procurementRequests.filter(r => r.status === 'pending').length;
   const lowStockItems = inventoryItems.filter(i => i.status === 'low_stock' || i.status === 'critical').length;
 
+  // ADDED: Handle shared component rendering
+  const renderSharedComponent = () => {
+    switch (activeTab) {
+      case 'onboarding':
+        return (
+          <OnboardingScreen 
+            navigateToScreen={navigateToScreen}
+            currentUser={user}
+          />
+        );
+      case 'procurement-request':
+        return (
+          <ProcurementScreen 
+            navigateToScreen={navigateToScreen}
+            currentUser={user}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -659,6 +692,12 @@ const FlavorCoreManagerDashboard: React.FC = () => {
         </Card>
       </div>
     );
+  }
+
+  // ADDED: Check if rendering shared component
+  const sharedComponent = renderSharedComponent();
+  if (sharedComponent) {
+    return sharedComponent;
   }
 
   const renderOverview = () => (
@@ -779,6 +818,25 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             )}
           </div>
         </Card>
+      </div>
+
+      {/* ADDED: Manager Action Buttons */}
+      <div className="flex flex-wrap gap-4">
+        <Button 
+          onClick={() => setActiveTab('onboarding')}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          Onboard Worker
+        </Button>
+        <Button 
+          onClick={() => setActiveTab('procurement-request')}
+          className="bg-yellow-600 hover:bg-yellow-700"
+        >
+          Request Procurement
+        </Button>
+        <Button variant="outline">
+          View Reports
+        </Button>
       </div>
     </div>
   );

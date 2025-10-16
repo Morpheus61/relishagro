@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
+// ADDED: Import shared component
+import { AttendanceOverride } from '../shared/AttendanceOverride';
+
 interface User {
   id: string;
   staff_id: string;
@@ -69,6 +72,10 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ADDED: Attendance override state
+  const [showAttendanceOverride, setShowAttendanceOverride] = useState(false);
+  const [selectedWorkerForOverride, setSelectedWorkerForOverride] = useState<{id: string, name: string} | null>(null);
 
   // API Base URL
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://relishagrobackend-production.up.railway.app';
@@ -171,6 +178,12 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
       console.error('Error submitting packed products:', err);
       throw err;
     }
+  };
+
+  // ADDED: Handle attendance override for workers
+  const handleAttendanceOverride = (workerId: string, workerName: string) => {
+    setSelectedWorkerForOverride({ id: workerId, name: workerName });
+    setShowAttendanceOverride(true);
   };
 
   if (loading) {
@@ -343,7 +356,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
         </div>
       </div>
 
-      {/* Navigation Tabs */}
+      {/* Navigation Tabs - ADDED attendance-override */}
       <div style={{
         display: 'flex',
         backgroundColor: 'white',
@@ -356,6 +369,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
           { key: 'lots', label: 'Production Lots' },
           { key: 'quality', label: 'Quality Control' },
           { key: 'workers', label: 'Worker Management' },
+          { key: 'attendance-override', label: 'Attendance Override' }, // ADDED
           { key: 'submission', label: 'Product Submission' }
         ].map(tab => (
           <button
@@ -530,6 +544,7 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Status</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Check-in Time</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Method</th>
+                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -562,10 +577,105 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                           {worker.method}
                         </span>
                       </td>
+                      <td style={{ padding: '12px', borderBottom: '1px solid #e5e7eb' }}>
+                        <button
+                          onClick={() => handleAttendanceOverride(worker.person_id, worker.full_name)}
+                          style={{
+                            backgroundColor: '#f59e0b',
+                            color: 'white',
+                            padding: '4px 8px',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          Override
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ADDED: Attendance Override Tab */}
+        {activeTab === 'attendance-override' && (
+          <div>
+            <h2 style={{ margin: '0 0 16px 0', color: '#1f2937' }}>Attendance Override Management</h2>
+            <div style={{
+              padding: '24px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              backgroundColor: '#f9fafb'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>Submit Attendance Override</h3>
+              <p style={{ color: '#6b7280', marginBottom: '16px' }}>
+                Select a worker from the table below to submit an attendance override request. 
+                This is useful when biometric systems fail or workers have attendance issues.
+              </p>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ color: '#374151', marginBottom: '8px' }}>Available Workers:</h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {workerAssignments.map(worker => (
+                    <div key={worker.id} style={{
+                      padding: '12px',
+                      backgroundColor: 'white',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <span style={{ fontWeight: 'bold', color: '#1f2937' }}>{worker.full_name}</span>
+                        <span style={{ marginLeft: '12px', fontSize: '14px', color: '#6b7280' }}>
+                          ID: {worker.person_id} • {worker.location}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleAttendanceOverride(worker.person_id, worker.full_name)}
+                        style={{
+                          backgroundColor: '#f59e0b',
+                          color: 'white',
+                          padding: '6px 12px',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        Submit Override
+                      </button>
+                    </div>
+                  ))}
+                  {workerAssignments.length === 0 && (
+                    <div style={{ 
+                      padding: '12px', 
+                      textAlign: 'center', 
+                      color: '#6b7280',
+                      fontStyle: 'italic'
+                    }}>
+                      No workers currently assigned
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{
+                padding: '12px',
+                backgroundColor: '#dbeafe',
+                border: '1px solid #93c5fd',
+                borderRadius: '6px'
+              }}>
+                <p style={{ margin: 0, fontSize: '14px', color: '#1e40af' }}>
+                  <strong>Note:</strong> Attendance override requests require approval from Admin and FlavorCore Manager. 
+                  Workers can continue working while requests are pending review.
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -682,6 +792,23 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
         )}
       </div>
 
+      {/* ADDED: Attendance Override Modal */}
+      {showAttendanceOverride && selectedWorkerForOverride && (
+        <AttendanceOverride
+          workerId={selectedWorkerForOverride.id}
+          workerName={selectedWorkerForOverride.name}
+          onComplete={() => {
+            setShowAttendanceOverride(false);
+            setSelectedWorkerForOverride(null);
+            alert('Attendance override submitted successfully! Admin and FlavorCore Manager will review the request.');
+          }}
+          onCancel={() => {
+            setShowAttendanceOverride(false);
+            setSelectedWorkerForOverride(null);
+          }}
+        />
+      )}
+
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -691,3 +818,5 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
     </div>
   );
 };
+
+export default SupervisorDashboard;
