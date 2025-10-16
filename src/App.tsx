@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginScreen } from './components/shared/LoginScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
 import HarvestFlowDashboard from './components/harvestflow/HarvestFlowDashboard';
@@ -15,109 +16,6 @@ interface User {
   department?: string;
   email?: string;
 }
-
-// Authentication Context
-interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  login: (userData: User, authToken: string) => void;
-  logout: () => void;
-  isAuthenticated: boolean;
-}
-
-const AuthContext = React.createContext<AuthContextType | null>(null);
-
-export const useAuth = () => {
-  const context = React.useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-// Auth Provider Component
-const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Check for existing session on app load
-    const savedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
-    
-    if (savedToken && savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        // Ensure name property exists
-        if (!userData.name && userData.full_name) {
-          userData.name = userData.full_name;
-        }
-        setUser(userData);
-        setToken(savedToken);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        // Clear invalid data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('user');
-      }
-    }
-    setIsLoading(false);
-  }, []);
-
-  const login = (userData: User, authToken: string) => {
-    // Ensure name property exists
-    const userWithName = {
-      ...userData,
-      name: userData.name || userData.full_name || userData.staff_id
-    };
-    
-    setUser(userWithName);
-    setToken(authToken);
-    
-    // Save to localStorage for persistence
-    localStorage.setItem('token', authToken);
-    localStorage.setItem('user', JSON.stringify(userWithName));
-  };
-
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    
-    // Clear all stored data
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
-  };
-
-  const value: AuthContextType = {
-    user,
-    token,
-    login,
-    logout,
-    isAuthenticated: !!user && !!token
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ 
@@ -145,6 +43,12 @@ const DashboardRouter: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
+  // Add name property if missing
+  const userWithName = {
+    ...user,
+    name: user.full_name || user.staff_id
+  };
+
   // Route based on user role
   const getDashboardComponent = () => {
     const staffId = user.staff_id?.toLowerCase() || '';
@@ -152,11 +56,11 @@ const DashboardRouter: React.FC = () => {
     if (staffId.startsWith('admin-')) {
       return <AdminDashboard />;
     } else if (staffId.startsWith('hf-')) {
-      return <HarvestFlowDashboard currentUser={user} />;
+      return <HarvestFlowDashboard currentUser={userWithName} />;
     } else if (staffId.startsWith('fc-')) {
       return <FlavorCoreManagerDashboard />;
     } else if (staffId.startsWith('sup-')) {
-      return <SupervisorDashboard currentUser={user} />;
+      return <SupervisorDashboard currentUser={userWithName} />;
     } else {
       // Default fallback
       return <AdminDashboard />;
@@ -173,8 +77,13 @@ const HarvestFlowRoute: React.FC = () => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  const userWithName = {
+    ...user,
+    name: user.full_name || user.staff_id
+  };
   
-  return <HarvestFlowDashboard currentUser={user} />;
+  return <HarvestFlowDashboard currentUser={userWithName} />;
 };
 
 const SupervisorRoute: React.FC = () => {
@@ -183,8 +92,13 @@ const SupervisorRoute: React.FC = () => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  const userWithName = {
+    ...user,
+    name: user.full_name || user.staff_id
+  };
   
-  return <SupervisorDashboard currentUser={user} />;
+  return <SupervisorDashboard currentUser={userWithName} />;
 };
 
 // Unauthorized Page Component
