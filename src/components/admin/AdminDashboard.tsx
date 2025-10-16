@@ -1061,7 +1061,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
       
       <div className="flex">
         {/* ADMIN SIDEBAR - MOBILE SLIDE-OUT MENU */}
-        <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-sm border-r min-h-screen transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
+        <aside className={`fixed inset-y-0 left-0 z-50 w-80 bg-white shadow-sm border-r min-h-screen transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
           <div className="p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>

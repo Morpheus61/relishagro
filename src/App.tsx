@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // CORRECTED IMPORTS - Based on actual component exports
 import { LoginScreen } from './components/shared/LoginScreen';
+import { MobileNav } from './components/shared/MobileNav';
 import AdminDashboard from './components/admin/AdminDashboard';
 import HarvestFlowDashboard from './components/harvestflow/HarvestFlowDashboard';
 import FlavorCoreManagerDashboard from './components/flavorcore/FlavorCoreManagerDashboard';
@@ -42,24 +43,10 @@ const AppContent: React.FC = () => {
   if (isLoading) {
     console.log('⏳ App.tsx: Still loading...');
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: '#f3f4f6'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #e5e7eb',
-            borderTop: '4px solid #3b82f6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }}></div>
-          <p style={{ color: '#6b7280' }}>Loading FlavorCore...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading FlavorCore...</p>
         </div>
       </div>
     );
@@ -82,6 +69,22 @@ const AppContent: React.FC = () => {
       console.error('❌ App.tsx: Login error caught:', error);
       console.error('❌ App.tsx: Error type:', typeof error);
       console.error('❌ App.tsx: Error details:', error);
+    }
+  };
+
+  // Convert user role to MobileNav format
+  const getMobileNavRole = (userRole: string) => {
+    switch (userRole) {
+      case 'Admin':
+        return 'admin';
+      case 'HarvestFlow':
+        return 'harvestflow_manager';
+      case 'FlavorCore':
+        return 'flavorcore_manager';
+      case 'Supervisor':
+        return 'flavorcore_supervisor';
+      default:
+        return userRole.toLowerCase();
     }
   };
 
@@ -154,31 +157,17 @@ const AppContent: React.FC = () => {
       default:
         console.error('❌ App.tsx: Unknown user role:', user.role);
         return (
-          <div style={{
-            padding: '48px 24px',
-            textAlign: 'center',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            margin: '24px'
-          }}>
-            <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Access Error</h2>
-            <p style={{ color: '#7f1d1d', marginBottom: '16px' }}>
+          <div className="p-12 text-center bg-red-50 border border-red-200 rounded-lg m-6">
+            <h2 className="text-red-600 text-xl font-semibold mb-4">Access Error</h2>
+            <p className="text-red-700 mb-4">
               Unknown user role: <strong>{user.role}</strong>
             </p>
-            <p style={{ color: '#7f1d1d', marginBottom: '24px', fontSize: '14px' }}>
+            <p className="text-red-700 mb-6 text-sm">
               Expected roles: Admin, HarvestFlow, FlavorCore, Supervisor
             </p>
             <button 
               onClick={logout}
-              style={{
-                backgroundColor: '#dc2626',
-                color: 'white',
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
             >
               Logout
             </button>
@@ -195,18 +184,7 @@ const AppContent: React.FC = () => {
         <LoginScreen />
         {/* Show error message if login failed */}
         {error && (
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            padding: '16px',
-            color: '#dc2626',
-            maxWidth: '300px',
-            zIndex: 1000
-          }}>
+          <div className="fixed top-5 right-5 bg-red-50 border border-red-200 rounded-lg p-4 text-red-600 max-w-sm z-50">
             <strong>Login Error:</strong> {error}
           </div>
         )}
@@ -217,145 +195,91 @@ const AppContent: React.FC = () => {
   console.log('✅ App.tsx: User authenticated, showing dashboard for:', user);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-      {/* Header with user info and FUNCTIONAL navigation - FIXED Z-INDEX */}
-      <header style={{
-        backgroundColor: '#6366f1',
-        color: 'white',
-        padding: '16px 24px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        position: 'fixed',  // FIXED: Make header fixed
-        top: 0,             // FIXED: Position at top
-        left: 0,            // FIXED: Full width
-        right: 0,           // FIXED: Full width
-        zIndex: 1000        // FIXED: Highest z-index to prevent overlap
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          maxWidth: '1200px',
-          margin: '0 auto'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              backgroundColor: '#4f46e5',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '20px',
-              fontWeight: 'bold'
-            }}>
-              🌾
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile Navigation - Show only on mobile */}
+      <div className="md:hidden">
+        <MobileNav
+          userRole={getMobileNavRole(user.role)}
+          onNavigate={(route) => setCurrentRoute(route as Route)}
+          onLogout={logout}
+          currentRoute={currentRoute}
+        />
+      </div>
+
+      {/* Desktop Header - Hide on mobile */}
+      <header className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-indigo-600 text-white shadow-lg">
+        <div className="px-6 py-4">
+          <div className="flex justify-between items-center max-w-7xl mx-auto">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center text-xl font-bold">
+                🌾
+              </div>
+              <h1 className="text-xl font-bold">
+                Relish Agro - FlavorCore Management
+              </h1>
             </div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-              Relish Agro - FlavorCore Management
-            </h1>
+            
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <span className="text-sm opacity-90">
+                  Welcome, {user.full_name}
+                </span>
+                <br />
+                <span className="text-xs opacity-80">
+                  {user.designation} • {user.staff_id}
+                </span>
+              </div>
+              <button 
+                onClick={logout}
+                className="bg-indigo-500 hover:bg-indigo-400 px-4 py-2 rounded transition-colors text-sm"
+              >
+                Logout
+              </button>
+            </div>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '14px', opacity: 0.9 }}>
-                Welcome, {user.full_name}
-              </span>
-              <br />
-              <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                {user.designation} • {user.staff_id}
-              </span>
-            </div>
+          {/* Desktop Navigation menu */}
+          <nav className="mt-4 flex gap-2 max-w-7xl mx-auto">
             <button 
-              onClick={logout}
-              style={{
-                backgroundColor: '#4338ca',
-                color: 'white',
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
+              onClick={() => handleNavigation('dashboard')}
+              className={`px-4 py-2 text-sm border border-white/30 rounded transition-all ${
+                currentRoute === 'dashboard' 
+                  ? 'bg-indigo-500 text-white' 
+                  : 'bg-transparent text-white hover:bg-indigo-500'
+              }`}
             >
-              Logout
+              Dashboard
             </button>
-          </div>
+            <button 
+              onClick={() => handleNavigation('reports')}
+              className={`px-4 py-2 text-sm border border-white/30 rounded transition-all ${
+                currentRoute === 'reports' 
+                  ? 'bg-indigo-500 text-white' 
+                  : 'bg-transparent text-white hover:bg-indigo-500'
+              }`}
+            >
+              Reports
+            </button>
+            <button 
+              onClick={() => handleNavigation('settings')}
+              className={`px-4 py-2 text-sm border border-white/30 rounded transition-all ${
+                currentRoute === 'settings' 
+                  ? 'bg-indigo-500 text-white' 
+                  : 'bg-transparent text-white hover:bg-indigo-500'
+              }`}
+            >
+              Settings
+            </button>
+          </nav>
         </div>
-        
-        {/* FUNCTIONAL Navigation menu - NO MORE DUMMY BUTTONS */}
-        <nav style={{
-          marginTop: '16px',
-          display: 'flex',
-          gap: '8px',
-          maxWidth: '1200px',
-          margin: '16px auto 0'
-        }}>
-          <button 
-            onClick={() => handleNavigation('dashboard')}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: currentRoute === 'dashboard' ? '#4338ca' : 'transparent',
-              color: 'white',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              transition: 'all 0.2s'
-            }}
-          >
-            Dashboard
-          </button>
-          <button 
-            onClick={() => handleNavigation('reports')}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: currentRoute === 'reports' ? '#4338ca' : 'transparent',
-              color: 'white',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              transition: 'all 0.2s'
-            }}
-          >
-            Reports
-          </button>
-          <button 
-            onClick={() => handleNavigation('settings')}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: currentRoute === 'settings' ? '#4338ca' : 'transparent',
-              color: 'white',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              transition: 'all 0.2s'
-            }}
-          >
-            Settings
-          </button>
-        </nav>
       </header>
 
-      {/* Main content area - FIXED: Add padding top to account for fixed header */}
-      <main style={{ 
-        padding: '24px', 
-        maxWidth: '1200px', 
-        margin: '0 auto',
-        paddingTop: '140px'  // FIXED: Push content below fixed header (header height + nav + padding)
-      }}>
-        {renderDashboard()}
+      {/* Main Content - Mobile Responsive */}
+      <main className="px-4 md:px-6 lg:px-8 pt-4 md:pt-36">
+        <div className="max-w-7xl mx-auto">
+          {renderDashboard()}
+        </div>
       </main>
-
-      {/* Add CSS animation for loading spinner */}
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

@@ -474,8 +474,7 @@ class ApiClient {
           'User-Agent': navigator.userAgent
         },
         mode: 'cors',
-        credentials: 'include'
-      });
+        });
 
       console.log('📡 Mobile test response:', response.status, response.statusText);
       
