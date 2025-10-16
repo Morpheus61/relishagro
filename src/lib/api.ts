@@ -368,8 +368,7 @@ class ApiClient {
       ...options,
       headers,
       mode: 'cors', // Explicit CORS for mobile
-      credentials: 'include' // Mobile compatibility
-    });
+          });
 
     console.log(`📡 Response Status: ${response.status} ${response.statusText}`);
 
