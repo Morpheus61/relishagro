@@ -188,42 +188,47 @@ const AppContent: React.FC = () => {
   };
 
   // If user is not authenticated, show login screen
-if (!user) {
-  console.log('🔒 App.tsx: No user found, showing LoginScreen');
-  return (
-    <div>
-      <LoginScreen />
-      {/* Show error message if login failed */}
-      {error && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: '8px',
-          padding: '16px',
-          color: '#dc2626',
-          maxWidth: '300px',
-          zIndex: 1000
-        }}>
-          <strong>Login Error:</strong> {error}
-        </div>
-      )}
-    </div>
-  );
-}
+  if (!user) {
+    console.log('🔒 App.tsx: No user found, showing LoginScreen');
+    return (
+      <div>
+        <LoginScreen />
+        {/* Show error message if login failed */}
+        {error && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            padding: '16px',
+            color: '#dc2626',
+            maxWidth: '300px',
+            zIndex: 1000
+          }}>
+            <strong>Login Error:</strong> {error}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   console.log('✅ App.tsx: User authenticated, showing dashboard for:', user);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-      {/* Header with user info and FUNCTIONAL navigation */}
+      {/* Header with user info and FUNCTIONAL navigation - FIXED Z-INDEX */}
       <header style={{
         backgroundColor: '#6366f1',
         color: 'white',
         padding: '16px 24px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        position: 'fixed',  // FIXED: Make header fixed
+        top: 0,             // FIXED: Position at top
+        left: 0,            // FIXED: Full width
+        right: 0,           // FIXED: Full width
+        zIndex: 1000        // FIXED: Highest z-index to prevent overlap
       }}>
         <div style={{
           display: 'flex',
@@ -334,8 +339,13 @@ if (!user) {
         </nav>
       </header>
 
-      {/* Main content area */}
-      <main style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Main content area - FIXED: Add padding top to account for fixed header */}
+      <main style={{ 
+        padding: '24px', 
+        maxWidth: '1200px', 
+        margin: '0 auto',
+        paddingTop: '140px'  // FIXED: Push content below fixed header (header height + nav + padding)
+      }}>
         {renderDashboard()}
       </main>
 

@@ -104,63 +104,81 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
     }
   }, [currentRoute, onNavigate]);
 
-  // Load APP USERS data
+  // FIXED: Load APP USERS data from correct endpoint
   const loadAdminData = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Load actual users from your backend
-      const usersResponse = await api.getWorkers();
-      console.log('FULL API RESPONSE:', usersResponse);
-      console.log('RESPONSE TYPE:', typeof usersResponse);
-      console.log('IS ARRAY:', Array.isArray(usersResponse));
+      console.log('🔄 Loading admin data from CORRECT endpoints...');
       
-      // Handle whatever format your backend actually returns
+      // FIXED: Call correct admin endpoints instead of workers
+      const [usersResponse, statsResponse] = await Promise.all([
+        api.getUsers(),        // FIXED: Call admin users endpoint
+        api.getAdminStats()    // FIXED: Call admin stats endpoint  
+      ]);
+      
+      console.log('✅ Admin users response:', usersResponse);
+      console.log('✅ Admin stats response:', statsResponse);
+      
+      // FIXED: Handle users response correctly based on AdminUserResponse interface
       let userData = null;
-      if (Array.isArray(usersResponse)) {
-        userData = usersResponse;
-      } else if (usersResponse?.data) {
-        userData = usersResponse.data;
-      } else if (usersResponse) {
-        userData = usersResponse;
+      if (usersResponse?.users) {
+        userData = usersResponse.users;  // AdminUserResponse.users format
+      } else if (Array.isArray(usersResponse)) {
+        userData = usersResponse;        // Direct array format
       }
       
-      console.log('EXTRACTED USER DATA:', userData);
+      console.log('📋 Extracted user data:', userData);
       
       if (userData && Array.isArray(userData)) {
         const users: AppUser[] = userData.map((user: any) => ({
           id: user.id || user.staff_id,
           staff_id: user.staff_id,
-          full_name: user.full_name || (user.first_name + ' ' + user.last_name) || 'Unknown User',
-          role: (user.designation || user.person_type || 'User') as AppUser['role'],
-          department: user.designation || user.person_type || 'General',
+          full_name: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User',
+          role: (user.role || user.designation || user.person_type || 'User') as AppUser['role'],
+          department: user.department || user.designation || user.person_type || 'General',
           designation: user.designation || user.person_type || 'User',
-          phone_number: user.phone_number,
+          phone_number: user.phone_number || user.contact_number,
           email: user.email,
-          status: 'active' as const,
+          status: (user.is_active !== false ? 'active' : 'inactive') as AppUser['status'],
           created_at: user.created_at || new Date().toISOString(),
           last_login: user.last_login
         }));
         
         setAppUsers(users);
         
-        // Calculate admin stats from real data
-        const activeUsers = users.filter((u: AppUser) => u.status === 'active');
-        setStats(prev => ({
-          ...prev,
-          total_users: users.length,
-          active_users: activeUsers.length,
-          system_health: users.length > 0 ? 'good' : 'warning'
-        }));
+        // Use stats from API if available, otherwise calculate from users
+        if (statsResponse) {
+          setStats({
+            total_users: statsResponse.total_users || users.length,
+            active_users: statsResponse.active_users || users.filter(u => u.status === 'active').length,
+            pending_onboarding: statsResponse.recent_registrations || 0,
+            attendance_overrides: 0,
+            system_health: (statsResponse.system_health === 'healthy' ? 'good' : 
+                          statsResponse.system_health === 'warning' ? 'warning' : 
+                          statsResponse.system_health) as SystemStats['system_health'] || 'good'
+          });
+        } else {
+          // Fallback: calculate stats from user data
+          const activeUsers = users.filter((u: AppUser) => u.status === 'active');
+          setStats(prev => ({
+            ...prev,
+            total_users: users.length,
+            active_users: activeUsers.length,
+            system_health: users.length > 0 ? 'good' : 'warning'
+          }));
+        }
         
-        console.log(`✅ SUCCESS: Loaded ${users.length} users from database`);
-        console.log('First user example:', users[0]);
+        console.log(`✅ SUCCESS: Loaded ${users.length} admin users from person_records table`);
+        console.log('👤 First user example:', users[0]);
+      } else {
+        throw new Error('No user data received from admin API');
       }
       
     } catch (err) {
-      console.error('Failed to load admin data:', err);
-      setError('Failed to load admin data');
+      console.error('❌ Failed to load admin data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load admin data');
     } finally {
       setLoading(false);
     }
@@ -195,54 +213,70 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboa
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Create new app user (functional button)
-  const handleCreateUser = () => {
+  // FIXED: Create new app user using correct API
+  const handleCreateUser = async () => {
     const staffId = prompt('Enter Staff ID (e.g., Admin-NewUser):');
-    const fullName = prompt('Enter Full Name:');
+    const firstName = prompt('Enter First Name:');
+    const lastName = prompt('Enter Last Name:');
     const role = prompt('Enter Role (Admin/HarvestFlow/FlavorCore/Supervisor):') as AppUser['role'];
     
-    if (staffId && fullName && role) {
-      const newUser: AppUser = {
-        id: Date.now().toString(),
-        staff_id: staffId,
-        full_name: fullName,
-        role: role,
-        department: role,
-        designation: role,
-        status: 'active',
-        created_at: new Date().toISOString()
-      };
-      
-      setAppUsers(prev => [...prev, newUser]);
-      setStats(prev => ({
-        ...prev,
-        total_users: prev.total_users + 1,
-        active_users: prev.active_users + 1
-      }));
-      
-      alert('App User created successfully!');
+    if (staffId && firstName && lastName && role) {
+      try {
+        const userData = {
+          staff_id: staffId,
+          first_name: firstName,
+          last_name: lastName,
+          role: role,
+          is_active: true
+        };
+        
+        const newUser = await api.createUser(userData);
+        console.log('✅ User created:', newUser);
+        
+        // Reload data to get updated list
+        await loadAdminData();
+        alert('App User created successfully!');
+      } catch (err) {
+        console.error('❌ Failed to create user:', err);
+        alert('Failed to create user: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      }
     }
   };
 
-  // Suspend/Activate user
-  const handleToggleUserStatus = (userId: string) => {
-    setAppUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, status: user.status === 'active' ? 'suspended' : 'active' }
-        : user
-    ));
-    alert('User status updated!');
+  // FIXED: Toggle user status using correct API
+  const handleToggleUserStatus = async (userId: string) => {
+    try {
+      const user = appUsers.find(u => u.id === userId);
+      if (!user) return;
+      
+      const newStatus = user.status === 'active' ? false : true;
+      await api.updateUser(user.staff_id, { is_active: newStatus });
+      
+      // Reload data to get updated status
+      await loadAdminData();
+      alert('User status updated successfully!');
+    } catch (err) {
+      console.error('❌ Failed to update user status:', err);
+      alert('Failed to update user status: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
   };
 
-  // Delete user
-  const handleDeleteUser = (userId: string) => {
+  // FIXED: Delete user using correct API
+  const handleDeleteUser = async (userId: string) => {
     if (confirm('Are you sure you want to delete this user?')) {
-      setAppUsers(prev => prev.filter(u => u.id !== userId));
-      setStats(prev => ({
-        ...prev,
-        total_users: prev.total_users - 1
-      }));
-      alert('User deleted successfully!');
+      try {
+        const user = appUsers.find(u => u.id === userId);
+        if (!user) return;
+        
+        await api.deleteUser(user.staff_id);
+        
+        // Reload data to get updated list
+        await loadAdminData();
+        alert('User deleted successfully!');
+      } catch (err) {
+        console.error('❌ Failed to delete user:', err);
+        alert('Failed to delete user: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      }
     }
   };
 
