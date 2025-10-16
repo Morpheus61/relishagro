@@ -1,298 +1,284 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-
-// CORRECTED IMPORTS - Based on actual component exports
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { LoginScreen } from './components/shared/LoginScreen';
-import { MobileNav } from './components/shared/MobileNav';
 import AdminDashboard from './components/admin/AdminDashboard';
 import HarvestFlowDashboard from './components/harvestflow/HarvestFlowDashboard';
 import FlavorCoreManagerDashboard from './components/flavorcore/FlavorCoreManagerDashboard';
-import { SupervisorDashboard } from './components/supervisor/SupervisorDashboard';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import SupervisorDashboard from './components/supervisor/SupervisorDashboard';
 
-// Define the navigation routes
-type Route = 'dashboard' | 'reports' | 'settings';
+// Types
+interface User {
+  staff_id: string;
+  full_name: string;
+  name: string;
+  role: string;
+  department?: string;
+  email?: string;
+}
 
-const AppContent: React.FC = () => {
-  const { user, login, logout, isLoading, error } = useAuth();
-  const [currentRoute, setCurrentRoute] = useState<Route>('dashboard');
+// Authentication Context
+interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  login: (userData: User, authToken: string) => void;
+  logout: () => void;
+  isAuthenticated: boolean;
+}
 
-  // FUNCTIONAL Navigation handler - NO MORE DUMMY BUTTONS
-  const handleNavigation = (route: Route) => {
-    console.log(`🎯 App.tsx: Navigation clicked: ${route}`);
-    setCurrentRoute(route);
+const AuthContext = React.createContext<AuthContextType | null>(null);
+
+export const useAuth = () => {
+  const context = React.useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+// Auth Provider Component
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for existing session on app load
+    const savedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+    
+    if (savedToken && savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        // Ensure name property exists
+        if (!userData.name && userData.full_name) {
+          userData.name = userData.full_name;
+        }
+        setUser(userData);
+        setToken(savedToken);
+      } catch (error) {
+        console.error('Error parsing saved user data:', error);
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  const login = (userData: User, authToken: string) => {
+    // Ensure name property exists
+    const userWithName = {
+      ...userData,
+      name: userData.name || userData.full_name || userData.staff_id
+    };
+    
+    setUser(userWithName);
+    setToken(authToken);
+    
+    // Save to localStorage for persistence
+    localStorage.setItem('token', authToken);
+    localStorage.setItem('user', JSON.stringify(userWithName));
   };
 
-  // Enhanced debug logging for user changes
-  useEffect(() => {
-    console.log('🔄 App.tsx: User state changed:', {
-      user: user,
-      hasUser: !!user,
-      userId: user?.id,
-      userRole: user?.role,
-      userStaffId: user?.staff_id,
-      userFullName: user?.full_name
-    });
-    console.log('🔄 App.tsx: isLoading:', isLoading);
-    console.log('🔄 App.tsx: error:', error);
-    console.log('🔄 App.tsx: currentRoute:', currentRoute);
-    console.log('🔄 App.tsx: Will show:', !isLoading && !user ? 'LOGIN' : !isLoading && user ? 'DASHBOARD' : 'LOADING');
-  }, [user, isLoading, error, currentRoute]);
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    
+    // Clear all stored data
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+  };
 
-  // Show loading spinner while checking authentication
+  const value: AuthContextType = {
+    user,
+    token,
+    login,
+    logout,
+    isAuthenticated: !!user && !!token
+  };
+
   if (isLoading) {
-    console.log('⏳ App.tsx: Still loading...');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading FlavorCore...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
-
-  // Enhanced login handler with better error handling
-  const handleLogin = async (staffId: string, role: string) => {
-    console.log('🚀 App.tsx: handleLogin called with:', { staffId, role });
-    console.log('🚀 App.tsx: Current user state before login:', user);
-    
-    try {
-      console.log('🚀 App.tsx: Calling AuthContext login...');
-      await login(staffId);
-      console.log('✅ App.tsx: AuthContext login call completed');
-      console.log('✅ App.tsx: User state after login:', user);
-      
-      // Don't handle success here - let the useEffect handle user state changes
-      
-    } catch (error) {
-      console.error('❌ App.tsx: Login error caught:', error);
-      console.error('❌ App.tsx: Error type:', typeof error);
-      console.error('❌ App.tsx: Error details:', error);
-    }
-  };
-
-  // Convert user role to MobileNav format
-  const getMobileNavRole = (userRole: string) => {
-    switch (userRole) {
-      case 'Admin':
-        return 'admin';
-      case 'HarvestFlow':
-        return 'harvestflow_manager';
-      case 'FlavorCore':
-        return 'flavorcore_manager';
-      case 'Supervisor':
-        return 'flavorcore_supervisor';
-      default:
-        return userRole.toLowerCase();
-    }
-  };
-
-  // FIXED: Render appropriate dashboard based on ACTUAL backend role values
-  const renderDashboard = () => {
-    if (!user) {
-      console.log('❌ App.tsx: renderDashboard called but no user');
-      return null;
-    }
-
-    console.log('🎯 App.tsx: Rendering dashboard for user:', {
-      role: user.role,
-      staff_id: user.staff_id,
-      full_name: user.full_name,
-      currentRoute: currentRoute
-    });
-
-    // Match the ACTUAL backend role values
-    switch (user.role) {
-      case 'Admin':  // Backend returns "Admin"
-        console.log('📊 App.tsx: Rendering AdminDashboard');
-        return <AdminDashboard currentRoute={currentRoute} onNavigate={handleNavigation} />;
-      
-      case 'HarvestFlow':  // Backend returns "HarvestFlow" 
-        console.log('🌾 App.tsx: Rendering HarvestFlowDashboard');
-        return <HarvestFlowDashboard />;
-      
-      case 'FlavorCore':  // Backend returns "FlavorCore"
-        console.log('🏭 App.tsx: Rendering FlavorCoreManagerDashboard');
-        return <FlavorCoreManagerDashboard />;
-      
-      case 'Supervisor':  // Backend returns "Supervisor"
-        console.log('👨‍💼 App.tsx: Rendering SupervisorDashboard');
-        return (
-          <SupervisorDashboard 
-            currentUser={{
-              id: user.id,
-              staff_id: user.staff_id,
-              full_name: user.full_name,
-              role: user.role
-            }}
-            onLogout={logout}
-          />
-        );
-      
-      // Legacy support for old role values (just in case)
-      case 'admin':
-        console.log('📊 App.tsx: Rendering AdminDashboard (legacy)');
-        return <AdminDashboard currentRoute={currentRoute} onNavigate={handleNavigation} />;
-      case 'harvestflow_manager':
-        console.log('🌾 App.tsx: Rendering HarvestFlowDashboard (legacy)');
-        return <HarvestFlowDashboard />;
-      case 'flavorcore_manager':
-        console.log('🏭 App.tsx: Rendering FlavorCoreManagerDashboard (legacy)');
-        return <FlavorCoreManagerDashboard />;
-      case 'flavorcore_supervisor':
-        console.log('👨‍💼 App.tsx: Rendering SupervisorDashboard (legacy)');
-        return (
-          <SupervisorDashboard 
-            currentUser={{
-              id: user.id,
-              staff_id: user.staff_id,
-              full_name: user.full_name,
-              role: user.role
-            }}
-            onLogout={logout}
-          />
-        );
-      
-      default:
-        console.error('❌ App.tsx: Unknown user role:', user.role);
-        return (
-          <div className="p-12 text-center bg-red-50 border border-red-200 rounded-lg m-6">
-            <h2 className="text-red-600 text-xl font-semibold mb-4">Access Error</h2>
-            <p className="text-red-700 mb-4">
-              Unknown user role: <strong>{user.role}</strong>
-            </p>
-            <p className="text-red-700 mb-6 text-sm">
-              Expected roles: Admin, HarvestFlow, FlavorCore, Supervisor
-            </p>
-            <button 
-              onClick={logout}
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        );
-    }
-  };
-
-  // If user is not authenticated, show login screen
-  if (!user) {
-    console.log('🔒 App.tsx: No user found, showing LoginScreen');
-    return (
-      <div>
-        <LoginScreen />
-        {/* Show error message if login failed */}
-        {error && (
-          <div className="fixed top-5 right-5 bg-red-50 border border-red-200 rounded-lg p-4 text-red-600 max-w-sm z-50">
-            <strong>Login Error:</strong> {error}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  console.log('✅ App.tsx: User authenticated, showing dashboard for:', user);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Navigation - Show only on mobile */}
-      <div className="md:hidden">
-        <MobileNav
-          userRole={getMobileNavRole(user.role)}
-          onNavigate={(route) => setCurrentRoute(route as Route)}
-          onLogout={logout}
-          currentRoute={currentRoute}
-        />
-      </div>
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
-      {/* Desktop Header - Hide on mobile */}
-      <header className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-indigo-600 text-white shadow-lg">
-        <div className="px-6 py-4">
-          <div className="flex justify-between items-center max-w-7xl mx-auto">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center text-xl font-bold">
-                🌾
-              </div>
-              <h1 className="text-xl font-bold">
-                Relish Agro - FlavorCore Management
-              </h1>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <span className="text-sm opacity-90">
-                  Welcome, {user.full_name}
-                </span>
-                <br />
-                <span className="text-xs opacity-80">
-                  {user.designation} • {user.staff_id}
-                </span>
-              </div>
-              <button 
-                onClick={logout}
-                className="bg-indigo-500 hover:bg-indigo-400 px-4 py-2 rounded transition-colors text-sm"
-              >
-                Logout
-              </button>
-            </div>
+// Protected Route Component
+const ProtectedRoute: React.FC<{ 
+  children: React.ReactNode;
+  requiredRole?: string;
+}> = ({ children, requiredRole }) => {
+  const { isAuthenticated, user } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole && user?.role !== requiredRole) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Dashboard Router Component
+const DashboardRouter: React.FC = () => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Route based on user role
+  const getDashboardComponent = () => {
+    const staffId = user.staff_id?.toLowerCase() || '';
+    
+    if (staffId.startsWith('admin-')) {
+      return <AdminDashboard />;
+    } else if (staffId.startsWith('hf-')) {
+      return <HarvestFlowDashboard currentUser={user} />;
+    } else if (staffId.startsWith('fc-')) {
+      return <FlavorCoreManagerDashboard />;
+    } else if (staffId.startsWith('sup-')) {
+      return <SupervisorDashboard currentUser={user} />;
+    } else {
+      // Default fallback
+      return <AdminDashboard />;
+    }
+  };
+
+  return getDashboardComponent();
+};
+
+// Wrapper components for routes that need currentUser
+const HarvestFlowRoute: React.FC = () => {
+  const { user } = useAuth();
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <HarvestFlowDashboard currentUser={user} />;
+};
+
+const SupervisorRoute: React.FC = () => {
+  const { user } = useAuth();
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <SupervisorDashboard currentUser={user} />;
+};
+
+// Unauthorized Page Component
+const UnauthorizedPage: React.FC = () => {
+  const { logout } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
+        <div className="mb-6">
+          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
-          
-          {/* Desktop Navigation menu */}
-          <nav className="mt-4 flex gap-2 max-w-7xl mx-auto">
-            <button 
-              onClick={() => handleNavigation('dashboard')}
-              className={`px-4 py-2 text-sm border border-white/30 rounded transition-all ${
-                currentRoute === 'dashboard' 
-                  ? 'bg-indigo-500 text-white' 
-                  : 'bg-transparent text-white hover:bg-indigo-500'
-              }`}
-            >
-              Dashboard
-            </button>
-            <button 
-              onClick={() => handleNavigation('reports')}
-              className={`px-4 py-2 text-sm border border-white/30 rounded transition-all ${
-                currentRoute === 'reports' 
-                  ? 'bg-indigo-500 text-white' 
-                  : 'bg-transparent text-white hover:bg-indigo-500'
-              }`}
-            >
-              Reports
-            </button>
-            <button 
-              onClick={() => handleNavigation('settings')}
-              className={`px-4 py-2 text-sm border border-white/30 rounded transition-all ${
-                currentRoute === 'settings' 
-                  ? 'bg-indigo-500 text-white' 
-                  : 'bg-transparent text-white hover:bg-indigo-500'
-              }`}
-            >
-              Settings
-            </button>
-          </nav>
         </div>
-      </header>
-
-      {/* Main Content - Mobile Responsive */}
-      <main className="px-4 md:px-6 lg:px-8 pt-4 md:pt-36">
-        <div className="max-w-7xl mx-auto">
-          {renderDashboard()}
-        </div>
-      </main>
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+        <p className="text-gray-600 mb-6">
+          You don't have permission to access this resource. Please contact your administrator.
+        </p>
+        <button
+          onClick={logout}
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+        >
+          Return to Login
+        </button>
+      </div>
     </div>
   );
 };
 
+// Main App Component
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
-        <div>
+        <div className="App">
           <Routes>
-            <Route path="/" element={<AppContent />} />
-            <Route path="/login" element={<AppContent />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginScreen />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            
+            {/* Protected Dashboard Route */}
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <DashboardRouter />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Role-specific Protected Routes */}
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/harvestflow" 
+              element={
+                <ProtectedRoute>
+                  <HarvestFlowRoute />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/flavorcore" 
+              element={
+                <ProtectedRoute>
+                  <FlavorCoreManagerDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/supervisor" 
+              element={
+                <ProtectedRoute>
+                  <SupervisorRoute />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Default redirect */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            
+            {/* Catch all - redirect to login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </div>
       </Router>

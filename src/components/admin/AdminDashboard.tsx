@@ -1,1297 +1,1236 @@
 import React, { useState, useEffect } from 'react';
+import { Card } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
+import { Textarea } from '../ui/textarea';
 import { 
   Users, 
-  Settings, 
-  BarChart3, 
-  Calendar, 
-  MapPin, 
-  UserCheck,
-  Briefcase,
-  Package,
+  DollarSign, 
+  TrendingUp, 
+  AlertTriangle,
   UserPlus,
-  LogOut,
-  Menu,
-  X,
-  Plus,
+  CheckCircle,
+  XCircle,
   Search,
   Filter,
   Download,
+  MoreHorizontal,
   Eye,
   Edit,
   Trash2,
-  CheckCircle,
-  XCircle,
+  Mail,
+  Phone,
+  Calendar,
+  MapPin,
+  Star,
+  Award,
+  Activity,
+  Zap,
+  Target,
+  BarChart,
+  PieChart,
   Clock,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Loader,
-  Shield,
-  Database,
-  FileText,
-  Activity
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  X,
+  Building,
+  Package
 } from 'lucide-react';
-import api from '../../lib/api';
-import { AttendanceOverride, AttendanceOverrideApproval } from '../shared/AttendanceOverride';
 
-type Route = 'dashboard' | 'reports' | 'settings';
-
-interface AdminDashboardProps {
-  currentRoute?: Route;
-  onNavigate?: (route: Route) => void;
-}
-
-// Types for APP USERS (not workers)
-interface AppUser {
+// Enhanced Navigation Component - Built into this file
+interface NavigationItem {
   id: string;
-  staff_id: string;
-  full_name: string;
-  role: 'Admin' | 'HarvestFlow' | 'FlavorCore' | 'Supervisor' | 'User';
-  department: string;
-  designation: string;
-  phone_number?: string;
-  email?: string;
-  status: 'active' | 'inactive' | 'suspended';
-  created_at: string;
-  last_login?: string;
+  label: string;
 }
 
-interface SystemStats {
-  total_users: number;
-  active_users: number;
-  pending_onboarding: number;
-  attendance_overrides: number;
-  system_health: 'good' | 'warning' | 'critical';
+interface EnhancedNavigationProps {
+  items: NavigationItem[];
+  activeTab: string;
+  onTabChange: (tabId: string) => void;
 }
 
-// ADDED: Attendance Override interfaces
-interface AttendanceOverrideRequest {
-  id: string;
-  worker_id: string;
-  worker_name: string;
-  check_in: string;
-  check_out?: string;
-  override_reason: string;
-  status: 'pending_approval' | 'approved' | 'rejected';
-  submitted_by: string;
-  location: { latitude: number; longitude: number };
-  timestamp: string;
-  approval_notes?: string;
-}
+const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
+  items,
+  activeTab,
+  onTabChange,
+}) => {
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentRoute = 'dashboard', onNavigate }) => {
-  // State
-  const [activeTab, setActiveTab] = useState('overview');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // For mobile slide-out menu
-
-  // Data for APP USERS management
-  const [appUsers, setAppUsers] = useState<AppUser[]>([]);
-  const [stats, setStats] = useState<SystemStats>({
-    total_users: 0,
-    active_users: 0,
-    pending_onboarding: 0,
-    attendance_overrides: 0,
-    system_health: 'good'
-  });
-
-  // ADDED: Attendance override state
-  const [attendanceOverrides, setAttendanceOverrides] = useState<AttendanceOverrideRequest[]>([]);
-  const [showAttendanceOverride, setShowAttendanceOverride] = useState(false);
-  const [selectedWorkerForOverride, setSelectedWorkerForOverride] = useState<{id: string, name: string} | null>(null);
-
-  // Search and filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-
-  // Handle navigation from App.tsx header
-  useEffect(() => {
-    if (currentRoute && onNavigate) {
-      switch (currentRoute) {
-        case 'dashboard':
-          setActiveTab('overview');
-          break;
-        case 'reports':
-          setActiveTab('reports');
-          break;
-        case 'settings':
-          setActiveTab('settings');
-          break;
-        default:
-          setActiveTab('overview');
-      }
-    }
-  }, [currentRoute, onNavigate]);
-
-  // FIXED: Load APP USERS data from correct endpoint
-  const loadAdminData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('🔄 Loading admin data from CORRECT endpoints...');
-      
-      // FIXED: Call correct admin endpoints instead of workers
-      const [usersResponse, statsResponse] = await Promise.all([
-        api.getUsers(),        // FIXED: Call admin users endpoint
-        api.getAdminStats()    // FIXED: Call admin stats endpoint  
-      ]);
-      
-      console.log('✅ Admin users response:', usersResponse);
-      console.log('✅ Admin stats response:', statsResponse);
-      
-      // FIXED: Handle users response correctly based on AdminUserResponse interface
-      let userData = null;
-      if (usersResponse?.users) {
-        userData = usersResponse.users;  // AdminUserResponse.users format
-      } else if (Array.isArray(usersResponse)) {
-        userData = usersResponse;        // Direct array format
-      }
-      
-      console.log('📋 Extracted user data:', userData);
-      
-      if (userData && Array.isArray(userData)) {
-        const users: AppUser[] = userData.map((user: any) => ({
-          id: user.id || user.staff_id,
-          staff_id: user.staff_id,
-          full_name: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User',
-          role: (user.role || user.designation || user.person_type || 'User') as AppUser['role'],
-          department: user.department || user.designation || user.person_type || 'General',
-          designation: user.designation || user.person_type || 'User',
-          phone_number: user.phone_number || user.contact_number,
-          email: user.email,
-          status: (user.is_active !== false ? 'active' : 'inactive') as AppUser['status'],
-          created_at: user.created_at || new Date().toISOString(),
-          last_login: user.last_login
-        }));
-        
-        setAppUsers(users);
-        
-        // Use stats from API if available, otherwise calculate from users
-        if (statsResponse) {
-          setStats({
-            total_users: statsResponse.total_users || users.length,
-            active_users: statsResponse.active_users || users.filter(u => u.status === 'active').length,
-            pending_onboarding: statsResponse.recent_registrations || 0,
-            attendance_overrides: 0,
-            system_health: (statsResponse.system_health === 'healthy' ? 'good' : 
-                          statsResponse.system_health === 'warning' ? 'warning' : 
-                          statsResponse.system_health) as SystemStats['system_health'] || 'good'
-          });
-        } else {
-          // Fallback: calculate stats from user data
-          const activeUsers = users.filter((u: AppUser) => u.status === 'active');
-          setStats(prev => ({
-            ...prev,
-            total_users: users.length,
-            active_users: activeUsers.length,
-            system_health: users.length > 0 ? 'good' : 'warning'
-          }));
-        }
-        
-        console.log(`✅ SUCCESS: Loaded ${users.length} admin users from person_records table`);
-        console.log('👤 First user example:', users[0]);
-      } else {
-        throw new Error('No user data received from admin API');
-      }
-      
-    } catch (err) {
-      console.error('❌ Failed to load admin data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load admin data');
-    } finally {
-      setLoading(false);
-    }
+  const scrollLeft = () => {
+    const newPosition = Math.max(0, scrollPosition - 200);
+    setScrollPosition(newPosition);
   };
 
-  // ADDED: Load attendance override requests
-  const loadAttendanceOverrides = async () => {
+  const scrollRight = () => {
+    const maxScroll = Math.max(0, (items.length * 120) - 600);
+    const newPosition = Math.min(maxScroll, scrollPosition + 200);
+    setScrollPosition(newPosition);
+  };
+
+  return (
+    <>
+      {/* Mobile Navigation */}
+      <div className="md:hidden mb-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          className="w-full flex items-center justify-between"
+        >
+          <span>{items.find(item => item.id === activeTab)?.label || 'Menu'}</span>
+          {showMobileMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </Button>
+        
+        {showMobileMenu && (
+          <div className="mt-2 space-y-1 bg-white border rounded-md shadow-lg z-10 absolute left-0 right-0 mx-4">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  onTabChange(item.id);
+                  setShowMobileMenu(false);
+                }}
+                className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors ${
+                  activeTab === item.id ? 'bg-blue-50 text-blue-600 font-medium' : ''
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Navigation */}
+      <div className="hidden md:flex items-center mb-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={scrollLeft}
+          disabled={scrollPosition === 0}
+          className="mr-2 flex-shrink-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <div className="flex-1 overflow-hidden">
+          <div 
+            className="flex transition-transform duration-300 ease-in-out"
+            style={{ transform: `translateX(-${scrollPosition}px)` }}
+          >
+            {items.map((item) => (
+              <Button
+                key={item.id}
+                variant={activeTab === item.id ? "default" : "outline"}
+                onClick={() => onTabChange(item.id)}
+                className="mr-2 flex-shrink-0 whitespace-nowrap min-w-0 transition-all"
+                style={{ minWidth: '120px' }}
+              >
+                <span className="truncate px-1">{item.label}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={scrollRight}
+          disabled={scrollPosition >= Math.max(0, (items.length * 120) - 600)}
+          className="ml-2 flex-shrink-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </>
+  );
+};
+
+// API interfaces
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: 'active' | 'inactive' | 'pending';
+  joinDate: string;
+  lastActive: string;
+  avatar?: string;
+}
+
+interface YieldData {
+  id: string;
+  farmerId: string;
+  farmerName: string;
+  crop: string;
+  variety: string;
+  quantity: number;
+  unit: string;
+  harvestDate: string;
+  qualityGrade: 'A' | 'B' | 'C';
+  pricePerUnit: number;
+  totalValue: number;
+  location: string;
+  verified: boolean;
+}
+
+interface OnboardingRequest {
+  id: string;
+  applicantName: string;
+  email: string;
+  phone: string;
+  farmLocation: string;
+  farmSize: number;
+  primaryCrops: string[];
+  experienceYears: number;
+  applicationDate: string;
+  status: 'pending' | 'approved' | 'rejected';
+  documents: {
+    idProof: boolean;
+    landOwnership: boolean;
+    bankDetails: boolean;
+    cropCertificates: boolean;
+  };
+  reviewNotes?: string;
+}
+
+interface Worker {
+  id: string;
+  name: string;
+  staff_id: string;
+  role: string;
+  phone: string;
+  department: string;
+  status: 'active' | 'inactive';
+  created_at: string;
+}
+
+interface JobType {
+  id: string;
+  name: string;
+  description: string;
+  department: string;
+  created_at: string;
+}
+
+interface Provision {
+  id: string;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  supplier: string;
+  cost: number;
+  status: 'ordered' | 'delivered' | 'pending';
+  created_at: string;
+}
+
+const AdminDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [users, setUsers] = useState<User[]>([]);
+  const [yieldData, setYieldData] = useState<YieldData[]>([]);
+  const [onboardingRequests, setOnboardingRequests] = useState<OnboardingRequest[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [jobTypes, setJobTypes] = useState<JobType[]>([]);
+  const [provisions, setProvisions] = useState<Provision[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUserStatus, setSelectedUserStatus] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // API Base URL
+  const API_BASE = process.env.REACT_APP_API_URL || 'https://relishagrobackend-production.up.railway.app';
+
+  // Get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
+  };
+
+  // API headers with authentication
+  const getHeaders = () => {
+    const token = getAuthToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : ''
+    };
+  };
+
+  // API Functions
+  const fetchUsers = async () => {
     try {
-      // Mock data - replace with actual API call
-      setAttendanceOverrides([
+      const response = await fetch(`${API_BASE}/api/admin/users`, {
+        headers: getHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setUsers(data);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      // Fallback to mock data
+      setUsers([
         {
           id: '1',
-          worker_id: 'W-001',
-          worker_name: 'John Doe',
-          check_in: '2024-01-15T08:00:00Z',
-          check_out: '2024-01-15T17:00:00Z',
-          override_reason: 'Biometric device malfunction',
-          status: 'pending_approval',
-          submitted_by: 'HF-Manager',
-          location: { latitude: 12.9716, longitude: 77.5946 },
-          timestamp: '2024-01-15T08:05:00Z'
+          name: 'John Smith',
+          email: 'john.smith@example.com',
+          phone: '+1-555-0123',
+          role: 'Farmer',
+          status: 'active',
+          joinDate: '2024-01-15',
+          lastActive: '2024-03-15'
         },
         {
           id: '2',
-          worker_id: 'W-002',
-          worker_name: 'Jane Smith',
-          check_in: '2024-01-15T08:30:00Z',
-          override_reason: 'Face recognition failed',
-          status: 'pending_approval',
-          submitted_by: 'FC-Manager',
-          location: { latitude: 12.9716, longitude: 77.5946 },
-          timestamp: '2024-01-15T08:35:00Z'
+          name: 'Sarah Johnson',
+          email: 'sarah.j@example.com',
+          phone: '+1-555-0124',
+          role: 'Buyer',
+          status: 'active',
+          joinDate: '2024-02-01',
+          lastActive: '2024-03-14'
         }
       ]);
-      
-      // Update stats with override count
-      setStats(prev => ({
-        ...prev,
-        attendance_overrides: 2
-      }));
-    } catch (err) {
-      console.error('Failed to load attendance overrides:', err);
     }
   };
 
-  // Load on mount
-  useEffect(() => {
-    loadAdminData();
-    loadAttendanceOverrides();
-  }, []);
+  const fetchWorkers = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/workers`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setWorkers(data);
+      }
+    } catch (err) {
+      console.error('Error fetching workers:', err);
+      setWorkers([
+        {
+          id: '1',
+          name: 'Mike Wilson',
+          staff_id: 'SW-001',
+          role: 'Field Worker',
+          phone: '+1-555-0125',
+          department: 'Farming',
+          status: 'active',
+          created_at: '2024-01-10'
+        }
+      ]);
+    }
+  };
 
-  // Navigation items for Admin - ADDED attendance-override
-  const menuItems = [
-    { id: 'overview', icon: BarChart3, label: 'Overview' },
-    { id: 'users', icon: Users, label: 'App Users' },
-    { id: 'onboarding', icon: UserPlus, label: 'User Onboarding' },
-    { id: 'attendance-override', icon: UserCheck, label: 'Attendance Override' }, // ADDED
-    { id: 'procurement', icon: Package, label: 'Procurement' },
-    { id: 'reports', icon: FileText, label: 'Reports' },
-    { id: 'system', icon: Database, label: 'System Health' },
-    { id: 'settings', icon: Settings, label: 'Settings' }
+  const fetchJobTypes = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/job-types`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setJobTypes(data);
+      }
+    } catch (err) {
+      console.error('Error fetching job types:', err);
+      setJobTypes([
+        {
+          id: '1',
+          name: 'Planting',
+          description: 'Crop planting activities',
+          department: 'Farming',
+          created_at: '2024-01-01'
+        },
+        {
+          id: '2',
+          name: 'Harvesting',
+          description: 'Crop harvesting activities',
+          department: 'Farming',
+          created_at: '2024-01-01'
+        }
+      ]);
+    }
+  };
+
+  const fetchProvisions = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/provisions`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProvisions(data);
+      }
+    } catch (err) {
+      console.error('Error fetching provisions:', err);
+      setProvisions([
+        {
+          id: '1',
+          item_name: 'Fertilizer',
+          quantity: 100,
+          unit: 'bags',
+          supplier: 'Agro Supplies Inc.',
+          cost: 5000,
+          status: 'delivered',
+          created_at: '2024-03-01'
+        }
+      ]);
+    }
+  };
+
+  const fetchOnboardingRequests = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/onboarding/requests`, {
+        headers: getHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setOnboardingRequests(data);
+      } else {
+        // Mock data for onboarding requests
+        setOnboardingRequests([
+          {
+            id: '1',
+            applicantName: 'David Brown',
+            email: 'david.brown@email.com',
+            phone: '+1-555-0200',
+            farmLocation: 'Valley Springs, CA',
+            farmSize: 25,
+            primaryCrops: ['Corn', 'Soybeans'],
+            experienceYears: 8,
+            applicationDate: '2024-03-10',
+            status: 'pending',
+            documents: {
+              idProof: true,
+              landOwnership: true,
+              bankDetails: false,
+              cropCertificates: true
+            }
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching onboarding requests:', err);
+      setOnboardingRequests([]);
+    }
+  };
+
+  // Navigation items
+  const navigationItems = [
+    { id: 'overview', label: 'Dashboard Overview' },
+    { id: 'users', label: 'User Management' },
+    { id: 'workers', label: 'Worker Management' },
+    { id: 'jobs', label: 'Job Types' },
+    { id: 'provisions', label: 'Provisions' },
+    { id: 'onboarding', label: 'Onboarding Approvals' },
+    { id: 'yields', label: 'Yield Analytics' },
+    { id: 'reports', label: 'System Reports' },
+    { id: 'settings', label: 'Admin Settings' }
   ];
 
-  // Filter app users
-  const filteredUsers = appUsers.filter(user => {
-    const matchesSearch = searchTerm === '' || 
-      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.staff_id?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    
-    return matchesSearch && matchesRole && matchesStatus;
+  // Filter users based on search and status
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = selectedUserStatus === 'all' || user.status === selectedUserStatus;
+    return matchesSearch && matchesStatus;
   });
 
-  // ADDED: Handle attendance override approval
-  const handleApproveAttendanceOverride = async (overrideId: string) => {
+  const handleApproveOnboarding = async (requestId: string, notes: string = '') => {
     try {
-      // Update status to approved
-      setAttendanceOverrides(prev => 
-        prev.map(req => 
-          req.id === overrideId 
-            ? { ...req, status: 'approved' as const }
-            : req
-        )
-      );
-      
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        attendance_overrides: prev.attendance_overrides - 1
-      }));
-      
-      alert('Attendance override approved successfully!');
-    } catch (err) {
-      console.error('Failed to approve override:', err);
-      alert('Failed to approve attendance override');
-    }
-  };
+      const response = await fetch(`${API_BASE}/api/onboarding/approve/${requestId}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ notes })
+      });
 
-  // ADDED: Handle attendance override rejection  
-  const handleRejectAttendanceOverride = async (overrideId: string) => {
-    try {
-      // Update status to rejected
-      setAttendanceOverrides(prev => 
-        prev.map(req => 
-          req.id === overrideId 
-            ? { ...req, status: 'rejected' as const }
-            : req
-        )
-      );
-      
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        attendance_overrides: prev.attendance_overrides - 1
-      }));
-      
-      alert('Attendance override rejected.');
-    } catch (err) {
-      console.error('Failed to reject override:', err);
-      alert('Failed to reject attendance override');
-    }
-  };
-
-  // FIXED: Create new app user using correct API
-  const handleCreateUser = async () => {
-    const staffId = prompt('Enter Staff ID (e.g., Admin-NewUser):');
-    const firstName = prompt('Enter First Name:');
-    const lastName = prompt('Enter Last Name:');
-    const role = prompt('Enter Role (Admin/HarvestFlow/FlavorCore/Supervisor):') as AppUser['role'];
-    
-    if (staffId && firstName && lastName && role) {
-      try {
-        const userData = {
-          staff_id: staffId,
-          first_name: firstName,
-          last_name: lastName,
-          role: role,
-          is_active: true
-        };
-        
-        const newUser = await api.createUser(userData);
-        console.log('✅ User created:', newUser);
-        
-        // Reload data to get updated list
-        await loadAdminData();
-        alert('App User created successfully!');
-      } catch (err) {
-        console.error('❌ Failed to create user:', err);
-        alert('Failed to create user: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      if (response.ok) {
+        setOnboardingRequests(prev => 
+          prev.map(req => 
+            req.id === requestId 
+              ? { ...req, status: 'approved' as const, reviewNotes: notes }
+              : req
+          )
+        );
       }
-    }
-  };
-
-  // FIXED: Toggle user status using correct API
-  const handleToggleUserStatus = async (userId: string) => {
-    try {
-      const user = appUsers.find(u => u.id === userId);
-      if (!user) return;
-      
-      const newStatus = user.status === 'active' ? false : true;
-      await api.updateUser(user.staff_id, { is_active: newStatus });
-      
-      // Reload data to get updated status
-      await loadAdminData();
-      alert('User status updated successfully!');
     } catch (err) {
-      console.error('❌ Failed to update user status:', err);
-      alert('Failed to update user status: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      console.error('Error approving onboarding:', err);
+      alert('Error approving onboarding request');
     }
   };
 
-  // FIXED: Delete user using correct API
-  const handleDeleteUser = async (userId: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      try {
-        const user = appUsers.find(u => u.id === userId);
-        if (!user) return;
-        
-        await api.deleteUser(user.staff_id);
-        
-        // Reload data to get updated list
-        await loadAdminData();
-        alert('User deleted successfully!');
-      } catch (err) {
-        console.error('❌ Failed to delete user:', err);
-        alert('Failed to delete user: ' + (err instanceof Error ? err.message : 'Unknown error'));
+  const handleRejectOnboarding = async (requestId: string, notes: string = '') => {
+    try {
+      const response = await fetch(`${API_BASE}/api/onboarding/reject/${requestId}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ notes })
+      });
+
+      if (response.ok) {
+        setOnboardingRequests(prev => 
+          prev.map(req => 
+            req.id === requestId 
+              ? { ...req, status: 'rejected' as const, reviewNotes: notes }
+              : req
+          )
+        );
       }
+    } catch (err) {
+      console.error('Error rejecting onboarding:', err);
+      alert('Error rejecting onboarding request');
     }
   };
 
-  // Stats Card Component
-  const StatsCard = ({ title, value, icon: Icon, color = 'blue', subtitle }: {
-    title: string;
-    value: number | string;
-    icon: any;
-    color?: string;
-    subtitle?: string;
-  }) => {
-    const colorClasses: { [key: string]: string } = {
-      blue: 'bg-blue-50 border-blue-200 text-blue-800',
-      green: 'bg-green-50 border-green-200 text-green-800',
-      yellow: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-      red: 'bg-red-50 border-red-200 text-red-800'
+  // Initial data fetch
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        await Promise.all([
+          fetchUsers(),
+          fetchWorkers(),
+          fetchJobTypes(),
+          fetchProvisions(),
+          fetchOnboardingRequests()
+        ]);
+      } catch (err: any) {
+        console.error('Error fetching data:', err);
+        setError(`Error loading dashboard: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
     };
 
+    fetchAllData();
+  }, []);
+
+  // Calculate statistics
+  const totalUsers = users.length;
+  const activeUsers = users.filter(u => u.status === 'active').length;
+  const pendingUsers = users.filter(u => u.status === 'pending').length;
+  const totalWorkers = workers.length;
+  const activeWorkers = workers.filter((worker: Worker) => worker.status === 'active').length;
+  const pendingOnboardingCount = onboardingRequests.filter(req => req.status === 'pending').length;
+  const totalProvisions = provisions.reduce((sum, p) => sum + p.cost, 0);
+
+  // Loading state
+  if (loading) {
     return (
-      <div className={`p-6 rounded-lg border-2 ${colorClasses[color]} transition-all hover:shadow-md`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium opacity-75">{title}</p>
-            <p className="text-3xl font-bold mt-1">{value}</p>
-            {subtitle && <p className="text-xs opacity-60 mt-1">{subtitle}</p>}
-          </div>
-          <Icon className="w-12 h-12 opacity-60" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading admin dashboard...</p>
         </div>
       </div>
     );
-  };
+  }
 
-  // Overview Content
-  const OverviewContent = () => (
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <Card className="border-red-200 bg-red-50 p-6">
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertTriangle className="w-5 h-5" />
+            <span className="font-medium">Error Loading Dashboard</span>
+          </div>
+          <p className="mt-2 text-red-700">{error}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4"
+            variant="outline"
+          >
+            Retry
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const renderOverview = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="Total App Users"
-          value={stats.total_users}
-          icon={Users}
-          color="blue"
-          subtitle="System users"
-        />
-        <StatsCard
-          title="Active Users"
-          value={stats.active_users}
-          icon={Shield}
-          color="green"
-          subtitle="Currently active"
-        />
-        <StatsCard
-          title="Pending Onboarding"
-          value={stats.pending_onboarding}
-          icon={UserPlus}
-          color="yellow"
-          subtitle="Awaiting approval"
-        />
-        <StatsCard
-          title="System Health"
-          value={stats.system_health.toUpperCase()}
-          icon={Activity}
-          color={stats.system_health === 'good' ? 'green' : stats.system_health === 'warning' ? 'yellow' : 'red'}
-          subtitle="Overall status"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Users</p>
+              <p className="text-3xl font-bold text-gray-900">{totalUsers}</p>
+            </div>
+            <Users className="h-8 w-8 text-blue-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Active Workers</p>
+              <p className="text-3xl font-bold text-green-600">{activeWorkers}</p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Provisions</p>
+              <p className="text-3xl font-bold text-green-600">₹{totalProvisions.toLocaleString()}</p>
+            </div>
+            <Package className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingOnboardingCount}</p>
+            </div>
+            <AlertTriangle className="h-8 w-8 text-orange-600" />
+          </div>
+        </Card>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">Recent User Activity</h3>
-        <div className="space-y-3">
-          {appUsers.slice(0, 5).map((user, index) => (
-            <div key={user.id || index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <Shield className="w-5 h-5 text-blue-500" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">{user.full_name}</p>
-                <p className="text-xs text-gray-500">{user.staff_id} • {user.role}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Recent User Activity</h3>
+          <div className="space-y-3">
+            {users.slice(0, 5).map(user => (
+              <div key={user.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                <div>
+                  <p className="font-medium">{user.name}</p>
+                  <p className="text-sm text-gray-600">{user.role}</p>
+                </div>
+                <Badge variant={user.status === 'active' ? 'default' : 'outline'}>
+                  {user.status}
+                </Badge>
               </div>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                user.status === 'active' ? 'bg-green-100 text-green-800' :
-                user.status === 'suspended' ? 'bg-red-100 text-red-800' :
-                'bg-yellow-100 text-yellow-800'
-              }`}>
-                {user.status}
-              </span>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">System Health</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Server Status</span>
+              <Badge variant="default">Online</Badge>
             </div>
-          ))}
-          {appUsers.length === 0 && (
-            <p className="text-gray-500 text-center py-4">No users found</p>
-          )}
-        </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Database Connection</span>
+              <Badge variant="default">Connected</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">API Response Time</span>
+              <Badge variant="default">Fast</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Storage Usage</span>
+              <Badge variant="outline">68%</Badge>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
 
-  // App Users Management Content
-  const UsersContent = () => (
+  const renderUserManagement = () => (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search app users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-        
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">User Management</h3>
         <div className="flex gap-2">
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Roles</option>
-            <option value="Admin">Admin</option>
-            <option value="HarvestFlow">HarvestFlow</option>
-            <option value="FlavorCore">FlavorCore</option>
-            <option value="Supervisor">Supervisor</option>
-          </select>
-          
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          
-          <button
-            onClick={handleCreateUser}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
+          <Button>
+            <UserPlus className="h-4 w-4 mr-2" />
             Add User
-          </button>
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search users..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <select
+          value={selectedUserStatus}
+          onChange={(e) => setSelectedUserStatus(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-md bg-white"
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="pending">Pending</option>
+        </select>
+      </div>
+
+      <Card>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role & Department
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-4">User</th>
+                <th className="text-left p-4">Role</th>
+                <th className="text-left p-4">Status</th>
+                <th className="text-left p-4">Join Date</th>
+                <th className="text-left p-4">Last Active</th>
+                <th className="text-left p-4">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user, index) => (
-                <tr key={user.id || index} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+            <tbody>
+              {filteredUsers.map(user => (
+                <tr key={user.id} className="border-b hover:bg-gray-50">
+                  <td className="p-4">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
-                      <div className="text-sm text-gray-500">{user.staff_id}</div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-sm text-gray-600">{user.email}</p>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{user.role}</div>
-                    <div className="text-sm text-gray-500">{user.department}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      user.status === 'active' ? 'bg-green-100 text-green-800' :
-                      user.status === 'suspended' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
+                  <td className="p-4">{user.role}</td>
+                  <td className="p-4">
+                    <Badge variant={user.status === 'active' ? 'default' : 'outline'}>
                       {user.status}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="p-4">{user.joinDate}</td>
+                  <td className="p-4">{user.lastActive}</td>
+                  <td className="p-4">
                     <div className="flex gap-2">
-                      <button 
-                        onClick={() => alert(`Viewing ${user.full_name}\nRole: ${user.role}\nDepartment: ${user.department}`)}
-                        className="text-blue-600 hover:text-blue-900 transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleToggleUserStatus(user.id)}
-                        className="text-yellow-600 hover:text-yellow-900 transition-colors"
-                        title={user.status === 'active' ? 'Suspend User' : 'Activate User'}
-                      >
-                        {user.status === 'active' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="text-red-600 hover:text-red-900 transition-colors"
-                        title="Delete User"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <Button variant="outline" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {filteredUsers.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    No users found matching your search
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 
-  // ADDED: Attendance Override Content with shared component integration
-  const AttendanceOverrideContent = () => {
-    const pendingOverrides = attendanceOverrides.filter(req => req.status === 'pending_approval');
-    
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <h3 className="text-lg font-semibold">Attendance Override Requests</h3>
-          <div className="flex gap-2 items-center">
-            <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
-              {pendingOverrides.length} Pending Approvals
-            </span>
-            <button
-              onClick={() => {
-                setSelectedWorkerForOverride({ id: 'demo-worker', name: 'Demo Worker' });
-                setShowAttendanceOverride(true);
-              }}
-              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
-            >
-              <UserCheck className="w-4 h-4" />
-              Submit Override
-            </button>
-          </div>
+  const renderWorkerManagement = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Worker Management</h3>
+        <div className="flex gap-2">
+          <Button>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Worker
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
-
-        {/* Pending Override Requests */}
-        <div className="grid gap-6">
-          {pendingOverrides.map((override) => (
-            <AttendanceOverrideApproval
-              key={override.id}
-              override={override}
-              onApprove={() => handleApproveAttendanceOverride(override.id)}
-              onReject={() => handleRejectAttendanceOverride(override.id)}
-            />
-          ))}
-        </div>
-
-        {pendingOverrides.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-            <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-lg font-medium text-gray-900 mb-2">No Pending Override Requests</h4>
-            <p className="text-gray-500">All attendance override requests have been processed.</p>
-          </div>
-        )}
-
-        {/* Attendance Override Modal */}
-        {showAttendanceOverride && selectedWorkerForOverride && (
-          <AttendanceOverride
-            workerId={selectedWorkerForOverride.id}
-            workerName={selectedWorkerForOverride.name}
-            onComplete={() => {
-              setShowAttendanceOverride(false);
-              setSelectedWorkerForOverride(null);
-              loadAttendanceOverrides(); // Refresh data
-            }}
-            onCancel={() => {
-              setShowAttendanceOverride(false);
-              setSelectedWorkerForOverride(null);
-            }}
-          />
-        )}
       </div>
-    );
-  };
 
-  // Reports Content (makes App.tsx Reports button functional)
-  const ReportsContent = () => {
-    const [selectedReport, setSelectedReport] = useState<string | null>(null);
-    const [reportData, setReportData] = useState<any>(null);
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Workers</p>
+              <p className="text-3xl font-bold text-gray-900">{totalWorkers}</p>
+            </div>
+            <Users className="h-8 w-8 text-blue-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Active Workers</p>
+              <p className="text-3xl font-bold text-green-600">{activeWorkers}</p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Job Types</p>
+              <p className="text-3xl font-bold text-purple-600">{jobTypes.length}</p>
+            </div>
+            <Target className="h-8 w-8 text-purple-600" />
+          </div>
+        </Card>
+      </div>
 
-    // Generate report data structure (for display AND download)
-    const generateReportData = (reportType: string) => {
-      const timestamp = new Date().toLocaleString();
-      
-      switch (reportType) {
-        case 'user-activity':
-          return {
-            title: 'User Activity Report',
-            timestamp,
-            sections: [
-              { label: 'Total Users', value: stats.total_users },
-              { label: 'Active Users', value: stats.active_users },
-              { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
-              { label: 'Inactive Users', value: appUsers.filter(u => u.status === 'inactive').length }
-            ]
-          };
-        
-        case 'system-health':
-          return {
-            title: 'System Health Report',
-            timestamp,
-            sections: [
-              { label: 'API Status', value: 'Online' },
-              { label: 'Database Connection', value: 'Connected' },
-              { label: 'Active Users', value: stats.active_users },
-              { label: 'System Health', value: stats.system_health.toUpperCase() }
-            ]
-          };
-        
-        case 'security':
-          return {
-            title: 'Security Report',
-            timestamp,
-            sections: [
-              { label: 'Suspended Users', value: appUsers.filter(u => u.status === 'suspended').length },
-              { label: 'Failed Login Attempts', value: 0 },
-              { label: 'Security Events', value: 'None' }
-            ]
-          };
-        
-        case 'harvest-operations':
-          return {
-            title: 'Harvest Operations Report',
-            timestamp,
-            sections: [
-              { label: 'Harvest Activities', value: 'In Progress' },
-              { label: 'Daily Yields', value: 'Data Available' },
-              { label: 'Worker Assignments', value: 'Active' }
-            ]
-          };
-        
-        case 'processing':
-          return {
-            title: 'FlavorCore Processing Report',
-            timestamp,
-            sections: [
-              { label: 'Processing Status', value: 'Active' },
-              { label: 'Quality Control', value: 'Passed' },
-              { label: 'Production Metrics', value: 'Available' }
-            ]
-          };
-        
-        case 'attendance':
-          return {
-            title: 'Attendance Report',
-            timestamp,
-            sections: [
-              { label: 'Total Workers', value: stats.total_users },
-              { label: 'Present Today', value: stats.active_users },
-              { label: 'Overtime Hours', value: 0 }
-            ]
-          };
-        
-        case 'procurement':
-          return {
-            title: 'Procurement Report',
-            timestamp,
-            sections: [
-              { label: 'Active Suppliers', value: 5 },
-              { label: 'Pending Orders', value: 3 },
-              { label: 'Delivery Status', value: 'On Time' }
-            ]
-          };
-        
-        case 'quality-control':
-          return {
-            title: 'Quality Control Report',
-            timestamp,
-            sections: [
-              { label: 'Quality Tests', value: '15 Passed' },
-              { label: 'Compliance Status', value: '100%' },
-              { label: 'Defect Rate', value: '0%' }
-            ]
-          };
-        
-        case 'financial':
-          return {
-            title: 'Financial Summary',
-            timestamp,
-            sections: [
-              { label: 'Revenue', value: '$25,000' },
-              { label: 'Costs', value: '$18,000' },
-              { label: 'Profit', value: '$7,000' },
-              { label: 'ROI', value: '28%' }
-            ]
-          };
-        
-        default:
-          return null;
-      }
-    };
+      <Card>
+        <div className="p-6">
+          <h4 className="text-lg font-semibold mb-4">Workers List</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-4">Worker</th>
+                  <th className="text-left p-4">Staff ID</th>
+                  <th className="text-left p-4">Role</th>
+                  <th className="text-left p-4">Department</th>
+                  <th className="text-left p-4">Status</th>
+                  <th className="text-left p-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workers.map((worker: Worker) => (
+                  <tr key={worker.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
+                      <div>
+                        <p className="font-medium">{worker.name}</p>
+                        <p className="text-sm text-gray-600">{worker.phone}</p>
+                      </div>
+                    </td>
+                    <td className="p-4">{worker.staff_id}</td>
+                    <td className="p-4">{worker.role}</td>
+                    <td className="p-4">{worker.department}</td>
+                    <td className="p-4">
+                      <Badge variant={worker.status === 'active' ? 'default' : 'outline'}>
+                        {worker.status}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
 
-    // Handle viewing report (SHOW on screen)
-    const handleViewReport = (reportType: string) => {
-      const data = generateReportData(reportType);
-      if (data) {
-        setReportData(data);
-        setSelectedReport(reportType);
-      }
-    };
+  const renderJobTypes = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Job Types Management</h3>
+        <Button>
+          <Target className="h-4 w-4 mr-2" />
+          Add Job Type
+        </Button>
+      </div>
 
-    // Handle downloading report (SAVE as file)
-    const handleDownloadReport = () => {
-      if (!reportData) return;
-      
-      let textContent = `${reportData.title.toUpperCase()}\n`;
-      textContent += `Generated: ${reportData.timestamp}\n`;
-      textContent += `${'='.repeat(50)}\n\n`;
-      
-      reportData.sections.forEach((section: any) => {
-        textContent += `${section.label}: ${section.value}\n`;
-      });
-      
-      const blob = new Blob([textContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${reportData.title.toLowerCase().replace(/\s+/g, '_')}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-
-    // Go back to report grid
-    const handleCloseReport = () => {
-      setSelectedReport(null);
-      setReportData(null);
-    };
-
-    // If viewing a specific report
-    if (selectedReport && reportData) {
-      return (
-        <div className="space-y-4">
-          <button
-            onClick={handleCloseReport}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
-          >
-            ← Back to Reports
-          </button>
-
-          <div className="bg-blue-50 rounded-lg border p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{reportData.title}</h2>
-                <p className="text-sm text-gray-600 mt-1">Generated: {reportData.timestamp}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {jobTypes.map(jobType => (
+          <Card key={jobType.id} className="p-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold">{jobType.name}</h4>
+                <Button variant="outline" size="sm">
+                  <Edit className="h-4 w-4" />
+                </Button>
               </div>
-              <button
-                onClick={handleDownloadReport}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </button>
+              <p className="text-sm text-gray-600">{jobType.description}</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Department:</span>
+                <Badge variant="outline">{jobType.department}</Badge>
+              </div>
+              <div className="text-xs text-gray-400">
+                Created: {new Date(jobType.created_at).toLocaleDateString()}
+              </div>
             </div>
-          </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
-          <div className="bg-white rounded-lg border p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Data</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {reportData.sections.map((section: any, index: number) => (
-                <div key={index} className="p-4 bg-gray-50 rounded-lg border">
-                  <p className="text-sm font-medium text-gray-600 mb-1">{section.label}</p>
-                  <p className="text-xl font-bold text-gray-900">{section.value}</p>
+  const renderProvisions = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Provisions Management</h3>
+        <Button>
+          <Package className="h-4 w-4 mr-2" />
+          Add Provision
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Cost</p>
+              <p className="text-3xl font-bold text-green-600">₹{totalProvisions.toLocaleString()}</p>
+            </div>
+            <DollarSign className="h-8 w-8 text-green-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Delivered</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {provisions.filter(p => p.status === 'delivered').length}
+              </p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-blue-600" />
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-3xl font-bold text-orange-600">
+                {provisions.filter(p => p.status === 'pending').length}
+              </p>
+            </div>
+            <Clock className="h-8 w-8 text-orange-600" />
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <div className="p-6">
+          <h4 className="text-lg font-semibold mb-4">Provisions List</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-4">Item</th>
+                  <th className="text-left p-4">Quantity</th>
+                  <th className="text-left p-4">Supplier</th>
+                  <th className="text-left p-4">Cost</th>
+                  <th className="text-left p-4">Status</th>
+                  <th className="text-left p-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {provisions.map(provision => (
+                  <tr key={provision.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
+                      <p className="font-medium">{provision.item_name}</p>
+                    </td>
+                    <td className="p-4">{provision.quantity} {provision.unit}</td>
+                    <td className="p-4">{provision.supplier}</td>
+                    <td className="p-4">₹{provision.cost.toLocaleString()}</td>
+                    <td className="p-4">
+                      <Badge variant={provision.status === 'delivered' ? 'default' : 'outline'}>
+                        {provision.status}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const renderOnboardingApprovals = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <h3 className="text-lg font-semibold">Onboarding Approvals</h3>
+        <Badge variant="outline">
+          {pendingOnboardingCount} Pending Reviews
+        </Badge>
+      </div>
+
+      <div className="grid gap-6">
+        {onboardingRequests.map(request => (
+          <Card key={request.id} className="p-6">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-lg font-semibold">{request.applicantName}</h4>
+                  <p className="text-gray-600">{request.email} • {request.phone}</p>
                 </div>
-              ))}
+                <Badge variant={
+                  request.status === 'approved' ? 'default' :
+                  request.status === 'rejected' ? 'outline' : 'outline'
+                }>
+                  {request.status}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h5 className="font-medium mb-2">Farm Details</h5>
+                  <div className="space-y-1 text-sm">
+                    <p><MapPin className="inline h-4 w-4 mr-1" />{request.farmLocation}</p>
+                    <p><Target className="inline h-4 w-4 mr-1" />{request.farmSize} acres</p>
+                    <p><Activity className="inline h-4 w-4 mr-1" />{request.experienceYears} years experience</p>
+                    <p><Star className="inline h-4 w-4 mr-1" />Crops: {request.primaryCrops.join(', ')}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h5 className="font-medium mb-2">Document Status</h5>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center">
+                      {request.documents.idProof ? 
+                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
+                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                      }
+                      ID Proof
+                    </div>
+                    <div className="flex items-center">
+                      {request.documents.landOwnership ? 
+                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
+                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                      }
+                      Land Ownership
+                    </div>
+                    <div className="flex items-center">
+                      {request.documents.bankDetails ? 
+                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
+                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                      }
+                      Bank Details
+                    </div>
+                    <div className="flex items-center">
+                      {request.documents.cropCertificates ? 
+                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> :
+                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                      }
+                      Crop Certificates
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {request.status === 'pending' && (
+                <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
+                  <div className="flex-1">
+                    <Textarea placeholder="Review notes (optional)" className="w-full" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleApproveOnboarding(request.id)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleRejectOnboarding(request.id)}
+                      className="border-red-600 text-red-600 hover:bg-red-50"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {request.reviewNotes && (
+                <div className="pt-4 border-t">
+                  <h5 className="font-medium mb-2">Review Notes</h5>
+                  <p className="text-sm text-gray-600">{request.reviewNotes}</p>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Default: Show report grid
-    return (
-      <div className="space-y-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold mb-4">System Reports</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <button
-              onClick={() => handleViewReport('user-activity')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <FileText className="w-6 h-6 text-blue-500 mb-2" />
-              <h4 className="font-medium">User Activity Report</h4>
-              <p className="text-sm text-gray-600">Login activity and usage statistics</p>
-            </button>
-            
-            <button
-              onClick={() => handleViewReport('system-health')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <Activity className="w-6 h-6 text-green-500 mb-2" />
-              <h4 className="font-medium">System Health Report</h4>
-              <p className="text-sm text-gray-600">API status and performance metrics</p>
-            </button>
-            
-            <button
-              onClick={() => handleViewReport('security')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <Shield className="w-6 h-6 text-red-500 mb-2" />
-              <h4 className="font-medium">Security Report</h4>
-              <p className="text-sm text-gray-600">Failed logins and security events</p>
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold mb-4">Operational Reports</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <button
-              onClick={() => handleViewReport('harvest-operations')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <BarChart3 className="w-6 h-6 text-orange-500 mb-2" />
-              <h4 className="font-medium">Harvest Operations</h4>
-              <p className="text-sm text-gray-600">Daily harvest activities and yields</p>
-            </button>
-            
-            <button
-              onClick={() => handleViewReport('processing')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <Package className="w-6 h-6 text-purple-500 mb-2" />
-              <h4 className="font-medium">Processing Report</h4>
-              <p className="text-sm text-gray-600">FlavorCore processing activities</p>
-            </button>
-            
-            <button
-              onClick={() => handleViewReport('attendance')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <UserCheck className="w-6 h-6 text-teal-500 mb-2" />
-              <h4 className="font-medium">Attendance Report</h4>
-              <p className="text-sm text-gray-600">Worker attendance and overtime</p>
-            </button>
-            
-            <button
-              onClick={() => handleViewReport('procurement')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <Briefcase className="w-6 h-6 text-indigo-500 mb-2" />
-              <h4 className="font-medium">Procurement Report</h4>
-              <p className="text-sm text-gray-600">Supply chain and procurement status</p>
-            </button>
-            
-            <button
-              onClick={() => handleViewReport('quality-control')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <CheckCircle className="w-6 h-6 text-emerald-500 mb-2" />
-              <h4 className="font-medium">Quality Control</h4>
-              <p className="text-sm text-gray-600">Quality metrics and compliance</p>
-            </button>
-            
-            <button
-              onClick={() => handleViewReport('financial')}
-              className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-            >
-              <TrendingUp className="w-6 h-6 text-green-600 mb-2" />
-              <h4 className="font-medium">Financial Summary</h4>
-              <p className="text-sm text-gray-600">Revenue, costs, and profitability</p>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Onboarding Content
-  const OnboardingContent = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">User Onboarding</h3>
-        <p className="text-gray-600 mb-4">Manage new user registration and approval process.</p>
-        <div className="space-y-4">
-          <button
-            onClick={() => {
-              const requests = [
-                { id: 1, name: 'John Doe', role: 'HarvestFlow', status: 'pending' },
-                { id: 2, name: 'Jane Smith', role: 'FlavorCore', status: 'pending' }
-              ];
-              console.log('Onboarding requests:', requests);
-              alert(`Found ${requests.length} pending onboarding requests`);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mr-2"
-          >
-            View Pending Requests
-          </button>
-          <button
-            onClick={() => {
-              const name = prompt('Enter new user name:');
-              const role = prompt('Enter role (Admin/HarvestFlow/FlavorCore/Supervisor):');
-              if (name && role) {
-                console.log('Creating onboarding request:', { name, role });
-                alert(`Onboarding request created for ${name} as ${role}`);
-              }
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Create Request
-          </button>
-        </div>
+          </Card>
+        ))}
       </div>
     </div>
   );
 
-  // Procurement Content
-  const ProcurementContent = () => (
+  const renderYieldAnalytics = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">Procurement Management</h3>
-        <p className="text-gray-600 mb-4">Review and approve procurement requests from operational teams.</p>
-        <div className="space-y-4">
-          <button
-            onClick={() => {
-              const pendingRequests = [
-                { id: 1, item: 'Harvesting Tools', requestedBy: 'HF-Manager', amount: '$2500', status: 'pending approval' },
-                { id: 2, item: 'Processing Equipment', requestedBy: 'FC-Manager', amount: '$5000', status: 'pending approval' }
-              ];
-              console.log('Pending procurement requests:', pendingRequests);
-              alert(`${pendingRequests.length} procurement requests awaiting admin approval`);
-            }}
-            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 mr-2"
-          >
-            Review Pending Requests
-          </button>
-          <button
-            onClick={() => {
-              const requestId = prompt('Enter request ID to approve:');
-              if (requestId) {
-                console.log('Approving procurement request:', requestId);
-                alert(`Procurement request ${requestId} APPROVED`);
-              }
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 mr-2"
-          >
-            Approve Request
-          </button>
-          <button
-            onClick={() => {
-              const requestId = prompt('Enter request ID to reject:');
-              const reason = prompt('Enter rejection reason:');
-              if (requestId && reason) {
-                console.log('Rejecting procurement request:', { requestId, reason });
-                alert(`Procurement request ${requestId} REJECTED: ${reason}`);
-              }
-            }}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            Reject Request
-          </button>
-        </div>
+      <h3 className="text-lg font-semibold">Yield Analytics</h3>
+      <Card className="p-6">
+        <p className="text-gray-600">Yield analytics data will be displayed here when integrated with the backend system.</p>
+      </Card>
+    </div>
+  );
+
+  const renderReports = () => (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">System Reports</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">User Activity Report</h4>
+              <p className="text-sm text-gray-600 mt-1">Daily active users and engagement metrics</p>
+            </div>
+            <Activity className="h-8 w-8 text-blue-600" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
+
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Worker Management Report</h4>
+              <p className="text-sm text-gray-600 mt-1">Worker performance and analytics</p>
+            </div>
+            <Users className="h-8 w-8 text-green-600" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
+
+        <Card className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold">Financial Summary</h4>
+              <p className="text-sm text-gray-600 mt-1">Revenue and expense analytics</p>
+            </div>
+            <DollarSign className="h-8 w-8 text-yellow-600" />
+          </div>
+          <Button variant="outline" className="w-full mt-4">
+            <Download className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
+        </Card>
       </div>
     </div>
   );
 
-  // System Health Content
-  const SystemContent = () => (
+  const renderSettings = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">System Health Monitor</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 border rounded-lg">
+      <h3 className="text-lg font-semibold">Admin Settings</h3>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">System Configuration</h4>
+          <div className="space-y-4">
             <div>
-              <h4 className="font-medium">API Status</h4>
-              <p className="text-sm text-gray-600">Backend API connectivity</p>
+              <label className="block text-sm font-medium mb-2">System Maintenance Mode</label>
+              <Button variant="outline">Toggle Maintenance</Button>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-green-600">Online</span>
+            <div>
+              <label className="block text-sm font-medium mb-2">Auto-approval Threshold</label>
+              <Input type="number" placeholder="Enter threshold value" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Email Notifications</label>
+              <Button variant="outline">Configure Notifications</Button>
             </div>
           </div>
-          
-          <div className="flex items-center justify-between p-3 border rounded-lg">
+        </Card>
+
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">Security Settings</h4>
+          <div className="space-y-4">
             <div>
-              <h4 className="font-medium">Database</h4>
-              <p className="text-sm text-gray-600">Database connectivity</p>
+              <label className="block text-sm font-medium mb-2">Admin Password</label>
+              <Button variant="outline">Change Password</Button>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-green-600">Connected</span>
+            <div>
+              <label className="block text-sm font-medium mb-2">Two-Factor Authentication</label>
+              <Button variant="outline">Enable 2FA</Button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Session Timeout</label>
+              <Input type="number" placeholder="Minutes" />
             </div>
           </div>
-          
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div>
-              <h4 className="font-medium">Active Users</h4>
-              <p className="text-sm text-gray-600">Currently logged in users</p>
-            </div>
-            <span className="text-lg font-semibold text-blue-600">{stats.active_users}</span>
-          </div>
-        </div>
+        </Card>
       </div>
     </div>
   );
 
-  // Settings Content (makes App.tsx Settings button functional)
-  const SettingsContent = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold mb-4">System Settings</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div>
-              <h4 className="font-medium">System Maintenance</h4>
-              <p className="text-sm text-gray-600">Perform system maintenance tasks</p>
-            </div>
-            <button 
-              onClick={() => {
-                console.log('Starting system maintenance...');
-                setTimeout(() => {
-                  console.log('System maintenance completed');
-                  alert('System maintenance completed successfully!');
-                }, 2000);
-                alert('System maintenance started - check console for progress');
-              }}
-              className="px-3 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-            >
-              Maintain
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div>
-              <h4 className="font-medium">Clear System Cache</h4>
-              <p className="text-sm text-gray-600">Clear all cached data</p>
-            </div>
-            <button 
-              onClick={() => {
-                localStorage.clear();
-                alert('System cache cleared!');
-              }}
-              className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              Clear Cache
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div>
-              <h4 className="font-medium">Backup Database</h4>
-              <p className="text-sm text-gray-600">Create database backup</p>
-            </div>
-            <button 
-              onClick={() => {
-                const backupData = {
-                  users: appUsers.length,
-                  timestamp: new Date().toISOString(),
-                  version: '1.0'
-                };
-                const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `database_backup_${new Date().toISOString().split('T')[0]}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                console.log('Database backup created:', backupData);
-              }}
-              className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Backup
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Render content based on active tab
   const renderContent = () => {
     switch (activeTab) {
-      case 'overview': return <OverviewContent />;
-      case 'users': return <UsersContent />;
-      case 'onboarding': return <OnboardingContent />;
-      case 'attendance-override': return <AttendanceOverrideContent />; // ADDED
-      case 'procurement': return <ProcurementContent />;
-      case 'reports': return <ReportsContent />;
-      case 'system': return <SystemContent />;
-      case 'settings': return <SettingsContent />;
-      default: return <OverviewContent />;
+      case 'overview':
+        return renderOverview();
+      case 'users':
+        return renderUserManagement();
+      case 'workers':
+        return renderWorkerManagement();
+      case 'jobs':
+        return renderJobTypes();
+      case 'provisions':
+        return renderProvisions();
+      case 'onboarding':
+        return renderOnboardingApprovals();
+      case 'yields':
+        return renderYieldAnalytics();
+      case 'reports':
+        return renderReports();
+      case 'settings':
+        return renderSettings();
+      default:
+        return renderOverview();
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* NO HEADER - App.tsx provides the header */}
-      
-      <div className="flex">
-        {/* ADMIN SIDEBAR - MOBILE SLIDE-OUT MENU */}
-        <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-sm border-r min-h-screen transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
-              <button
-                onClick={() => setIsMenuOpen(false)}
-                className="md:hidden p-2 rounded-lg hover:bg-gray-100"
-              >
-                <X size={20} />
-              </button>
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
             </div>
-            <p className="text-sm text-gray-500">System Management</p>
-          </div>
-          
-          <nav className="px-4 pb-4 space-y-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setIsMenuOpen(false); // Close menu on mobile
-                  }}
-                  className={`
-                    w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors
-                    ${isActive 
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }
-                  `}
-                >
-                  <Icon className="mr-3 w-5 h-5" />
-                  {item.label}
-                  {/* ADDED: Show badge for attendance overrides */}
-                  {item.id === 'attendance-override' && stats.attendance_overrides > 0 && (
-                    <span className="ml-auto bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
-                      {stats.attendance_overrides}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* MAIN CONTENT */}
-        <main className={`flex-1 ${isMenuOpen ? 'ml-64' : ''} md:ml-64 transition-all duration-300 ease-in-out`}>
-          <div className="p-6">
-            {/* Mobile Menu Toggle Button */}
-            <div className="md:hidden mb-4">
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 bg-gray-100 rounded-lg"
-              >
-                {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
             </div>
-
-            {/* Loading State */}
-            {loading && (
-              <div className="flex justify-center items-center py-12">
-                <Loader className="animate-spin w-8 h-8 text-blue-600 mr-3" />
-                <span className="text-gray-600">Loading admin data...</span>
-              </div>
-            )}
-
-            {/* Error State */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center">
-                  <AlertTriangle className="w-5 h-5 text-red-500 mr-2" />
-                  <p className="text-red-700">{error}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setError(null);
-                    loadAdminData();
-                  }}
-                  className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm transition-colors"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {/* Content */}
-            {!loading && renderContent()}
           </div>
-        </main>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <EnhancedNavigation
+          items={navigationItems}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+        
+        <div className="mt-6">
+          {renderContent()}
+        </div>
       </div>
     </div>
   );
