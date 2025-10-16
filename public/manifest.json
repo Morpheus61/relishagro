@@ -1,22 +1,16 @@
 {
   "name": "Relish Agro",
   "short_name": "RelishAgro",
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#6b21a8",
   "theme_color": "#6b21a8",
   "icons": [
     {
-      "src": "/icons/flavorcore-logo-192x192.png",
-      "type": "image/png",
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
       "sizes": "192x192"
-    },
-    {
-      "src": "/icons/flavorcore-logo-512x512.png",
-      "type": "image/png",
-      "sizes": "512x512"
     }
   ],
-  "categories": ["business", "productivity"],
-  "screenshots": []
+  "categories": ["business", "productivity"]
 }

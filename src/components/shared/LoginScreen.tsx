@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import flavorCoreLogo from '../../assets/flavorcore-logo.png';
@@ -13,7 +14,16 @@ export function LoginScreen() {
   const [staffId, setStaffId] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect to dashboard after successful login
+  useEffect(() => {
+    if (isAuthenticated) {
+      debugLog('User authenticated, redirecting to dashboard...');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleLogin = async () => {
     if (!staffId.trim()) {
