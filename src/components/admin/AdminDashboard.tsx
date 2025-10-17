@@ -260,168 +260,86 @@ const AdminDashboard: React.FC = () => {
 
   // API Functions
   const fetchUsers = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/users`, {
-        headers: getHeaders()
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch users: ${response.status}`);
-      }
-      
+  try {
+    const response = await fetch(`${API_BASE}/api/admin/users`, {
+      headers: getHeaders()
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch users: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    setUsers(Array.isArray(data) ? data : (data.users || [])); // ✅ FIX
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    setUsers([]); // ✅ FIX - Empty array instead of mock data
+  }
+};
+
+const fetchWorkers = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/workers`, {
+      headers: getHeaders()
+    });
+    
+    if (response.ok) {
       const data = await response.json();
-      setUsers(data);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      // Fallback to mock data
-      setUsers([
-        {
-          id: '1',
-          name: 'John Smith',
-          email: 'john.smith@example.com',
-          phone: '+1-555-0123',
-          role: 'Farmer',
-          status: 'active',
-          joinDate: '2024-01-15',
-          lastActive: '2024-03-15'
-        },
-        {
-          id: '2',
-          name: 'Sarah Johnson',
-          email: 'sarah.j@example.com',
-          phone: '+1-555-0124',
-          role: 'Buyer',
-          status: 'active',
-          joinDate: '2024-02-01',
-          lastActive: '2024-03-14'
-        }
-      ]);
+      setWorkers(Array.isArray(data) ? data : (data.workers || [])); // ✅ FIX
     }
-  };
+  } catch (err) {
+    console.error('Error fetching workers:', err);
+    setWorkers([]); // ✅ FIX
+  }
+};
 
-  const fetchWorkers = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/workers`, {
-        headers: getHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setWorkers(data);
-      }
-    } catch (err) {
-      console.error('Error fetching workers:', err);
-      setWorkers([
-        {
-          id: '1',
-          name: 'Mike Wilson',
-          staff_id: 'SW-001',
-          role: 'Field Worker',
-          phone: '+1-555-0125',
-          department: 'Farming',
-          status: 'active',
-          created_at: '2024-01-10'
-        }
-      ]);
+const fetchProvisions = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/provisions/pending`, { // ✅ CORRECT ENDPOINT
+      headers: getHeaders()
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      setProvisions(Array.isArray(data) ? data : (data.provisions || data.requests || [])); // ✅ FIX
     }
-  };
+  } catch (err) {
+    console.error('Error fetching provisions:', err);
+    setProvisions([]); // ✅ FIX
+  }
+};
 
-  const fetchJobTypes = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/job-types`, {
-        headers: getHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setJobTypes(data);
-      }
-    } catch (err) {
-      console.error('Error fetching job types:', err);
-      setJobTypes([
-        {
-          id: '1',
-          name: 'Planting',
-          description: 'Crop planting activities',
-          department: 'Farming',
-          created_at: '2024-01-01'
-        },
-        {
-          id: '2',
-          name: 'Harvesting',
-          description: 'Crop harvesting activities',
-          department: 'Farming',
-          created_at: '2024-01-01'
-        }
-      ]);
+const fetchOnboardingRequests = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/onboarding/pending`, { // ✅ CORRECT ENDPOINT
+      headers: getHeaders()
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      setOnboardingRequests(Array.isArray(data) ? data : (data.requests || [])); // ✅ FIX
     }
-  };
+  } catch (err) {
+    console.error('Error fetching onboarding requests:', err);
+    setOnboardingRequests([]); // ✅ FIX
+  }
+};
 
-  const fetchProvisions = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/provisions`, {
-        headers: getHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProvisions(data);
-      }
-    } catch (err) {
-      console.error('Error fetching provisions:', err);
-      setProvisions([
-        {
-          id: '1',
-          item_name: 'Fertilizer',
-          quantity: 100,
-          unit: 'bags',
-          supplier: 'Agro Supplies Inc.',
-          cost: 5000,
-          status: 'delivered',
-          created_at: '2024-03-01'
-        }
-      ]);
+const fetchJobTypes = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/job-types`, {
+      headers: getHeaders()
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      setJobTypes(Array.isArray(data) ? data : (data.data || [])); // ✅ FIX
     }
-  };
-
-  const fetchOnboardingRequests = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/onboarding/requests`, {
-        headers: getHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setOnboardingRequests(data);
-      } else {
-        // Mock data for onboarding requests
-        setOnboardingRequests([
-          {
-            id: '1',
-            applicantName: 'David Brown',
-            email: 'david.brown@email.com',
-            phone: '+1-555-0200',
-            farmLocation: 'Valley Springs, CA',
-            farmSize: 25,
-            primaryCrops: ['Corn', 'Soybeans'],
-            experienceYears: 8,
-            applicationDate: '2024-03-10',
-            status: 'pending',
-            documents: {
-              idProof: true,
-              landOwnership: true,
-              bankDetails: false,
-              cropCertificates: true
-            }
-          }
-        ]);
-      }
-    } catch (err) {
-      console.error('Error fetching onboarding requests:', err);
-      setOnboardingRequests([]);
-    }
-  };
-
+  } catch (err) {
+    console.error('Error fetching job types:', err);
+    setJobTypes([]); // ✅ FIX
+  }
+};
   // Navigation items
   const navigationItems = [
     { id: 'overview', label: 'Dashboard Overview' },
