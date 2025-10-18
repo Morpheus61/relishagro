@@ -44,13 +44,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user, loading, isAuthenticated]);
 
-  // Initialize auth state from localStorage
+  // Initialize auth state from localStorage - FIXED KEYS
   useEffect(() => {
     debugLog('AuthProvider initializing...');
-    // FIXED: Use same token key as api.ts
-    const token = localStorage.getItem('access_token');
-    const savedUser = localStorage.getItem('user');
     
+    // FIXED: Use the correct keys that api.ts uses
+    const token = localStorage.getItem('auth_token'); // ✅ Changed from 'access_token'
+    const savedUser = localStorage.getItem('user_data'); // ✅ Changed from 'user'
+    
+    debugLog('Found stored data', { 
+      hasToken: !!token, 
+      hasUser: !!savedUser,
+      tokenKey: 'auth_token',
+      userKey: 'user_data'
+    });
+
     if (token && savedUser) {
       try {
         const userData = JSON.parse(savedUser);
@@ -59,12 +67,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         api.setToken(token);
       } catch (error) {
         debugLog('Error parsing stored user data', error);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
+        // FIXED: Clear the correct keys
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
         api.clearAuth();
       }
     } else {
-      debugLog('No stored authentication found');
+      debugLog('No stored authentication found', {
+        availableKeys: Object.keys(localStorage)
+      });
     }
     setLoading(false);
   }, []);
