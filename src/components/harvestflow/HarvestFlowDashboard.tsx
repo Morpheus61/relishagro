@@ -1,3 +1,4 @@
+// src/components/harvestflow/HarvestFlowDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -36,13 +37,11 @@ interface NavigationItem {
   id: string;
   label: string;
 }
-
 interface EnhancedNavigationProps {
   items: NavigationItem[];
   activeTab: string;
   onTabChange: (tabId: string) => void;
 }
-
 const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   items,
   activeTab,
@@ -50,18 +49,15 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
-
   const scrollLeft = () => {
     const newPosition = Math.max(0, scrollPosition - 200);
     setScrollPosition(newPosition);
   };
-
   const scrollRight = () => {
     const maxScroll = Math.max(0, (items.length * 120) - 600);
     const newPosition = Math.min(maxScroll, scrollPosition + 200);
     setScrollPosition(newPosition);
   };
-
   return (
     <>
       <div className="md:hidden mb-4">
@@ -73,7 +69,6 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
           <span>{items.find(item => item.id === activeTab)?.label || 'Menu'}</span>
           {showMobileMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
-        
         {showMobileMenu && (
           <div className="mt-2 space-y-1 bg-white border rounded-md shadow-lg z-10 absolute left-0 right-0 mx-4">
             {items.map((item) => (
@@ -93,7 +88,6 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
           </div>
         )}
       </div>
-
       <div className="hidden md:flex items-center mb-6">
         <Button
           variant="outline"
@@ -104,7 +98,6 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        
         <div className="flex-1 overflow-hidden">
           <div 
             className="flex transition-transform duration-300 ease-in-out"
@@ -123,7 +116,6 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
             ))}
           </div>
         </div>
-        
         <Button
           variant="outline"
           size="sm"
@@ -149,7 +141,6 @@ interface Worker {
   attendance_status: 'present' | 'absent' | 'late';
   created_at: string;
 }
-
 interface Job {
   id: string;
   type: 'normal' | 'harvest';
@@ -159,7 +150,6 @@ interface Job {
   status: 'pending' | 'in_progress' | 'completed';
   created_at: string;
 }
-
 interface WeightRecord {
   id: string;
   worker_id: string;
@@ -170,7 +160,6 @@ interface WeightRecord {
   timestamp: string;
   notes?: string;
 }
-
 interface Employee {
   id: string;
   name: string;
@@ -183,7 +172,6 @@ interface Employee {
   employee_id: string;
   created_at: string;
 }
-
 interface ProcurementRequest {
   id: string;
   item_name: string;
@@ -196,7 +184,6 @@ interface ProcurementRequest {
   requested_date: string;
   notes: string;
 }
-
 interface CurrentUser {
   staff_id: string;
   full_name: string;
@@ -204,7 +191,6 @@ interface CurrentUser {
   department?: string;
   email?: string;
 }
-
 interface HarvestFlowDashboardProps {
   currentUser: CurrentUser | null;
 }
@@ -252,7 +238,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       const response = await fetch(`${API_BASE}/api/workers`, {
         headers: getHeaders()
       });
-      
       if (response.ok) {
         const data = await response.json();
         setWorkers(data.map((worker: any) => ({
@@ -275,7 +260,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       const response = await fetch(`${API_BASE}/api/jobs`, {
         headers: getHeaders()
       });
-      
       if (response.ok) {
         const data = await response.json();
         setJobs(data);
@@ -293,7 +277,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         headers: getHeaders(),
         body: JSON.stringify(workerData)
       });
-      
       if (response.ok) {
         const newWorker = await response.json();
         setWorkers(prev => [...prev, { ...newWorker, attendance_status: 'present' }]);
@@ -313,7 +296,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         headers: getHeaders(),
         body: JSON.stringify(jobData)
       });
-      
       if (response.ok) {
         const newJob = await response.json();
         setJobs(prev => [...prev, newJob]);
@@ -338,7 +320,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           marked_by: currentUser?.staff_id || 'admin'
         })
       });
-      
       if (response.ok) {
         setWorkers(prev => prev.map(w => 
           w.id === workerId ? { ...w, attendance_status: status } : w
@@ -365,7 +346,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             </div>
           </div>
         </Card>
-
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <ClipboardList className="w-8 h-8 text-green-500" />
@@ -375,7 +355,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             </div>
           </div>
         </Card>
-
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <Package className="w-8 h-8 text-purple-500" />
@@ -385,7 +364,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             </div>
           </div>
         </Card>
-
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <ShoppingCart className="w-8 h-8 text-orange-500" />
@@ -396,7 +374,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           </div>
         </Card>
       </div>
-
       <Card className="p-6">
         <h3 className="text-xl font-bold mb-4">Today's Operations Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -407,7 +384,9 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <div key={job.id} className="p-3 bg-blue-50 rounded-lg">
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{job.title}</span>
-                    <Badge variant={job.status === 'completed' ? 'default' : 'outline'}>
+                    <Badge className={
+                      job.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }>
                       {job.status}
                     </Badge>
                   </div>
@@ -419,7 +398,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
               )}
             </div>
           </div>
-
           <div>
             <h4 className="font-semibold mb-3">Harvest Activities</h4>
             <div className="space-y-2">
@@ -427,7 +405,9 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <div key={job.id} className="p-3 bg-green-50 rounded-lg">
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{job.title}</span>
-                    <Badge variant={job.status === 'completed' ? 'default' : 'outline'}>
+                    <Badge className={
+                      job.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }>
                       {job.status}
                     </Badge>
                   </div>
@@ -463,9 +443,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           staff_id: `HF-${Date.now()}`,
           status: 'active'
         };
-
         const success = await createWorker(employeeData);
-        
         if (success) {
           setNewEmployee({
             name: '', email: '', phone: '', role: 'field_worker', department: 'harvest',
@@ -488,31 +466,26 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             <UserPlus className="w-6 h-6 text-green-600" />
             <h3 className="text-xl font-bold">👥 Employee Onboarding</h3>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <h4 className="font-semibold">Personal Information</h4>
-              
               <Input
                 placeholder="Full Name *"
                 value={newEmployee.name}
                 onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
               />
-              
               <Input
                 type="email"
                 placeholder="Email Address *"
                 value={newEmployee.email}
                 onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
               />
-              
               <Input
                 type="tel"
                 placeholder="Phone Number *"
                 value={newEmployee.phone}
                 onChange={(e) => setNewEmployee({...newEmployee, phone: e.target.value})}
               />
-
               <select 
                 value={newEmployee.role} 
                 onChange={(e) => setNewEmployee({...newEmployee, role: e.target.value})}
@@ -525,10 +498,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <option value="machine_operator">Machine Operator</option>
               </select>
             </div>
-
             <div className="space-y-4">
               <h4 className="font-semibold">Employment Details</h4>
-              
               <select 
                 value={newEmployee.department} 
                 onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
@@ -539,7 +510,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <option value="quality_control">Quality Control</option>
                 <option value="logistics">Logistics</option>
               </select>
-              
               <div>
                 <label className="block text-sm font-medium mb-1">Daily Wage (₹)</label>
                 <Input
@@ -549,7 +519,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                   onChange={(e) => setNewEmployee({...newEmployee, daily_wage: Number(e.target.value)})}
                 />
               </div>
-              
               <div>
                 <label className="block text-sm font-medium mb-1">Weight-based Wage (₹/kg)</label>
                 <Input
@@ -562,7 +531,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
               </div>
             </div>
           </div>
-
           <Button 
             onClick={createEmployee}
             className="w-full mt-6 bg-green-600 hover:bg-green-700 h-12 text-lg"
@@ -572,7 +540,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             Onboard New Employee
           </Button>
         </Card>
-
         {/* Current Employees */}
         <Card className="p-6">
           <h3 className="text-xl font-bold mb-4">Current Team ({workers.length})</h3>
@@ -602,7 +569,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   // Daily Attendance Tab
   const DailyAttendance = () => {
     const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
-
     const handleMarkAttendance = async (workerId: string, status: 'present' | 'absent' | 'late') => {
       const success = await markAttendance(workerId, status);
       if (!success) {
@@ -617,7 +583,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             <Calendar className="w-5 h-5" />
             <h3 className="text-xl font-bold">Daily Attendance - {attendanceDate}</h3>
           </div>
-          
           <div className="space-y-4">
             <Input
               type="date"
@@ -625,7 +590,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
               onChange={(e) => setAttendanceDate(e.target.value)}
               className="w-48"
             />
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {workers.map((worker: Worker) => (
                 <Card key={worker.id} className="p-4">
@@ -637,7 +601,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                         <p className="text-sm text-gray-600">{worker.staff_id}</p>
                       </div>
                     </div>
-
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -691,13 +654,11 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           status: 'pending',
           requested_date: new Date().toISOString(),
         };
-
         setProcurementRequests(prev => [...prev, requestData]);
         setNewRequest({
           item_name: '', quantity: 0, unit: 'kg', supplier: '', 
           cost_estimate: 0, urgency: 'medium', notes: ''
         });
-
         alert('Procurement request submitted successfully!');
       } catch (error) {
         console.error('Procurement request failed:', error);
@@ -712,17 +673,14 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             <ShoppingCart className="w-6 h-6 text-blue-600" />
             <h3 className="text-xl font-bold">🛒 Procurement Management</h3>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <h4 className="font-semibold">New Procurement Request</h4>
-              
               <Input
                 placeholder="Item Name (e.g., Fertilizer, Seeds, Tools)"
                 value={newRequest.item_name}
                 onChange={(e) => setNewRequest({...newRequest, item_name: e.target.value})}
               />
-
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   type="number"
@@ -742,13 +700,11 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                   <option value="boxes">Boxes</option>
                 </select>
               </div>
-
               <Input
                 placeholder="Preferred Supplier"
                 value={newRequest.supplier}
                 onChange={(e) => setNewRequest({...newRequest, supplier: e.target.value})}
               />
-
               <Input
                 type="number"
                 placeholder="Estimated Cost (₹)"
@@ -756,10 +712,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 onChange={(e) => setNewRequest({...newRequest, cost_estimate: Number(e.target.value)})}
               />
             </div>
-
             <div className="space-y-4">
               <h4 className="font-semibold">Request Details</h4>
-              
               <div>
                 <label className="block text-sm font-medium mb-2">Urgency Level</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -783,7 +737,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                   </Button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-2">Additional Notes</label>
                 <textarea
@@ -794,14 +747,12 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                   placeholder="Special requirements, delivery instructions, etc."
                 />
               </div>
-
               <div className="p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm font-medium text-blue-800">Total Estimate</p>
                 <p className="text-2xl font-bold text-blue-600">₹{newRequest.cost_estimate}</p>
               </div>
             </div>
           </div>
-
           <Button 
             onClick={createProcurementRequest}
             className="w-full mt-6 bg-blue-600 hover:bg-blue-700 h-12 text-lg"
@@ -811,7 +762,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             Submit Procurement Request
           </Button>
         </Card>
-
         {/* Procurement Requests */}
         <Card className="p-6">
           <h3 className="text-xl font-bold mb-4">Procurement Requests ({procurementRequests.length})</h3>
@@ -872,9 +822,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           type: jobType,
           status: 'pending'
         };
-
         const success = await createJob(jobData);
-        
         if (success) {
           setNewJob({ title: '', field_location: '', assigned_workers: [], notes: '' });
           alert('Job created successfully!');
@@ -891,7 +839,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       <div className="space-y-6">
         <Card className="p-6">
           <h3 className="text-xl font-bold mb-4">⚡ Create New Job Assignment</h3>
-          
           <div className="space-y-4">
             {/* Job Type Selection */}
             <div className="grid grid-cols-2 gap-4">
@@ -905,7 +852,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                   <div className="text-xs">Weeding, Fertilizing, etc.</div>
                 </div>
               </Button>
-
               <Button
                 onClick={() => setJobType('harvest')}
                 className={`h-20 ${jobType === 'harvest' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}
@@ -917,19 +863,16 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 </div>
               </Button>
             </div>
-
             <Input
               placeholder="Job Title"
               value={newJob.title}
               onChange={(e) => setNewJob({...newJob, title: e.target.value})}
             />
-
             <Input
               placeholder="Field Location"
               value={newJob.field_location}
               onChange={(e) => setNewJob({...newJob, field_location: e.target.value})}
             />
-
             <div>
               <label className="block text-sm font-medium mb-2">Assign Workers</label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -954,7 +897,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 ))}
               </div>
             </div>
-
             <Button 
               onClick={handleCreateJob}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white"
@@ -964,7 +906,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             </Button>
           </div>
         </Card>
-
         {/* Active Jobs */}
         <Card className="p-6">
           <h3 className="text-xl font-bold mb-4">Today's Active Jobs</h3>
@@ -1017,7 +958,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           timestamp: new Date().toISOString(),
           notes
         };
-        
         setWeightRecords(prev => [...prev, recordData]);
         setWeight('');
         setNotes('');
@@ -1040,7 +980,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           timestamp: new Date().toISOString(),
           notes
         };
-        
         setWeightRecords(prev => [...prev, recordData]);
         setDailyWageRate('');
         setNotes('');
@@ -1056,7 +995,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         {/* Wage Calculation Mode Selection */}
         <Card className="max-w-md mx-auto p-6">
           <h3 className="text-xl font-bold mb-4">💰 Wage Recording Mode</h3>
-          
           <div className="grid grid-cols-2 gap-3">
             <Button
               onClick={() => setRecordingMode('daily_wage')}
@@ -1068,7 +1006,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <div className="text-xs opacity-75">Fixed Rate/Day</div>
               </div>
             </Button>
-
             <Button
               onClick={() => setRecordingMode('weight_based')}
               className={`h-20 text-left ${recordingMode === 'weight_based' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}
@@ -1081,7 +1018,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             </Button>
           </div>
         </Card>
-
         {/* Recording Interface */}
         <Card className="max-w-md mx-auto p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -1090,7 +1026,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
               {recordingMode === 'daily_wage' ? '📅 Daily Wage Recording' : '📏 Weight Recording'}
             </h3>
           </div>
-          
           <div className="space-y-6">
             {/* Job Selection */}
             <div>
@@ -1110,7 +1045,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 ))}
               </select>
             </div>
-
             {/* Worker Selection */}
             <div>
               <label className="block text-sm font-medium mb-2">Select Worker</label>
@@ -1127,7 +1061,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 ))}
               </select>
             </div>
-
             {/* Weight Type Selection for weight-based recording */}
             {recordingMode === 'weight_based' && (
               <div className="space-y-3">
@@ -1142,7 +1075,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                       <div className="text-xs opacity-75">Mid-day harvest recording</div>
                     </div>
                   </Button>
-                  
                   <Button
                     onClick={() => setWeightType('end_day')}
                     className={`h-16 text-left ${weightType === 'end_day' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}
@@ -1152,7 +1084,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                       <div className="text-xs opacity-75">Final harvest weight</div>
                     </div>
                   </Button>
-                  
                   <Button
                     onClick={() => setWeightType('threshed')}
                     className={`h-16 text-left ${weightType === 'threshed' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-800'}`}
@@ -1165,7 +1096,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 </div>
               </div>
             )}
-
             {/* Weight or Wage Input */}
             {recordingMode === 'weight_based' ? (
               <div>
@@ -1193,14 +1123,12 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <p className="text-xs text-gray-500 mt-1">Fixed rate for today's work completion</p>
               </div>
             )}
-
             <Input
               placeholder="Optional notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="h-12"
             />
-
             <Button 
               onClick={recordingMode === 'weight_based' ? recordWeight : recordDailyWage}
               className={`w-full h-16 text-lg font-semibold ${
@@ -1221,7 +1149,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             </Button>
           </div>
         </Card>
-
         {/* Today's Wage Records */}
         <Card className="p-6">
           <h3 className="text-xl font-bold mb-4">Today's Wage Records</h3>
@@ -1287,6 +1214,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   useEffect(() => {
     const loadDashboardData = async () => {
       setLoading(true);
+      setError(null);
       try {
         await Promise.all([
           fetchWorkers(),
@@ -1299,7 +1227,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         setLoading(false);
       }
     };
-
     loadDashboardData();
   }, []);
 
@@ -1357,7 +1284,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           </Button>
         </div>
       </div>
-
       {/* Enhanced Navigation */}
       <div className="bg-white shadow-sm border-b p-4">
         <EnhancedNavigation
@@ -1366,7 +1292,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           items={navigationItems}
         />
       </div>
-
       {/* Content */}
       <div className="p-4">
         {renderContent()}
