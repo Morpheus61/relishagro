@@ -1167,15 +1167,10 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                   <div className="text-right">
                     {record.weight_type === 'daily_wage' ? (
                       <>
-                        <p className="text-xl font-bold text-blue-600">₹{record.weight_kg}</p>
-                        <p className="text-xs text-gray-500">Fixed Daily Rate</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xl font-bold text-green-600">{record.weight_kg} kg</p>
+                        <p className="text-xl font-bold text-blue-600">₹{record.weight_kg} kg</p>
                         <p className="text-xs text-gray-500">Weight-based Pay</p>
                       </>
-                    )}
+                    ) : null}
                     <p className="text-xs text-gray-500">{new Date(record.timestamp).toLocaleTimeString()}</p>
                   </div>
                 </div>
@@ -1214,7 +1209,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   useEffect(() => {
     const loadDashboardData = async () => {
       setLoading(true);
-      setError(null);
       try {
         await Promise.all([
           fetchWorkers(),

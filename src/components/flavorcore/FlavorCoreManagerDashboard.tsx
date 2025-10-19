@@ -41,7 +41,7 @@ import {
   Package
 } from 'lucide-react';
 
-// Enhanced Navigation Component - Built into this file
+// Enhanced Navigation Component
 interface NavigationItem {
   id: string;
   label: string;
@@ -69,7 +69,6 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   };
   return (
     <>
-      {/* Mobile Navigation */}
       <div className="md:hidden mb-4">
         <Button
           variant="outline"
@@ -98,7 +97,6 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
           </div>
         )}
       </div>
-      {/* Desktop Navigation */}
       <div className="hidden md:flex items-center mb-6">
         <Button
           variant="outline"
@@ -643,7 +641,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Workers</p>
-              <p className="text-3xl font-bold text-gray-900">{totalWorkers}</p>
+              <p className="text-3xl font-bold">{totalWorkers}</p>
             </div>
             <Users className="h-8 w-8 text-blue-600" />
           </div>
