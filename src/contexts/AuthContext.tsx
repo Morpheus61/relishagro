@@ -48,36 +48,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     debugLog('AuthProvider initializing...');
     
-    // FIXED: Use the correct keys that api.ts uses
-    const token = localStorage.getItem('auth_token'); // ✅ Changed from 'access_token'
-    const savedUser = localStorage.getItem('user_data'); // ✅ Changed from 'user'
-    
-    debugLog('Found stored data', { 
-      hasToken: !!token, 
-      hasUser: !!savedUser,
-      tokenKey: 'auth_token',
-      userKey: 'user_data'
-    });
-
-    if (token && savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        debugLog('Restoring user from localStorage', userData);
-        setUser(userData);
-        api.setToken(token);
-      } catch (error) {
-        debugLog('Error parsing stored user data', error);
-        // FIXED: Clear the correct keys
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_data');
-        api.clearAuth();
-      }
-    } else {
-      debugLog('No stored authentication found', {
-        availableKeys: Object.keys(localStorage)
+    // This effect runs only on the client
+    const initializeAuth = () => {
+      const token = localStorage.getItem('auth_token'); // ✅ Changed from 'access_token'
+      const savedUser = localStorage.getItem('user_data'); // ✅ Changed from 'user'
+      
+      debugLog('Found stored data', { 
+        hasToken: !!token, 
+        hasUser: !!savedUser,
+        tokenKey: 'auth_token',
+        userKey: 'user_data'
       });
-    }
-    setLoading(false);
+
+      if (token && savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          debugLog('Restoring user from localStorage', userData);
+          setUser(userData);
+          api.setToken(token);
+        } catch (error) {
+          debugLog('Error parsing stored user data', error);
+          // FIXED: Clear the correct keys
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
+          api.clearAuth();
+        }
+      } else {
+        debugLog('No stored authentication found', {
+          availableKeys: Object.keys(localStorage)
+        });
+      }
+      setLoading(false);
+    };
+
+    // Run initialization only on client
+    initializeAuth();
   }, []);
 
   // Login function - Uses your api.ts client
