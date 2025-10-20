@@ -48,41 +48,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     debugLog('AuthProvider initializing...');
     
-    // This effect runs only on the client
-    const initializeAuth = () => {
-      const token = localStorage.getItem('auth_token'); // ✅ Changed from 'access_token'
-      const savedUser = localStorage.getItem('user_data'); // ✅ Changed from 'user'
-      
-      debugLog('Found stored data', { 
-        hasToken: !!token, 
-        hasUser: !!savedUser,
-        tokenKey: 'auth_token',
-        userKey: 'user_data'
-      });
+    // FIXED: Use the correct keys that api.ts uses
+    const token = localStorage.getItem('auth_token'); // ✅ Changed from 'access_token'
+    const savedUser = localStorage.getItem('user_data'); // ✅ Changed from 'user'
+    
+    debugLog('Found stored data', { 
+      hasToken: !!token, 
+      hasUser: !!savedUser,
+      tokenKey: 'auth_token',
+      userKey: 'user_data'
+    });
 
-      if (token && savedUser) {
-        try {
-          const userData = JSON.parse(savedUser);
-          debugLog('Restoring user from localStorage', userData);
-          setUser(userData);
-          api.setToken(token);
-        } catch (error) {
-          debugLog('Error parsing stored user data', error);
-          // FIXED: Clear the correct keys
+    if (token && savedUser) {
+      try {
+        // ✅ CHECK IF TOKEN IS EXPIRED
+        const payloadBase64 = token.split('.')[1];
+        if (!payloadBase64) throw new Error('Invalid token format');
+        
+        const payloadJson = atob(payloadBase64);
+        const payload = JSON.parse(payloadJson);
+        const isExpired = payload.exp * 1000 < Date.now();
+
+        if (isExpired) {
+          debugLog('Token is expired, clearing auth data');
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user_data');
           api.clearAuth();
+          setLoading(false);
+          return;
         }
-      } else {
-        debugLog('No stored authentication found', {
-          availableKeys: Object.keys(localStorage)
-        });
-      }
-      setLoading(false);
-    };
 
-    // Run initialization only on client
-    initializeAuth();
+        const userData = JSON.parse(savedUser);
+        debugLog('Restoring user from localStorage', userData);
+        setUser(userData);
+        api.setToken(token);
+      } catch (error) {
+        debugLog('Error parsing stored user data', error);
+        // FIXED: Clear the correct keys
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        api.clearAuth();
+      }
+    } else {
+      debugLog('No stored authentication found', {
+        availableKeys: Object.keys(localStorage)
+      });
+    }
+    setLoading(false);
   }, []);
 
   // Login function - Uses your api.ts client
