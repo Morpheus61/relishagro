@@ -170,10 +170,12 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'https://relishagrobackend-production.up.railway.app';
+  // ✅ Use the same base URL as api.ts
+  const API_BASE = 'https://relishagrobackend-production.up.railway.app';
 
+  // ✅ FIXED: Use the correct token key 'auth_token'
   const getAuthToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
+    return localStorage.getItem('auth_token');
   };
 
   const getHeaders = () => {
@@ -231,7 +233,7 @@ const AdminDashboard: React.FC = () => {
       const response = await fetch(`${API_BASE}/api/onboarding/pending`, { headers: getHeaders() });
       if (response.ok) {
         const data = await response.json();
-        const requestsArray = Array.isArray(data) ? data : (data.requests || []);
+        const requestsArray = Array.isArray(data) ? data : (data.data || []);
         setOnboardingRequests(requestsArray.map((req: any) => {
           if (req.first_name) {
             return {
