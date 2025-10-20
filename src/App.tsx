@@ -1,6 +1,6 @@
 // src/App.tsx
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom'; // ✅ Added useLocation
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginScreen } from './components/shared/LoginScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -86,12 +86,15 @@ const SupervisorWrapper: React.FC = () => {
 
 // Main App Component
 const App: React.FC = () => {
+  // ✅ Get current location
+  const location = useLocation();
+
   return (
     <AuthProvider>
       <Router>
         <div className="App">
-          {/* Global Header */}
-          <GlobalHeader />
+          {/* ✅ Only show header if NOT on login page */}
+          {location.pathname !== '/login' && <GlobalHeader />}
           
           <Routes>
             {/* Public Routes */}

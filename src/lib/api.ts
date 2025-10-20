@@ -310,19 +310,15 @@ export const getAuthToken = (): string | null => {
 
 // ===== COMPLETE API CLIENT CLASS =====
 class ApiClient {
-  private token: string | null = null;
+  // REMOVED: private token: string | null = null;
 
-  constructor() {
-    this.token = localStorage.getItem('auth_token');
-  }
+  // REMOVED: constructor() { ... }
 
   setToken(token: string) {
-    this.token = token;
     localStorage.setItem('auth_token', token);
   }
 
   clearAuth() {
-    this.token = null;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
     localStorage.removeItem('relishagro_auth'); // Clear new auth storage too
@@ -353,12 +349,15 @@ class ApiClient {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
+    // ✅ DYNAMICALLY GET TOKEN ON EVERY REQUEST
+    const token = localStorage.getItem('auth_token');
+    
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'Cache-Control': 'no-cache', // Mobile compatibility
       'User-Agent': navigator.userAgent, // Mobile detection
-      ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+      ...(token && { 'Authorization': `Bearer ${token}` }), // ✅ Use dynamic token
       ...options.headers,
     };
 
@@ -368,7 +367,7 @@ class ApiClient {
       ...options,
       headers,
       mode: 'cors', // Explicit CORS for mobile
-          });
+    });
 
     console.log(`📡 Response Status: ${response.status} ${response.statusText}`);
 
@@ -474,7 +473,7 @@ class ApiClient {
           'User-Agent': navigator.userAgent
         },
         mode: 'cors',
-        });
+      });
 
       console.log('📡 Mobile test response:', response.status, response.statusText);
       
