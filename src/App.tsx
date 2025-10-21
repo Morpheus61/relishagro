@@ -8,24 +8,22 @@ import HarvestFlowDashboard from './components/harvestflow/HarvestFlowDashboard'
 import FlavorCoreManagerDashboard from './components/flavorcore/FlavorCoreManagerDashboard';
 import SupervisorDashboard from './components/supervisor/SupervisorDashboard';
 
-// Global Header Component
+// ✅ FIXED: Global Header Component with WHITE background
 const GlobalHeader: React.FC = () => {
   const { logout } = useAuth();
 
   return (
-    <div className="bg-purple-800 text-white p-3 shadow-md">
+    <div className="bg-white text-gray-800 p-3 shadow-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <img 
-            src="/flavorcore-logo.png" 
-            alt="RelishAgro Logo" 
-            className="h-8 w-8"
-          />
-          <h1 className="text-xl font-bold">Relish Agro Management System</h1>
+          <div className="h-8 w-8 bg-purple-600 rounded flex items-center justify-center">
+            <span className="text-white text-lg font-bold">🌿</span>
+          </div>
+          <h1 className="text-xl font-bold text-gray-800">Relish Agro Management System</h1>
         </div>
         <button
           onClick={logout}
-          className="px-4 py-2 bg-white text-purple-800 rounded hover:bg-gray-100 transition-colors"
+          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
         >
           Logout
         </button>
@@ -196,7 +194,7 @@ const DashboardRouter: React.FC = () => {
 
 // AppContent - This component is INSIDE the Router
 const AppContent: React.FC = () => {
-  const location = useLocation(); // ✅ Now it's INSIDE Router context
+  const location = useLocation();
 
   return (
     <div className="App">
@@ -265,7 +263,7 @@ const AppContent: React.FC = () => {
   );
 };
 
-// Main App Component - Restructured properly
+// Main App Component
 const App: React.FC = () => {
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>

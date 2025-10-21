@@ -231,8 +231,8 @@ const FlavorCoreManagerDashboard: React.FC = () => {
 
   // Get auth token
   const getAuthToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
-  };
+  return localStorage.getItem('auth_token'); // Match AuthContext
+};
 
   // API headers with authentication
   const getHeaders = () => {

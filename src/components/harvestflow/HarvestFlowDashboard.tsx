@@ -210,8 +210,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
 
   // Get auth token
   const getAuthToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
-  };
+  return localStorage.getItem('auth_token'); // Match AuthContext
+};
 
   // API headers with authentication
   const getHeaders = () => {
@@ -1258,26 +1258,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">HarvestFlow Manager</h1>
-            <p className="text-green-100">Estate Operations & Harvest Management</p>
-          </div>
-          <Button 
-            variant="outline" 
-            className="bg-white text-green-700 hover:bg-green-50"
-            onClick={() => {
-              localStorage.removeItem('token');
-              sessionStorage.removeItem('token');
-              window.location.href = '/';
-            }}
-          >
-            Logout
-          </Button>
-        </div>
-      </div>
+      
       {/* Enhanced Navigation */}
       <div className="bg-white shadow-sm border-b p-4">
         <EnhancedNavigation
