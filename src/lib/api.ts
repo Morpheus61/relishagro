@@ -356,7 +356,6 @@ class ApiClient {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'Cache-Control': 'no-cache', // Mobile compatibility
-      'User-Agent': navigator.userAgent, // Mobile detection
       ...(token && { 'Authorization': `Bearer ${token}` }), // ✅ Use dynamic token
       ...options.headers,
     };

@@ -9,11 +9,16 @@ const debugLog = (message: string, data?: any) => {
   console.log(`[LoginScreen] ${message}`, data || '');
 };
 
+// Get API URL
+const API_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
+
 export function LoginScreen() {
   const [staffId, setStaffId] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showCacheClear, setShowCacheClear] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -23,6 +28,126 @@ export function LoginScreen() {
       navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
+
+  // Mobile diagnostics function
+  const runDiagnostics = async () => {
+    debugLog('🔍 Running diagnostics...');
+    setIsLoading(true);
+    
+    const info: any = {
+      timestamp: new Date().toISOString(),
+      device: {
+        userAgent: navigator.userAgent,
+        online: navigator.onLine,
+        screenWidth: window.innerWidth,
+        screenHeight: window.innerHeight,
+        isMobile: window.innerWidth <= 768,
+        platform: navigator.platform,
+        isAndroid: /android/i.test(navigator.userAgent),
+        isWindows: /windows/i.test(navigator.userAgent),
+      },
+      config: {
+        apiUrl: API_URL,
+        hasToken: !!localStorage.getItem('auth_token'),
+        hasUserData: !!localStorage.getItem('user_data'),
+        localStorageKeys: Object.keys(localStorage),
+      },
+      tests: {}
+    };
+
+    // Test 1: Health endpoint
+    try {
+      const healthStart = Date.now();
+      const healthRes = await fetch(`${API_URL}/health`, { 
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache'
+      });
+      const healthTime = Date.now() - healthStart;
+      
+      info.tests.health = {
+        success: healthRes.ok,
+        status: healthRes.status,
+        statusText: healthRes.statusText,
+        responseTime: `${healthTime}ms`,
+        headers: Object.fromEntries(healthRes.headers.entries())
+      };
+      
+      if (healthRes.ok) {
+        const healthData = await healthRes.json();
+        info.tests.health.data = healthData;
+      }
+    } catch (err: any) {
+      info.tests.health = { 
+        success: false,
+        error: err.message,
+        type: err.name 
+      };
+    }
+
+    // Test 2: CORS preflight
+    try {
+      const corsStart = Date.now();
+      const corsRes = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'OPTIONS',
+        mode: 'cors',
+        headers: {
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'content-type'
+        }
+      });
+      const corsTime = Date.now() - corsStart;
+      
+      info.tests.cors = {
+        success: corsRes.ok,
+        status: corsRes.status,
+        responseTime: `${corsTime}ms`,
+        headers: Object.fromEntries(corsRes.headers.entries())
+      };
+    } catch (err: any) {
+      info.tests.cors = { 
+        success: false,
+        error: err.message,
+        type: err.name 
+      };
+    }
+
+    // Test 3: Auth endpoint reachability
+    try {
+      const authStart = Date.now();
+      const authRes = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ staff_id: 'TEST' })
+      });
+      const authTime = Date.now() - authStart;
+      
+      info.tests.authEndpoint = {
+        success: true,
+        reachable: true,
+        status: authRes.status,
+        statusText: authRes.statusText,
+        responseTime: `${authTime}ms`
+      };
+    } catch (err: any) {
+      info.tests.authEndpoint = { 
+        success: false,
+        reachable: false,
+        error: err.message,
+        type: err.name 
+      };
+    }
+
+    setDebugInfo(info);
+    setShowDebugInfo(true);
+    setIsLoading(false);
+    
+    console.log('📊 Full Diagnostics:', info);
+  };
 
   const handleLogin = async () => {
     if (!staffId.trim()) {
@@ -35,11 +160,63 @@ export function LoginScreen() {
     setError('');
 
     try {
+      // Mobile/Android connectivity check
+      const isMobile = window.innerWidth <= 768;
+      
+      if (isMobile) {
+        debugLog('📱 Mobile device detected - testing backend connectivity...');
+        
+        try {
+          const testResponse = await fetch(`${API_URL}/health`, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache'
+          });
+          
+          if (!testResponse.ok) {
+            throw new Error(`Backend returned status ${testResponse.status}`);
+          }
+          
+          debugLog('✅ Backend is accessible from mobile');
+        } catch (connectError: any) {
+          debugLog('❌ Backend connectivity error:', connectError);
+          
+          setError(
+            `Cannot connect to server. ` +
+            `${!navigator.onLine ? 'You appear to be offline. ' : ''}` +
+            `Please check your internet connection and try again. ` +
+            `(Error: ${connectError.message})`
+          );
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Proceed with actual login
       await login(staffId.trim());
-      debugLog('Login successful');
+      debugLog('✅ Login successful');
+      
     } catch (err: any) {
-      debugLog('Login error', err);
-      setError(err.message || 'Login failed. Please check your Staff ID.');
+      debugLog('❌ Login error', err);
+      
+      // Enhanced error messages
+      let errorMessage = 'Login failed. ';
+      
+      if (!navigator.onLine) {
+        errorMessage = '🔴 You are offline. Please check your internet connection.';
+      } else if (err.message.includes('fetch') || err.message.includes('Network')) {
+        errorMessage = '🔴 Network error - Cannot connect to server. Please check your internet connection.';
+      } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+        errorMessage = '🔴 Invalid Staff ID. Please check and try again.';
+      } else if (err.message.includes('CORS') || err.message.includes('blocked')) {
+        errorMessage = '🔴 Security error. Please contact your administrator.';
+      } else if (err.message.includes('timeout')) {
+        errorMessage = '🔴 Connection timeout. The server is taking too long to respond.';
+      } else {
+        errorMessage += err.message || 'Please check your Staff ID and try again.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -82,11 +259,21 @@ export function LoginScreen() {
       if (userData) localStorage.setItem('user_data', userData);
       
       debugLog('Cache cleared successfully, reloading...');
-      alert('Cache cleared! The page will now reload.');
+      alert('✅ Cache cleared! The page will now reload.');
       window.location.reload();
     } catch (error) {
       debugLog('Error clearing cache', error);
-      alert('Error clearing cache. Please try manually: DevTools → Application → Clear Storage');
+      alert('❌ Error clearing cache. Please try manually: DevTools → Application → Clear Storage');
+    }
+  };
+
+  // Copy diagnostics to clipboard
+  const copyDiagnostics = () => {
+    if (debugInfo) {
+      const diagnosticsText = JSON.stringify(debugInfo, null, 2);
+      navigator.clipboard.writeText(diagnosticsText)
+        .then(() => alert('✅ Diagnostics copied to clipboard!'))
+        .catch(() => alert('❌ Failed to copy. Please screenshot instead.'));
     }
   };
 
@@ -126,12 +313,17 @@ export function LoginScreen() {
               className={`w-full ${error ? 'border-red-500' : ''}`}
               disabled={isLoading}
               autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              inputMode="text"
             />
             <p className="text-xs text-gray-500 mt-1">
               Enter your assigned Staff ID (e.g., HF-Regu, Admin-001)
             </p>
             {error && (
-              <p className="text-red-500 text-xs mt-1">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded p-2 mt-2">
+                <p className="text-red-600 text-xs">{error}</p>
+              </div>
             )}
           </div>
           
@@ -157,25 +349,122 @@ export function LoginScreen() {
             🔒 Secure Access • Contact Admin for Staff ID
           </p>
           
-          {/* Emergency Cache Clear Button - Hidden by default */}
+          {/* Emergency Tools Button */}
           <button
             onClick={() => setShowCacheClear(!showCacheClear)}
-            className="text-xs text-gray-400 hover:text-gray-600 mt-2"
+            className="text-xs text-gray-400 hover:text-gray-600 mt-2 underline"
           >
             Having issues? Click here
           </button>
           
+          {/* Tools Panel */}
           {showCacheClear && (
-            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-              <p className="text-xs text-yellow-800 mb-2">
-                If you're seeing old cached content:
-              </p>
-              <button
-                onClick={clearCacheAndReload}
-                className="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700"
-              >
-                Clear Cache & Reload
-              </button>
+            <div className="mt-3 space-y-2">
+              {/* Cache Clear */}
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-xs text-yellow-800 mb-2">
+                  🧹 Clear cached content:
+                </p>
+                <button
+                  onClick={clearCacheAndReload}
+                  className="text-xs bg-yellow-600 text-white px-3 py-2 rounded hover:bg-yellow-700 w-full"
+                >
+                  Clear Cache & Reload
+                </button>
+              </div>
+
+              {/* Diagnostics */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-xs text-blue-800 mb-2">
+                  🔍 Test connection to server:
+                </p>
+                <button
+                  onClick={runDiagnostics}
+                  disabled={isLoading}
+                  className="text-xs bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 w-full disabled:bg-gray-400"
+                >
+                  {isLoading ? 'Testing...' : 'Run Diagnostics'}
+                </button>
+              </div>
+
+              {/* Diagnostics Results */}
+              {showDebugInfo && debugInfo && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-700">
+                      📊 Diagnostics Results:
+                    </p>
+                    <button
+                      onClick={() => setShowDebugInfo(false)}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  {/* Device Info */}
+                  {debugInfo.device.isAndroid && (
+                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded">
+                      <p className="text-xs text-green-700">
+                        📱 Android Device Detected
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Summary */}
+                  <div className="space-y-1 mb-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span>Backend Health:</span>
+                      <span className={debugInfo.tests.health?.success ? 'text-green-600' : 'text-red-600'}>
+                        {debugInfo.tests.health?.success ? '✅ OK' : '❌ Failed'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span>CORS Setup:</span>
+                      <span className={debugInfo.tests.cors?.success ? 'text-green-600' : 'text-red-600'}>
+                        {debugInfo.tests.cors?.success ? '✅ OK' : '❌ Failed'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span>Auth Endpoint:</span>
+                      <span className={debugInfo.tests.authEndpoint?.reachable ? 'text-green-600' : 'text-red-600'}>
+                        {debugInfo.tests.authEndpoint?.reachable ? '✅ Reachable' : '❌ Unreachable'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span>Internet:</span>
+                      <span className={debugInfo.device.online ? 'text-green-600' : 'text-red-600'}>
+                        {debugInfo.device.online ? '✅ Online' : '❌ Offline'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Full Details */}
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-gray-600 hover:text-gray-800 mb-1">
+                      Show full details
+                    </summary>
+                    <pre className="bg-white p-2 rounded overflow-auto max-h-40 text-xs">
+                      {JSON.stringify(debugInfo, null, 2)}
+                    </pre>
+                  </details>
+
+                  {/* Copy Button */}
+                  <button
+                    onClick={copyDiagnostics}
+                    className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 w-full mt-2"
+                  >
+                    📋 Copy Full Diagnostics
+                  </button>
+                </div>
+              )}
+
+              {/* API URL Display */}
+              <div className="p-2 bg-gray-50 border border-gray-200 rounded">
+                <p className="text-xs text-gray-600">
+                  <span className="font-semibold">API:</span> {API_URL}
+                </p>
+              </div>
             </div>
           )}
         </div>
