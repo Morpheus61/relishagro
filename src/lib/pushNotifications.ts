@@ -1,3 +1,4 @@
+// src/lib/pushNotifications.ts
 import api from './api';
 
 let swRegistration: ServiceWorkerRegistration | null = null;
@@ -5,7 +6,7 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 // Request notification permission
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) {
-    console.warn('This browser does not support notifications');
+    console.warn('⚠️ This browser does not support notifications');
     return false;
   }
 
@@ -14,37 +15,45 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 
   if (Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
+    try {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    } catch (error) {
+      console.error('Failed to request notification permission:', error);
+      return false;
+    }
   }
 
   return false;
 }
 
-// Initialize push notifications
+// Initialize push notifications (NON-BLOCKING)
 export async function initializePushNotifications(
   registration: ServiceWorkerRegistration
 ): Promise<void> {
   swRegistration = registration;
 
-  const hasPermission = await requestNotificationPermission();
-  
-  if (!hasPermission) {
-    console.log('Notification permission denied');
-    return;
-  }
-
-  // Subscribe to push notifications
   try {
-    const subscription = await subscribeToPush();
-    console.log('Push subscription successful:', subscription);
+    const hasPermission = await requestNotificationPermission();
     
-    // Send subscription to backend
+    if (!hasPermission) {
+      console.log('🔕 Notification permission not granted');
+      return;
+    }
+
+    // Subscribe to push notifications
+    const subscription = await subscribeToPush();
+    console.log('✅ Push subscription successful:', subscription);
+    
+    // Send subscription to backend (only if online)
     if (navigator.onLine) {
-      await sendSubscriptionToBackend(subscription);
+      sendSubscriptionToBackend(subscription).catch((error) => {
+        console.error('Failed to send subscription to backend:', error);
+      });
     }
   } catch (error) {
-    console.error('Failed to subscribe to push:', error);
+    console.error('❌ Failed to initialize push notifications:', error);
+    // Don't throw - app should continue without push notifications
   }
 }
 
@@ -54,31 +63,54 @@ async function subscribeToPush(): Promise<PushSubscription> {
     throw new Error('Service Worker not registered');
   }
 
-  // VAPID public key - Generate this using: npx web-push generate-vapid-keys
-  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || 
-    'BEl62iUYgUivxIkv69yViEuiBIa-Ib37J8xYxmvGPPh8CZL6MZfwUe8cBAyC1Rm3VXxRQQjYO8VQD5aHM9J6Y2k';
+  try {
+    // Check if already subscribed
+    const existingSubscription = await swRegistration.pushManager.getSubscription();
+    if (existingSubscription) {
+      console.log('Already subscribed to push notifications');
+      return existingSubscription;
+    }
 
-  const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+    // VAPID public key - Get from environment or use default
+    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || 
+      'BEl62iUYgUivxIkv69yViEuiBIa-Ib37J8xYxmvGPPh8CZL6MZfwUe8cBAyC1Rm3VXxRQQjYO8VQD5aHM9J6Y2k';
 
-  const subscription = await swRegistration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: applicationServerKey as BufferSource,
-  });
+    const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
-  return subscription;
+    const subscription = await swRegistration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: applicationServerKey as BufferSource,
+    });
+
+    return subscription;
+  } catch (error) {
+    console.error('Failed to subscribe to push:', error);
+    throw error;
+  }
 }
 
-// Send subscription to backend
+// Send subscription to backend (NON-BLOCKING)
 async function sendSubscriptionToBackend(
   subscription: PushSubscription
 ): Promise<void> {
-  const subscriptionJSON = subscription.toJSON();
-  
-  // Store in localStorage
-  localStorage.setItem('push_subscription', JSON.stringify(subscriptionJSON));
-  
-  // TODO: Send to backend API when endpoint is ready
-  // await api.registerPushSubscription(subscriptionJSON);
+  try {
+    const subscriptionJSON = subscription.toJSON();
+    
+    // Store in localStorage (wrapped in try-catch)
+    try {
+      localStorage.setItem('push_subscription', JSON.stringify(subscriptionJSON));
+    } catch (storageError) {
+      console.warn('Failed to store subscription in localStorage:', storageError);
+      // Continue even if localStorage fails
+    }
+    
+    // TODO: Send to backend API when endpoint is ready
+    // await api.registerPushSubscription(subscriptionJSON);
+    
+  } catch (error) {
+    console.error('Failed to send subscription to backend:', error);
+    throw error;
+  }
 }
 
 // Show local notification
@@ -86,20 +118,30 @@ export function showLocalNotification(
   title: string,
   options?: NotificationOptions
 ): void {
-  if (Notification.permission !== 'granted') {
+  if (!('Notification' in window)) {
+    console.warn('Notifications not supported');
     return;
   }
 
-  const notificationOptions: NotificationOptions = {
-    icon: '/flavorcore-logo.png',
-    badge: '/flavorcore-logo.png',
-    ...options,
-  };
+  if (Notification.permission !== 'granted') {
+    console.warn('Notification permission not granted');
+    return;
+  }
 
-  if (swRegistration) {
-    swRegistration.showNotification(title, notificationOptions);
-  } else {
-    new Notification(title, notificationOptions);
+  try {
+    const notificationOptions: NotificationOptions = {
+      icon: '/flavorcore-logo.png',
+      badge: '/flavorcore-logo.png',
+      ...options,
+    };
+
+    if (swRegistration) {
+      swRegistration.showNotification(title, notificationOptions);
+    } else {
+      new Notification(title, notificationOptions);
+    }
+  } catch (error) {
+    console.error('Failed to show notification:', error);
   }
 }
 
@@ -191,4 +233,24 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   }
 
   return outputArray;
+}
+
+// Unsubscribe from push notifications
+export async function unsubscribeFromPush(): Promise<boolean> {
+  try {
+    if (!swRegistration) {
+      return false;
+    }
+
+    const subscription = await swRegistration.pushManager.getSubscription();
+    if (subscription) {
+      await subscription.unsubscribe();
+      console.log('Unsubscribed from push notifications');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Failed to unsubscribe from push:', error);
+    return false;
+  }
 }

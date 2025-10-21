@@ -7,26 +7,26 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['flavorcore-logo.png', 'favicon.ico'],
+      includeAssets: ['flavorcore-logo.png', 'favicon.ico', 'icons/*.png'],
       manifest: {
-        name: 'FlavorCore - RelishAgro Management',
-        short_name: 'FlavorCore',
+        name: 'RelishAgro Management System',
+        short_name: 'RelishAgro',
         description: 'Production management system for HarvestFlow and FlavorCore operations',
         theme_color: '#7C3AED',
-        background_color: '#1F2937',
+        background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
         icons: [
           {
-            src: '/flavorcore-logo.png',
+            src: '/icons/flavorcore-logo-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: '/flavorcore-logo.png',
+            src: '/icons/flavorcore-logo-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
@@ -35,9 +35,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Don't cache the login page to prevent stale authentication
+        navigateFallback: null,
+        // Runtime caching for API calls
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/relishagro-backend\.up\.railway\.app\/.*/i,
+            urlPattern: /^https:\/\/relishagrobackend-production\.up\.railway\.app\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -47,13 +50,17 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200]
-              }
+              },
+              networkTimeoutSeconds: 10
             }
           }
-        ]
+        ],
+        // Clean up old caches
+        cleanupOutdatedCaches: true
       },
+      // Disable in development to avoid caching issues
       devOptions: {
-        enabled: true
+        enabled: false // ✅ Disabled in dev mode
       }
     })
   ],
@@ -61,5 +68,10 @@ export default defineConfig({
     alias: {
       '@': '/src'
     }
+  },
+  server: {
+    port: 5173,
+    strictPort: false,
+    host: true
   }
 })
