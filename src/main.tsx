@@ -2,8 +2,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-// import { registerServiceWorker } from './lib/registerSW'; // TEMPORARILY DISABLED
-// import { initOfflineDB } from './lib/offlineSync'; // TEMPORARILY DISABLED
+import { registerServiceWorker } from './lib/registerSW';
+import { initOfflineDB } from './lib/offlineSync';
 
 // Render React app IMMEDIATELY
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -12,11 +12,21 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>
 );
 
-// FORCE KILL OLD SERVICE WORKER - TEMPORARY FIX
-async function forceKillOldServiceWorker() {
+// FORCE KILL OLD SERVICE WORKER - ONE TIME ONLY
+async function forceKillOldServiceWorkerOnce() {
+  // Check if we already cleared the cache in this session
+  const cacheCleared = sessionStorage.getItem('cache_cleared');
+  
+  if (cacheCleared === 'true') {
+    console.log('✅ Cache already cleared in this session, skipping...');
+    // Now initialize app normally
+    initializeApp();
+    return;
+  }
+
   if ('serviceWorker' in navigator) {
     try {
-      console.log('🗑️ Attempting to clear old service workers...');
+      console.log('🗑️ First visit - clearing old service workers...');
       
       // Get all existing registrations
       const registrations = await navigator.serviceWorker.getRegistrations();
@@ -27,7 +37,7 @@ async function forceKillOldServiceWorker() {
         // Unregister all existing service workers
         for (const registration of registrations) {
           await registration.unregister();
-          console.log('✅ Unregistered service worker:', registration.scope);
+          console.log('✅ Unregistered service worker');
         }
         
         // Clear all caches
@@ -38,9 +48,11 @@ async function forceKillOldServiceWorker() {
         }
         
         console.log('✅ All service workers and caches cleared!');
-        console.log('🔄 Please refresh the page to load the new version');
         
-        // Show notification to user
+        // Mark as cleared in sessionStorage (persists until tab close)
+        sessionStorage.setItem('cache_cleared', 'true');
+        
+        // Show notification to user (but DON'T auto-reload)
         const banner = document.createElement('div');
         banner.style.cssText = `
           position: fixed;
@@ -54,53 +66,64 @@ async function forceKillOldServiceWorker() {
           z-index: 99999;
           font-weight: 600;
           box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          cursor: pointer;
         `;
-        banner.innerHTML = '✅ Cache cleared! Click here to reload with the latest version';
-        banner.style.cursor = 'pointer';
-        banner.onclick = () => window.location.reload();
+        banner.innerHTML = '✅ Cache cleared! Click here to reload (or wait 5 seconds)';
+        banner.onclick = () => {
+          sessionStorage.setItem('cache_cleared', 'true');
+          window.location.reload();
+        };
         document.body.appendChild(banner);
         
-        // Auto reload after 2 seconds
+        // Auto reload after 5 seconds (only ONCE)
         setTimeout(() => {
+          sessionStorage.setItem('cache_cleared', 'true');
           window.location.reload();
-        }, 2000);
+        }, 5000);
       } else {
         console.log('✅ No service workers found - starting fresh');
+        sessionStorage.setItem('cache_cleared', 'true');
+        initializeApp();
       }
       
     } catch (error) {
       console.error('❌ Error clearing service workers:', error);
+      sessionStorage.setItem('cache_cleared', 'true');
+      initializeApp();
     }
+  } else {
+    sessionStorage.setItem('cache_cleared', 'true');
+    initializeApp();
   }
 }
 
-// Run the killer immediately
-forceKillOldServiceWorker();
+// Initialize features after clearing
+async function initializeApp() {
+  try {
+    console.log('🚀 Initializing app features...');
+    
+    // Initialize offline database (non-blocking)
+    initOfflineDB()
+      .then(() => {
+        console.log('✅ Offline database initialized');
+      })
+      .catch((error) => {
+        console.error('❌ Offline database failed:', error);
+      });
 
-// Initialize features AFTER killing old SW (but don't register new SW yet)
-// async function initializeApp() {
-//   try {
-//     // Initialize offline database (non-blocking)
-//     initOfflineDB()
-//       .then(() => {
-//         console.log('✅ Offline database initialized');
-//       })
-//       .catch((error) => {
-//         console.error('❌ Offline database failed:', error);
-//       });
+    // Register service worker (non-blocking)
+    registerServiceWorker()
+      .then(() => {
+        console.log('✅ Service worker registered');
+      })
+      .catch((error) => {
+        console.error('❌ Service worker registration failed:', error);
+      });
 
-//     // DON'T register service worker yet - wait until old one is cleared
-//     // registerServiceWorker()
-//     //   .then(() => {
-//     //     console.log('✅ Service worker registered');
-//     //   })
-//     //   .catch((error) => {
-//     //     console.error('❌ Service worker registration failed:', error);
-//     //   });
+  } catch (error) {
+    console.error('Initialization error:', error);
+  }
+}
 
-//   } catch (error) {
-//     console.error('Initialization error:', error);
-//   }
-// }
-
-// initializeApp();
+// Run the killer once on first load
+forceKillOldServiceWorkerOnce();
