@@ -1,25 +1,36 @@
 /**
- * RelishAgro API Client - ABSOLUTELY COMPLETE VERSION WITH ADMIN USER MANAGEMENT
+ * RelishAgro API Client - Vercel Proxy Version
  * 
- * INCLUDES:
- * 1. ALL functions from the original comprehensive version
- * 2. CORRECT user object with ALL required properties  
- * 3. Railway port compatibility
- * 4. Mobile compatibility enhancements
- * 5. Every single function that was in previous versions
- * 6. ADDED: Complete Admin User Management functions
+ * FEATURES:
+ * - Vercel proxy for mobile compatibility
+ * - Request timeout handling
+ * - Complete admin user management
+ * - All original API functions
  * 
- * NO TRUNCATION - EVERYTHING INCLUDED - NO DUPLICATE EXPORTS
+ * Production: Requests go through Vercel proxy to Railway
+ * Development: Direct connection to Railway backend
  */
 
-// ===== CORRECTED API CONFIGURATION =====
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
+// ===== API CONFIGURATION WITH VERCEL PROXY SUPPORT =====
 
-// DEBUGGING: Log the URL being used
-console.log('🔗 API Base URL:', API_BASE_URL);
-console.log('🚂 Railway Backend: Corrected for port 8080');
-console.log('📱 Mobile Fix: Enhanced compatibility');
-console.log('👥 Admin User Management: Added');
+// Detect if we're in production (deployed on Vercel) or development (localhost)
+const isProduction = typeof window !== 'undefined' && 
+  window.location.hostname !== 'localhost' && 
+  !window.location.hostname.includes('127.0.0.1') &&
+  !window.location.hostname.includes('192.168');
+
+// Production: Use empty string (same-origin, Vercel proxies to Railway)
+// Development: Direct connection to Railway
+const API_BASE_URL = isProduction 
+  ? '' // Same-origin = Vercel will proxy via vercel.json rewrites
+  : 'https://relishagrobackend-production.up.railway.app';
+
+// DEBUGGING: Log the configuration
+console.log('🔗 API Configuration:');
+console.log('   📍 Environment:', isProduction ? 'Production (Vercel)' : 'Development (Local)');
+console.log('   🌐 Base URL:', API_BASE_URL || window.location.origin);
+console.log('   🚀 Mode:', isProduction ? 'Proxied via Vercel' : 'Direct to Railway');
+console.log('   📱 Mobile Compatible:', isProduction ? 'Yes (via proxy)' : 'Check network');
 
 // ===== AUTHENTICATION STORAGE =====
 const AUTH_STORAGE_KEY = 'relishagro_auth';
@@ -158,8 +169,8 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  access_token?: string;  // New backend format
-  token?: string;         // Old backend format  
+  access_token?: string;
+  token?: string;
   token_type: string;
   staff_id: string;
   role: string;
@@ -167,17 +178,16 @@ export interface LoginResponse {
   last_name: string;
   expires_in: number;
   mobile_compatible?: boolean;
-  // Support for existing frontend expectations:
   authenticated: boolean;
   user: {
-    id: string;              // REQUIRED by AuthContext
+    id: string;
     staff_id: string;
     role: string;
     first_name: string;
     last_name: string;
-    full_name: string;       // REQUIRED by AuthContext
-    designation: string;     // REQUIRED by AuthContext
-    department: string;      // REQUIRED by AuthContext
+    full_name: string;
+    designation: string;
+    department: string;
     username: string;
     email?: string;
     firstName?: string;
@@ -278,7 +288,6 @@ export const getAuthData = (): AuthData | null => {
 
     const parsed = JSON.parse(stored);
     
-    // Check if token is expired
     if (parsed.expires_at && Date.now() > parsed.expires_at) {
       console.log('⏰ Token expired, clearing auth data');
       clearAuthData();
@@ -310,10 +319,6 @@ export const getAuthToken = (): string | null => {
 
 // ===== COMPLETE API CLIENT CLASS =====
 class ApiClient {
-  // REMOVED: private token: string | null = null;
-
-  // REMOVED: constructor() { ... }
-
   setToken(token: string) {
     localStorage.setItem('auth_token', token);
   }
@@ -321,10 +326,9 @@ class ApiClient {
   clearAuth() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
-    localStorage.removeItem('relishagro_auth'); // Clear new auth storage too
+    localStorage.removeItem('relishagro_auth');
   }
 
-  // Helper function to get designation from role
   private getRoleDesignation(role: string): string {
     const designationMap: { [key: string]: string } = {
       'Admin': 'System Administrator',
@@ -336,7 +340,6 @@ class ApiClient {
     return designationMap[role] || 'Staff Member';
   }
 
-  // Helper function to get department from role
   private getRoleDepartment(role: string): string {
     const departmentMap: { [key: string]: string } = {
       'Admin': 'Administration',
@@ -349,47 +352,65 @@ class ApiClient {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    // ✅ DYNAMICALLY GET TOKEN ON EVERY REQUEST
     const token = localStorage.getItem('auth_token');
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Cache-Control': 'no-cache', // Mobile compatibility
-      ...(token && { 'Authorization': `Bearer ${token}` }), // ✅ Use dynamic token
+      'Cache-Control': 'no-cache',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     };
 
     console.log(`📡 API Request: ${options.method || 'GET'} ${endpoint}`);
+    console.log(`🌐 Full URL: ${API_BASE_URL}${endpoint}`);
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-      mode: 'cors', // Explicit CORS for mobile
-    });
+    // ✅ ADD TIMEOUT WRAPPER - Prevents infinite loading
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-    console.log(`📡 Response Status: ${response.status} ${response.statusText}`);
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+        mode: 'cors',
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      let error: ApiError;
-      try {
-        error = await response.json();
-      } catch {
-        error = { message: 'Request failed', mobile_debug: true };
+      clearTimeout(timeoutId);
+      console.log(`📡 Response Status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        let error: ApiError;
+        try {
+          error = await response.json();
+        } catch {
+          error = { message: 'Request failed', mobile_debug: true };
+        }
+        
+        if (response.status === 401) {
+          console.log('🔒 Authentication failed, clearing stored data');
+          this.clearAuth();
+        }
+        
+        throw new Error(error.detail || error.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Response data received');
+      return data;
+
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        console.error('⏱️ Request timeout after 15 seconds');
+        throw new Error('Request timeout - Server is not responding. Please check your internet connection.');
       }
       
-      // Handle authentication errors
-      if (response.status === 401) {
-        console.log('🔒 Authentication failed, clearing stored data');
-        this.clearAuth();
-      }
-      
-      throw new Error(error.detail || error.message || `HTTP ${response.status}`);
+      console.error('❌ Request failed:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    console.log('✅ Response data received');
-    return data;
   }
 
   // ===== AUTHENTICATION METHODS =====
@@ -402,15 +423,13 @@ class ApiClient {
         body: JSON.stringify({ staff_id: staffId }),
       });
 
-      // Handle both old and new response formats
       const token = response.access_token || response.token;
       
       if (token) {
         this.setToken(token);
         
-        // Create COMPLETE user object with ALL required properties
         const user = {
-          id: response.staff_id || staffId, // Use staff_id as id if no separate id
+          id: response.staff_id || staffId,
           staff_id: response.staff_id || staffId,
           role: response.role,  
           first_name: response.first_name || '',
@@ -419,14 +438,13 @@ class ApiClient {
           designation: this.getRoleDesignation(response.role),
           department: this.getRoleDepartment(response.role),
           username: response.staff_id || staffId,
-          email: `${response.staff_id}@relishagro.com`, // Generate email if needed
+          email: `${response.staff_id}@relishagro.com`,
           firstName: response.first_name,
           lastName: response.last_name
         };
         
         localStorage.setItem('user_data', JSON.stringify(user));
         
-        // Save authentication data using helper
         if (response.access_token) {
           saveAuthData({
             access_token: response.access_token,
@@ -439,10 +457,9 @@ class ApiClient {
           });
         }
         
-        // Return in expected format with COMPLETE user object
         const loginResponse: LoginResponse = {
           ...response,
-          token: token, // For backward compatibility
+          token: token,
           authenticated: true,
           user: user
         };
@@ -459,62 +476,17 @@ class ApiClient {
     }
   }
 
-  // ===== MOBILE COMPATIBILITY METHODS =====
-  async testMobileConnectivity(): Promise<boolean> {
-    try {
-      console.log('📱 Testing mobile connectivity to Railway backend...');
-      
-      const response = await fetch(`${API_BASE_URL}/api/auth/mobile-test`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'User-Agent': navigator.userAgent
-        },
-        mode: 'cors',
-      });
-
-      console.log('📡 Mobile test response:', response.status, response.statusText);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Mobile connectivity successful:', data);
-        return true;
-      } else {
-        console.error('❌ Mobile connectivity failed:', response.status);
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Mobile connectivity error:', error);
-      return false;
-    }
-  }
-
   async getCurrentUser(): Promise<UserInfo> {
     console.log('👤 Fetching current user info...');
-    
-    try {
-      const response = await this.request('/api/auth/me', {
-        method: 'GET'
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to get current user:', error);
-      throw error;
-    }
+    return this.request('/api/auth/me', { method: 'GET' });
   }
 
   async logout(): Promise<void> {
     console.log('🚪 Logging out...');
-    
     try {
-      const response = await this.request('/api/auth/logout', {
-        method: 'POST'
-      });
+      await this.request('/api/auth/logout', { method: 'POST' });
     } catch (error) {
       console.error('❌ Logout request failed:', error);
-      // Continue with local logout even if server request fails
     } finally {
       this.clearAuth();
       clearAuthData();
@@ -524,12 +496,8 @@ class ApiClient {
 
   async verifyToken(): Promise<boolean> {
     console.log('🔍 Verifying token...');
-    
     try {
-      const response = await this.request('/api/auth/verify-token', {
-        method: 'POST'
-      });
-
+      const response = await this.request('/api/auth/verify-token', { method: 'POST' });
       if (response.valid === true) {
         console.log('✅ Token is valid');
         return true;
@@ -547,41 +515,26 @@ class ApiClient {
     }
   }
 
-  // ===== NEW ADMIN USER MANAGEMENT FUNCTIONS =====
+  // ===== ADMIN USER MANAGEMENT =====
   async getAdminStats(): Promise<AdminStats> {
-    console.log('📊 Fetching admin statistics...');
     return this.request('/api/admin/stats', { method: 'GET' });
   }
 
   async getUsers(page: number = 1, per_page: number = 20, role?: string, search?: string): Promise<AdminUserResponse> {
-    console.log('👥 Fetching users from person_records table...');
-    
     const params = new URLSearchParams({
       page: page.toString(),
       per_page: per_page.toString(),
       ...(role && { role }),
       ...(search && { search })
     });
-    
-    try {
-      const response = await this.request(`/api/admin/users?${params}`, {
-        method: 'GET'
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to fetch users:', error);
-      throw error;
-    }
+    return this.request(`/api/admin/users?${params}`, { method: 'GET' });
   }
 
   async getUserById(staffId: string) {
-    console.log(`👤 Fetching user details for: ${staffId}`);
     return this.request(`/api/admin/users/${staffId}`, { method: 'GET' });
   }
 
   async createUser(userData: UserCreateRequest) {
-    console.log('➕ Creating new app user...');
     return this.request('/api/admin/users', {
       method: 'POST',
       body: JSON.stringify(userData)
@@ -589,7 +542,6 @@ class ApiClient {
   }
 
   async updateUser(staffId: string, userData: UserUpdateRequest) {
-    console.log(`📝 Updating user: ${staffId}`);
     return this.request(`/api/admin/users/${staffId}`, {
       method: 'PUT',
       body: JSON.stringify(userData)
@@ -597,17 +549,14 @@ class ApiClient {
   }
 
   async deleteUser(staffId: string) {
-    console.log(`🗑️ Deleting user: ${staffId}`);
     return this.request(`/api/admin/users/${staffId}`, { method: 'DELETE' });
   }
 
   async getAvailableRoles() {
-    console.log('🏷️ Fetching available roles...');
     return this.request('/api/admin/roles', { method: 'GET' });
   }
 
   async getSystemHealth() {
-    console.log('🏥 Checking system health...');
     return this.request('/api/admin/system/health', { method: 'GET' });
   }
 
@@ -618,6 +567,13 @@ class ApiClient {
 
   async getWorkerById(id: string) {
     return this.request(`/api/workers/${id}`);
+  }
+
+  async createWorker(workerData: any) {
+    return this.request('/api/workers', {
+      method: 'POST',
+      body: JSON.stringify(workerData)
+    });
   }
 
   // ===== JOB TYPES =====
@@ -735,6 +691,10 @@ class ApiClient {
     return this.request('/api/provisions/pending');
   }
 
+  async getProvisions() {
+    return this.request('/api/provisions', { method: 'GET' });
+  }
+
   async approveProvision(provisionId: string) {
     return this.request(`/api/provisions/${provisionId}/approve`, {
       method: 'POST',
@@ -751,6 +711,10 @@ class ApiClient {
   // ===== ONBOARDING MANAGEMENT =====
   async getPendingOnboarding() {
     return this.request('/api/onboarding/pending');
+  }
+
+  async getOnboardingRequests() {
+    return this.request('/api/onboarding/requests', { method: 'GET' });
   }
 
   async submitOnboarding(data: SubmitOnboardingData) {
@@ -820,111 +784,6 @@ class ApiClient {
   async getYieldData(params?: YieldDataParams) {
     const queryParams = new URLSearchParams(params as any).toString();
     return this.request(`/api/yields?${queryParams}`);
-  }
-
-  async createWorker(workerData: any) {
-    console.log('➕ Creating new worker...');
-    
-    try {
-      const response = await this.request('/api/workers', {
-        method: 'POST',
-        body: JSON.stringify(workerData)
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to create worker:', error);
-      throw error;
-    }
-  }
-
-  // ===== PROVISIONS API =====
-  async getProvisions() {
-    console.log('📦 Fetching provisions...');
-    
-    try {
-      const response = await this.request('/api/provisions', {
-        method: 'GET'
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to fetch provisions:', error);
-      throw error;
-    }
-  }
-
-  // ===== ONBOARDING API =====
-  async getOnboardingRequests() {
-    console.log('📋 Fetching onboarding requests...');
-    
-    try {
-      const response = await this.request('/api/onboarding/requests', {
-        method: 'GET'
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to fetch onboarding requests:', error);
-      throw error;
-    }
-  }
-
-  // ===== DEBUG AND TEST FUNCTIONS =====
-  async testApiConnection(): Promise<{
-    status: string;
-    baseUrl: string;
-    healthCheck: boolean;
-    authEndpoint: boolean;
-    mobileCompatible: boolean;
-  }> {
-    console.log('🔍 Running comprehensive API connection test...');
-    
-    const result = {
-      status: 'testing',
-      baseUrl: API_BASE_URL,
-      healthCheck: false,
-      authEndpoint: false,
-      mobileCompatible: false
-    };
-
-    try {
-      // Test health endpoint
-      const healthResponse = await fetch(`${API_BASE_URL}/health`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        mode: 'cors'
-      });
-      result.healthCheck = healthResponse.ok;
-      console.log('🏥 Health check:', result.healthCheck ? '✅' : '❌');
-
-      // Test mobile compatibility
-      const mobileResponse = await fetch(`${API_BASE_URL}/api/auth/mobile-test`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        mode: 'cors'
-      });
-      result.mobileCompatible = mobileResponse.ok;
-      console.log('📱 Mobile compatibility:', result.mobileCompatible ? '✅' : '❌');
-
-      // Test auth endpoint (without credentials)
-      const authResponse = await fetch(`${API_BASE_URL}/api/auth/health`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        mode: 'cors'
-      });
-      result.authEndpoint = authResponse.ok;
-      console.log('🔐 Auth endpoint:', result.authEndpoint ? '✅' : '❌');
-
-      result.status = 'completed';
-      
-    } catch (error) {
-      console.error('❌ API connection test failed:', error);
-      result.status = 'failed';
-    }
-
-    console.log('🎯 API Test Results:', result);
-    return result;
   }
 }
 
