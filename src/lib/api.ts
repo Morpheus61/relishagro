@@ -367,7 +367,7 @@ class ApiClient {
 
     // ✅ ADD TIMEOUT WRAPPER - Prevents infinite loading
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 450000); // 15 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 15 second timeout
 
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
