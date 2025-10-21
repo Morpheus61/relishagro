@@ -18,13 +18,16 @@
       "type": "image/png"
     },
     {
-      "src": "/icons/flavorcore-logo-512x512.png.png",
+      "src": "/icons/flavorcore-logo-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#7c3aed",
+  "background_color": "#ffffff",
+  "description": "Agricultural Management System for RelishAgro",
+  "orientation": "portrait"
 }

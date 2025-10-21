@@ -45,13 +45,11 @@ class ErrorBoundary extends React.Component<{
   }
 
   static getDerivedStateFromError(error: Error) {
-    // Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("💥 Uncaught error:", error, errorInfo);
-    // You can also log the error to an error reporting service here
   }
 
   render() {
@@ -135,84 +133,6 @@ const SupervisorWrapper: React.FC = () => {
   return <SupervisorDashboard currentUser={userWithName} />;
 };
 
-// Main App Component
-const App: React.FC = () => {
-  const location = useLocation();
-
-  return (
-    <AuthProvider>
-      <Router>
-        <div className="App">
-          {/* Only show header if NOT on login page */}
-          {location.pathname !== '/login' && <GlobalHeader />}
-          
-          {/* Wrap everything in ErrorBoundary to catch render errors */}
-          <ErrorBoundary fallback={<div>Something went wrong</div>}>
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<LoginScreen />} />
-              <Route path="/unauthorized" element={<UnauthorizedPage />} />
-              
-              {/* Protected Dashboard Route */}
-              <Route 
-                path="/dashboard" 
-                element={
-                  <ProtectedRoute>
-                    <DashboardRouter />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* Role-specific Protected Routes */}
-              <Route 
-                path="/admin" 
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/harvestflow" 
-                element={
-                  <ProtectedRoute>
-                    <HarvestFlowWrapper />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/flavorcore" 
-                element={
-                  <ProtectedRoute>
-                    <FlavorCoreManagerDashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/supervisor" 
-                element={
-                  <ProtectedRoute>
-                    <SupervisorWrapper />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* Default redirect */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              
-              {/* Catch all - redirect to login */}
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          </ErrorBoundary>
-        </div>
-      </Router>
-    </AuthProvider>
-  );
-};
-
 // Unauthorized Page Component
 const UnauthorizedPage: React.FC = () => {
   const { logout } = useAuth();
@@ -250,13 +170,11 @@ const DashboardRouter: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Add name property if missing
   const userWithName = {
     ...user,
     name: user.full_name || user.staff_id
   };
 
-  // Route based on user role
   const getDashboardComponent = () => {
     const staffId = user.staff_id?.toLowerCase() || '';
     
@@ -269,12 +187,95 @@ const DashboardRouter: React.FC = () => {
     } else if (staffId.startsWith('sup-')) {
       return <SupervisorDashboard currentUser={userWithName} />;
     } else {
-      // Default fallback
       return <AdminDashboard />;
     }
   };
 
   return getDashboardComponent();
+};
+
+// AppContent - This component is INSIDE the Router
+const AppContent: React.FC = () => {
+  const location = useLocation(); // ✅ Now it's INSIDE Router context
+
+  return (
+    <div className="App">
+      {/* Only show header if NOT on login page */}
+      {location.pathname !== '/login' && <GlobalHeader />}
+      
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/login" element={<LoginScreen />} />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        
+        {/* Protected Dashboard Route */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <DashboardRouter />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Role-specific Protected Routes */}
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/harvestflow" 
+          element={
+            <ProtectedRoute>
+              <HarvestFlowWrapper />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/flavorcore" 
+          element={
+            <ProtectedRoute>
+              <FlavorCoreManagerDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/supervisor" 
+          element={
+            <ProtectedRoute>
+              <SupervisorWrapper />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Default redirect */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        
+        {/* Catch all - redirect to login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </div>
+  );
+};
+
+// Main App Component - Restructured properly
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
+      <AuthProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
 };
 
 export default App;
