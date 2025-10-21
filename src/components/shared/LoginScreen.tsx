@@ -5,19 +5,18 @@ import { Input } from '../ui/input';
 import flavorCoreLogo from '../../assets/flavorcore-logo.png';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Enhanced debug logging
 const debugLog = (message: string, data?: any) => {
-  console.log(`[LoginScreen DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  console.log(`[LoginScreen] ${message}`, data || '');
 };
 
 export function LoginScreen() {
   const [staffId, setStaffId] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showCacheClear, setShowCacheClear] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect to dashboard after successful login
   useEffect(() => {
     if (isAuthenticated) {
       debugLog('User authenticated, redirecting to dashboard...');
@@ -31,16 +30,15 @@ export function LoginScreen() {
       return;
     }
 
-    debugLog('Starting login process', { staffId: staffId.trim() });
+    debugLog('Starting login', { staffId: staffId.trim() });
     setIsLoading(true);
     setError('');
 
     try {
-      debugLog('Calling AuthContext login...');
       await login(staffId.trim());
-      debugLog('Login successful - AuthContext will handle user state update');
+      debugLog('Login successful');
     } catch (err: any) {
-      debugLog('Login error caught', err);
+      debugLog('Login error', err);
       setError(err.message || 'Login failed. Please check your Staff ID.');
     } finally {
       setIsLoading(false);
@@ -53,9 +51,49 @@ export function LoginScreen() {
     }
   };
 
+  // Emergency cache clear function
+  const clearCacheAndReload = async () => {
+    try {
+      debugLog('Clearing all caches and service workers...');
+      
+      // Unregister all service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+          debugLog('Unregistered service worker');
+        }
+      }
+      
+      // Clear all caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          await caches.delete(cacheName);
+          debugLog('Deleted cache:', cacheName);
+        }
+      }
+      
+      // Clear localStorage (but keep important data)
+      const authToken = localStorage.getItem('auth_token');
+      const userData = localStorage.getItem('user_data');
+      localStorage.clear();
+      if (authToken) localStorage.setItem('auth_token', authToken);
+      if (userData) localStorage.setItem('user_data', userData);
+      
+      debugLog('Cache cleared successfully, reloading...');
+      alert('Cache cleared! The page will now reload.');
+      window.location.reload();
+    } catch (error) {
+      debugLog('Error clearing cache', error);
+      alert('Error clearing cache. Please try manually: DevTools → Application → Clear Storage');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        {/* Logo */}
         <div className="text-center mb-6">
           <img 
             src={flavorCoreLogo}
@@ -64,14 +102,18 @@ export function LoginScreen() {
           />
         </div>
 
+        {/* Title */}
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-800">Relish Agro</h2>
           <p className="text-sm text-gray-600">Agricultural Management System</p>
         </div>
 
+        {/* Login Form */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Staff ID</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Staff ID
+            </label>
             <Input
               type="text"
               placeholder="Enter your Staff ID"
@@ -83,6 +125,7 @@ export function LoginScreen() {
               onKeyPress={handleKeyPress}
               className={`w-full ${error ? 'border-red-500' : ''}`}
               disabled={isLoading}
+              autoComplete="off"
             />
             <p className="text-xs text-gray-500 mt-1">
               Enter your assigned Staff ID (e.g., HF-Regu, Admin-001)
@@ -108,10 +151,33 @@ export function LoginScreen() {
           </Button>
         </div>
 
+        {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
             🔒 Secure Access • Contact Admin for Staff ID
           </p>
+          
+          {/* Emergency Cache Clear Button - Hidden by default */}
+          <button
+            onClick={() => setShowCacheClear(!showCacheClear)}
+            className="text-xs text-gray-400 hover:text-gray-600 mt-2"
+          >
+            Having issues? Click here
+          </button>
+          
+          {showCacheClear && (
+            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-xs text-yellow-800 mb-2">
+                If you're seeing old cached content:
+              </p>
+              <button
+                onClick={clearCacheAndReload}
+                className="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700"
+              >
+                Clear Cache & Reload
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
