@@ -1,41 +1,27 @@
 /**
  * RelishAgro API Client - Vercel Proxy Version
- * 
- * FEATURES:
- * - Vercel proxy for mobile compatibility
- * - Request timeout handling
- * - Complete admin user management
- * - All original API functions
- * 
- * Production: Requests go through Vercel proxy to Railway
- * Development: Direct connection to Railway backend
+ * ALL ENDPOINTS PROPERLY PREFIXED WITH /api/
  */
 
 // ===== API CONFIGURATION WITH VERCEL PROXY SUPPORT =====
-
-// Detect if we're in production (deployed on Vercel) or development (localhost)
 const isProduction = typeof window !== 'undefined' && 
   window.location.hostname !== 'localhost' && 
   !window.location.hostname.includes('127.0.0.1') &&
   !window.location.hostname.includes('192.168');
 
-// Production: Use empty string (same-origin, Vercel proxies to Railway)
-// Development: Direct connection to Railway
 const API_BASE_URL = isProduction 
-  ? '' // Same-origin = Vercel will proxy via vercel.json rewrites
+  ? ''
   : 'https://relishagrobackend-production.up.railway.app';
 
-// DEBUGGING: Log the configuration
 console.log('🔗 API Configuration:');
 console.log('   📍 Environment:', isProduction ? 'Production (Vercel)' : 'Development (Local)');
 console.log('   🌐 Base URL:', API_BASE_URL || window.location.origin);
 console.log('   🚀 Mode:', isProduction ? 'Proxied via Vercel' : 'Direct to Railway');
 console.log('   📱 Mobile Compatible:', isProduction ? 'Yes (via proxy)' : 'Check network');
 
-// ===== AUTHENTICATION STORAGE =====
 const AUTH_STORAGE_KEY = 'relishagro_auth';
 
-// ===== ALL INTERFACES FROM ORIGINAL API =====
+// ===== ALL INTERFACES =====
 interface AssignDailyWorkData {
   job_type_id: string;
   worker_ids: string[];
@@ -163,7 +149,6 @@ interface YieldDataParams {
   lotId?: string;
 }
 
-// ===== ENHANCED INTERFACES FOR MOBILE COMPATIBILITY =====
 export interface LoginRequest {
   staff_id: string;
 }
@@ -219,7 +204,6 @@ export interface AuthData {
   expires_in: number;
 }
 
-// ===== NEW ADMIN USER MANAGEMENT INTERFACES =====
 export interface AdminStats {
   total_users: number;
   active_users: number;
@@ -317,7 +301,7 @@ export const getAuthToken = (): string | null => {
   return authData ? authData.access_token : null;
 };
 
-// ===== COMPLETE API CLIENT CLASS =====
+// ===== API CLIENT CLASS =====
 class ApiClient {
   setToken(token: string) {
     localStorage.setItem('auth_token', token);
@@ -331,24 +315,24 @@ class ApiClient {
 
   private getRoleDesignation(role: string): string {
     const designationMap: { [key: string]: string } = {
-      'Admin': 'System Administrator',
-      'HarvestFlow': 'Harvest Flow Manager',
-      'FlavorCore': 'Flavor Core Manager', 
-      'Supervisor': 'Field Supervisor',
-      'Worker': 'Field Worker'
+      'admin': 'System Administrator',
+      'harvestflow': 'Harvest Flow Manager',
+      'flavorcore': 'Flavor Core Manager', 
+      'supervisor': 'Field Supervisor',
+      'worker': 'Field Worker'
     };
-    return designationMap[role] || 'Staff Member';
+    return designationMap[role.toLowerCase()] || 'Staff Member';
   }
 
   private getRoleDepartment(role: string): string {
     const departmentMap: { [key: string]: string } = {
-      'Admin': 'Administration',
-      'HarvestFlow': 'Harvest Operations',
-      'FlavorCore': 'Processing Department',
-      'Supervisor': 'Field Operations',
-      'Worker': 'Field Operations'
+      'admin': 'Administration',
+      'harvestflow': 'Harvest Operations',
+      'flavorcore': 'Processing Department',
+      'supervisor': 'Field Operations',
+      'worker': 'Field Operations'
     };
-    return departmentMap[role] || 'General';
+    return departmentMap[role.toLowerCase()] || 'General';
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
@@ -365,9 +349,8 @@ class ApiClient {
     console.log(`📡 API Request: ${options.method || 'GET'} ${endpoint}`);
     console.log(`🌐 Full URL: ${API_BASE_URL}${endpoint}`);
 
-    // ✅ ADD TIMEOUT WRAPPER - Prevents infinite loading
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000); // 15 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -404,7 +387,7 @@ class ApiClient {
       clearTimeout(timeoutId);
       
       if (error.name === 'AbortError') {
-        console.error('⏱️ Request timeout after 15 seconds');
+        console.error('⏱️ Request timeout after 90 seconds');
         throw new Error('Request timeout - Server is not responding. Please check your internet connection.');
       }
       
@@ -477,12 +460,10 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<UserInfo> {
-    console.log('👤 Fetching current user info...');
     return this.request('/api/auth/me', { method: 'GET' });
   }
 
   async logout(): Promise<void> {
-    console.log('🚪 Logging out...');
     try {
       await this.request('/api/auth/logout', { method: 'POST' });
     } catch (error) {
@@ -490,25 +471,20 @@ class ApiClient {
     } finally {
       this.clearAuth();
       clearAuthData();
-      console.log('✅ Local logout completed');
     }
   }
 
   async verifyToken(): Promise<boolean> {
-    console.log('🔍 Verifying token...');
     try {
       const response = await this.request('/api/auth/verify-token', { method: 'POST' });
       if (response.valid === true) {
-        console.log('✅ Token is valid');
         return true;
       } else {
-        console.log('❌ Token is invalid');
         this.clearAuth();
         clearAuthData();
         return false;
       }
     } catch (error) {
-      console.error('❌ Token verification failed:', error);
       this.clearAuth();
       clearAuthData();
       return false;
@@ -787,6 +763,5 @@ class ApiClient {
   }
 }
 
-// ===== EXPORT SINGLE INSTANCE =====
 const api = new ApiClient();
 export default api;
