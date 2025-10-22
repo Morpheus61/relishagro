@@ -1,393 +1,167 @@
-/**
- * RelishAgro API Client - Vercel Proxy Version
- * ALL ENDPOINTS PROPERLY PREFIXED WITH /api/
- */
+// src/lib/api.ts
+// TEMPORARY FIX: Direct Railway connection until Vercel proxy is fixed
 
-// ===== API CONFIGURATION WITH VERCEL PROXY SUPPORT =====
-const isProduction = typeof window !== 'undefined' && 
-  window.location.hostname !== 'localhost' && 
-  !window.location.hostname.includes('127.0.0.1') &&
-  !window.location.hostname.includes('192.168');
+const API_BASE_URL = 'https://relishagrobackend-production.up.railway.app';
 
-const API_BASE_URL = isProduction 
-  ? ''
-  : 'https://relishagrobackend-production.up.railway.app';
-
-console.log('🔗 API Configuration:');
-console.log('   📍 Environment:', isProduction ? 'Production (Vercel)' : 'Development (Local)');
-console.log('   🌐 Base URL:', API_BASE_URL || window.location.origin);
-console.log('   🚀 Mode:', isProduction ? 'Proxied via Vercel' : 'Direct to Railway');
-console.log('   📱 Mobile Compatible:', isProduction ? 'Yes (via proxy)' : 'Check network');
-
-const AUTH_STORAGE_KEY = 'relishagro_auth';
-
-// ===== ALL INTERFACES =====
-interface AssignDailyWorkData {
-  job_type_id: string;
-  worker_ids: string[];
-  area_notes: string;
-  assigned_by: string;
-  date: string;
+export interface LoginResponse {
+  success: boolean;
+  data: {
+    token: string;
+    user: {
+      id: string;
+      staff_id: string;
+      role: string;
+      first_name: string;
+      last_name: string;
+      full_name: string;
+      designation: string;
+      department: string;
+      username: string;
+      email: string;
+    };
+  };
+  message: string;
 }
 
-interface CreateLotData {
-  lot_id: string;
-  crop: string;
-  raw_weight: number;
-  threshed_weight: number;
-  worker_ids: string[];
-  created_by: string;
-  status: string;
-}
-
-interface ApproveLotData {
-  approved_by: string;
-  notes?: string;
-}
-
-interface RejectLotData {
-  rejected_by: string;
-  reason: string;
-}
-
-interface CompleteLotData {
-  lot_id: string;
-  final_products: { product: string; weight: number }[];
-  by_products: { product: string; weight: number }[];
-  completed_by: string;
-  completion_time: string;
-}
-
-interface AddBagToLotData {
-  bagId: string;
-  tagId: string;
-  weight: number;
-  timestamp: number;
-}
-
-interface RecordRFIDInScanData {
-  lot_id: string;
-  bag_id: string;
-  rfid_tag: string;
-  weight: number;
-  scanned_by: string;
-  timestamp: string;
-}
-
-interface DispatchLotData {
-  lot_id: string;
-  driver_name: string;
-  vehicle_number: string;
-  destination: string;
-  dispatch_time: string;
-  status: string;
-}
-
-interface UpdateGPSLocationData {
-  latitude: number;
-  longitude: number;
-  timestamp: number;
-}
-
-interface RecordDryingSampleData {
+export interface User {
   id: string;
-  lot_id: string;
-  sample_weight: number;
-  product_type: string;
-  notes: string;
-  timestamp: string;
+  staff_id: string;
+  role: string;
+  first_name: string;
+  last_name: string;
+  full_name?: string;
+  designation?: string;
+  department?: string;
+  username?: string;
+  email?: string;
+  contact_number?: string;
+  address?: string;
+  person_type?: string;
+  status?: string;
 }
 
-interface SubmitOnboardingData {
+export interface Worker {
+  id: string;
   staff_id: string;
   first_name: string;
   last_name: string;
   full_name: string;
-  designation: string;
+  contact_number?: string;
+  address?: string;
   person_type: string;
-  face_descriptor?: number[];
-  fingerprint_template?: string;
-  profile_image?: string;
-}
-
-interface SubmitAttendanceOverrideData {
-  worker_id: string;
-  check_in: string;
-  check_out: string | null;
-  override_reason: string;
   status: string;
-  submitted_by: string;
-  location: { latitude: number; longitude: number };
-  timestamp: string;
+  employment_start_date?: string;
+  is_seasonal_worker?: boolean;
 }
 
-interface ApproveOverrideData {
-  notes?: string;
-}
-
-interface RejectOverrideData {
-  reason: string;
-}
-
-interface RegisterFaceData {
-  user_id: string;
-  face_descriptor: number[];
-  image_data?: string;
-}
-
-interface SyncAttendanceBatchData {
-  records: any[];
-}
-
-interface SyncGPSBatchData {
-  locations: any[];
-}
-
-interface YieldDataParams {
-  dateFrom?: string;
-  dateTo?: string;
-  lotId?: string;
-}
-
-export interface LoginRequest {
-  staff_id: string;
-}
-
-export interface LoginResponse {
-  access_token?: string;
-  token?: string;
-  token_type: string;
-  staff_id: string;
-  role: string;
-  first_name: string;
-  last_name: string;
-  expires_in: number;
-  mobile_compatible?: boolean;
-  authenticated: boolean;
-  user: {
-    id: string;
-    staff_id: string;
-    role: string;
-    first_name: string;
-    last_name: string;
-    full_name: string;
-    designation: string;
-    department: string;
-    username: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-  };
-}
-
-export interface UserInfo {
-  staff_id: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  is_active: boolean;
-}
-
-export interface ApiError {
-  detail?: string;
-  message?: string;
-  mobile_debug?: boolean;
-}
-
-export interface AuthData {
-  access_token: string;
-  token_type: string;
-  staff_id: string;
-  role: string;
-  first_name: string;
-  last_name: string;
-  expires_in: number;
-}
-
-export interface AdminStats {
-  total_users: number;
-  active_users: number;
-  total_admins: number;
-  total_supervisors: number;
-  total_harvestflow_users: number;
-  total_flavorcore_users: number;
-  recent_registrations: number;
-  system_health: string;
-}
-
-export interface UserSummary {
-  staff_id: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  is_active: boolean;
+export interface JobType {
+  id: string;
+  job_name: string;
+  category: string;
+  unit_of_measurement: string;
+  expected_output_per_worker: number;
+  created_by?: string;
   created_at?: string;
-  last_login?: string;
+  updated_at?: string;
 }
 
-export interface AdminUserResponse {
-  users: UserSummary[];
-  total_count: number;
-  page: number;
-  per_page: number;
-}
-
-export interface UserCreateRequest {
-  staff_id: string;
+export interface OnboardingRequest {
+  id: string;
   first_name: string;
   last_name: string;
-  role: string;
-  is_active?: boolean;
-}
-
-export interface UserUpdateRequest {
-  first_name?: string;
-  last_name?: string;
+  mobile?: string;
+  address?: string;
   role?: string;
-  is_active?: boolean;
+  status: string;
+  submitted_by?: string;
+  created_at: string;
+  updated_at: string;
 }
 
-// ===== STORAGE HELPERS =====
-export const saveAuthData = (authData: AuthData): void => {
-  try {
-    const authWithTimestamp = {
-      ...authData,
-      timestamp: Date.now(),
-      expires_at: Date.now() + (authData.expires_in * 1000)
-    };
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authWithTimestamp));
-    console.log('✅ Auth data saved to localStorage');
-  } catch (error) {
-    console.error('❌ Failed to save auth data:', error);
-  }
-};
+export interface ProvisionRequest {
+  id: string;
+  request_type: string;
+  description: string;
+  amount?: number;
+  vendor?: string;
+  status: string;
+  requested_by?: string;
+  created_at: string;
+  updated_at: string;
+}
 
-export const getAuthData = (): AuthData | null => {
-  try {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!stored) {
-      console.log('ℹ️ No auth data in localStorage');
-      return null;
-    }
-
-    const parsed = JSON.parse(stored);
-    
-    if (parsed.expires_at && Date.now() > parsed.expires_at) {
-      console.log('⏰ Token expired, clearing auth data');
-      clearAuthData();
-      return null;
-    }
-
-    console.log('✅ Valid auth data retrieved');
-    return parsed;
-  } catch (error) {
-    console.error('❌ Failed to parse auth data:', error);
-    clearAuthData();
-    return null;
-  }
-};
-
-export const clearAuthData = (): void => {
-  try {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    console.log('🗑️ Auth data cleared from localStorage');
-  } catch (error) {
-    console.error('❌ Failed to clear auth data:', error);
-  }
-};
-
-export const getAuthToken = (): string | null => {
-  const authData = getAuthData();
-  return authData ? authData.access_token : null;
-};
-
-// ===== API CLIENT CLASS =====
 class ApiClient {
-  setToken(token: string) {
-    localStorage.setItem('auth_token', token);
+  private baseURL: string;
+  private timeout: number;
+
+  constructor() {
+    this.baseURL = API_BASE_URL;
+    this.timeout = 90000; // 90 seconds
+
+    console.log('🔗 API Configuration:');
+    console.log('📍 Environment: Production (Direct to Railway)');
+    console.log('🌐 Base URL:', this.baseURL);
+    console.log('🚀 Mode: Direct Connection (Bypass Vercel)');
+    console.log('📱 Mobile Compatible: Yes');
   }
 
-  clearAuth() {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
-    localStorage.removeItem('relishagro_auth');
+  private getAuthToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('auth_token');
   }
 
-  private getRoleDesignation(role: string): string {
-    const designationMap: { [key: string]: string } = {
-      'admin': 'System Administrator',
-      'harvestflow': 'Harvest Flow Manager',
-      'flavorcore': 'Flavor Core Manager', 
-      'supervisor': 'Field Supervisor',
-      'worker': 'Field Worker'
-    };
-    return designationMap[role.toLowerCase()] || 'Staff Member';
-  }
-
-  private getRoleDepartment(role: string): string {
-    const departmentMap: { [key: string]: string } = {
-      'admin': 'Administration',
-      'harvestflow': 'Harvest Operations',
-      'flavorcore': 'Processing Department',
-      'supervisor': 'Field Operations',
-      'worker': 'Field Operations'
-    };
-    return departmentMap[role.toLowerCase()] || 'General';
-  }
-
-  private async request(endpoint: string, options: RequestInit = {}) {
-    const token = localStorage.getItem('auth_token');
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
     
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Cache-Control': 'no-cache',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...options.headers,
-    };
-
     console.log(`📡 API Request: ${options.method || 'GET'} ${endpoint}`);
-    console.log(`🌐 Full URL: ${API_BASE_URL}${endpoint}`);
+    console.log('🌐 Full URL:', url);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => {
+      console.log('⏱️ Request timeout after 90 seconds');
+      controller.abort();
+    }, this.timeout);
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-        mode: 'cors',
-        signal: controller.signal,
-      });
+      const token = this.getAuthToken();
+
+const headers: Record<string, string> = {  // ✅ CHANGED: HeadersInit → Record<string, string>
+  'Content-Type': 'application/json',
+  ...(options.headers as Record<string, string> || {}),
+};
+
+if (token) {
+  headers['Authorization'] = `Bearer ${token}`;  // ✅ Now this works!
+}
+
+const response = await fetch(url, {
+  ...options,
+  signal: controller.signal,
+  headers,
+  mode: 'cors',
+  credentials: 'omit',
+});
 
       clearTimeout(timeoutId);
-      console.log(`📡 Response Status: ${response.status} ${response.statusText}`);
+
+      console.log(`✅ Response Status: ${response.status}`);
 
       if (!response.ok) {
-        let error: ApiError;
-        try {
-          error = await response.json();
-        } catch {
-          error = { message: 'Request failed', mobile_debug: true };
-        }
-        
-        if (response.status === 401) {
-          console.log('🔒 Authentication failed, clearing stored data');
-          this.clearAuth();
-        }
-        
-        throw new Error(error.detail || error.message || `HTTP ${response.status}`);
+        const errorText = await response.text();
+        console.error(`❌ API Error: ${response.status}`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('✅ Response data received');
       return data;
-
     } catch (error: any) {
       clearTimeout(timeoutId);
       
       if (error.name === 'AbortError') {
-        console.error('⏱️ Request timeout after 90 seconds');
+        console.error('❌ Request timeout');
         throw new Error('Request timeout - Server is not responding. Please check your internet connection.');
       }
       
@@ -396,372 +170,241 @@ class ApiClient {
     }
   }
 
-  // ===== AUTHENTICATION METHODS =====
+  // ============================================================================
+  // AUTHENTICATION
+  // ============================================================================
+
   async login(staffId: string): Promise<LoginResponse> {
     console.log('🔐 Starting login for staff_id:', staffId);
-    
-    try {
-      const response = await this.request('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ staff_id: staffId }),
-      });
-
-      const token = response.access_token || response.token;
-      
-      if (token) {
-        this.setToken(token);
-        
-        const user = {
-          id: response.staff_id || staffId,
-          staff_id: response.staff_id || staffId,
-          role: response.role,  
-          first_name: response.first_name || '',
-          last_name: response.last_name || '',
-          full_name: `${response.first_name || ''} ${response.last_name || ''}`.trim() || response.staff_id,
-          designation: this.getRoleDesignation(response.role),
-          department: this.getRoleDepartment(response.role),
-          username: response.staff_id || staffId,
-          email: `${response.staff_id}@relishagro.com`,
-          firstName: response.first_name,
-          lastName: response.last_name
-        };
-        
-        localStorage.setItem('user_data', JSON.stringify(user));
-        
-        if (response.access_token) {
-          saveAuthData({
-            access_token: response.access_token,
-            token_type: response.token_type,
-            staff_id: response.staff_id,
-            role: response.role,
-            first_name: response.first_name,
-            last_name: response.last_name,
-            expires_in: response.expires_in
-          });
-        }
-        
-        const loginResponse: LoginResponse = {
-          ...response,
-          token: token,
-          authenticated: true,
-          user: user
-        };
-        
-        console.log('✅ Login successful for:', user.staff_id, 'Role:', user.role);
-        return loginResponse;
-      }
-
-      throw new Error('No token received from server');
-      
-    } catch (error) {
-      console.error('❌ Login failed:', error);
-      throw error;
-    }
-  }
-
-  async getCurrentUser(): Promise<UserInfo> {
-    return this.request('/api/auth/me', { method: 'GET' });
+    return this.request<LoginResponse>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ staff_id: staffId }),
+    });
   }
 
   async logout(): Promise<void> {
-    try {
-      await this.request('/api/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.error('❌ Logout request failed:', error);
-    } finally {
-      this.clearAuth();
-      clearAuthData();
+    console.log('🚪 Logging out');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
     }
   }
 
-  async verifyToken(): Promise<boolean> {
-    try {
-      const response = await this.request('/api/auth/verify-token', { method: 'POST' });
-      if (response.valid === true) {
-        return true;
-      } else {
-        this.clearAuth();
-        clearAuthData();
-        return false;
-      }
-    } catch (error) {
-      this.clearAuth();
-      clearAuthData();
-      return false;
-    }
-  }
-
-  // ===== ADMIN USER MANAGEMENT =====
-  async getAdminStats(): Promise<AdminStats> {
-    return this.request('/api/admin/stats', { method: 'GET' });
-  }
-
-  async getUsers(page: number = 1, per_page: number = 20, role?: string, search?: string): Promise<AdminUserResponse> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      per_page: per_page.toString(),
-      ...(role && { role }),
-      ...(search && { search })
+  async verifyToken(): Promise<{ valid: boolean; user?: User }> {
+    return this.request('/api/auth/verify', {
+      method: 'GET',
     });
-    return this.request(`/api/admin/users?${params}`, { method: 'GET' });
   }
 
-  async getUserById(staffId: string) {
-    return this.request(`/api/admin/users/${staffId}`, { method: 'GET' });
+  // ============================================================================
+  // USER MANAGEMENT
+  // ============================================================================
+
+  async getUsers(): Promise<User[]> {
+    const response = await this.request<{ success: boolean; data: User[] }>('/api/admin/users');
+    return response.data || [];
   }
 
-  async createUser(userData: UserCreateRequest) {
-    return this.request('/api/admin/users', {
+  async getUser(userId: string): Promise<User> {
+    const response = await this.request<{ success: boolean; data: User }>(`/api/admin/users/${userId}`);
+    return response.data;
+  }
+
+  async createUser(userData: Partial<User>): Promise<User> {
+    const response = await this.request<{ success: boolean; data: User }>('/api/admin/users', {
       method: 'POST',
-      body: JSON.stringify(userData)
+      body: JSON.stringify(userData),
     });
+    return response.data;
   }
 
-  async updateUser(staffId: string, userData: UserUpdateRequest) {
-    return this.request(`/api/admin/users/${staffId}`, {
+  async updateUser(userId: string, userData: Partial<User>): Promise<User> {
+    const response = await this.request<{ success: boolean; data: User }>(`/api/admin/users/${userId}`, {
       method: 'PUT',
-      body: JSON.stringify(userData)
+      body: JSON.stringify(userData),
+    });
+    return response.data;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await this.request(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
     });
   }
 
-  async deleteUser(staffId: string) {
-    return this.request(`/api/admin/users/${staffId}`, { method: 'DELETE' });
+  // ============================================================================
+  // WORKER MANAGEMENT
+  // ============================================================================
+
+  async getWorkers(): Promise<Worker[]> {
+    const response = await this.request<{ success: boolean; data: Worker[] }>('/api/workers');
+    return response.data || [];
   }
 
-  async getAvailableRoles() {
-    return this.request('/api/admin/roles', { method: 'GET' });
+  async getWorker(workerId: string): Promise<Worker> {
+    const response = await this.request<{ success: boolean; data: Worker }>(`/api/workers/${workerId}`);
+    return response.data;
   }
 
-  async getSystemHealth() {
-    return this.request('/api/admin/system/health', { method: 'GET' });
-  }
-
-  // ===== WORKER MANAGEMENT =====
-  async getWorkers() {
-    return this.request('/api/workers');
-  }
-
-  async getWorkerById(id: string) {
-    return this.request(`/api/workers/${id}`);
-  }
-
-  async createWorker(workerData: any) {
-    return this.request('/api/workers', {
+  async createWorker(workerData: Partial<Worker>): Promise<Worker> {
+    const response = await this.request<{ success: boolean; data: Worker }>('/api/workers', {
       method: 'POST',
-      body: JSON.stringify(workerData)
+      body: JSON.stringify(workerData),
+    });
+    return response.data;
+  }
+
+  async updateWorker(workerId: string, workerData: Partial<Worker>): Promise<Worker> {
+    const response = await this.request<{ success: boolean; data: Worker }>(`/api/workers/${workerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(workerData),
+    });
+    return response.data;
+  }
+
+  async deleteWorker(workerId: string): Promise<void> {
+    await this.request(`/api/workers/${workerId}`, {
+      method: 'DELETE',
     });
   }
 
-  // ===== JOB TYPES =====
-  async getJobTypes() {
-    return this.request('/api/job-types');
+  // ============================================================================
+  // JOB TYPES
+  // ============================================================================
+
+  async getJobTypes(): Promise<JobType[]> {
+    const response = await this.request<{ success: boolean; data: JobType[] }>('/api/job-types');
+    return response.data || [];
   }
 
-  // ===== DAILY WORK ASSIGNMENT =====
-  async assignDailyWork(data: AssignDailyWorkData) {
-    return this.request('/api/daily-work/assign', {
+  async getJobType(jobTypeId: string): Promise<JobType> {
+    const response = await this.request<{ success: boolean; data: JobType }>(`/api/job-types/${jobTypeId}`);
+    return response.data;
+  }
+
+  async createJobType(jobTypeData: Partial<JobType>): Promise<JobType> {
+    const response = await this.request<{ success: boolean; data: JobType }>('/api/job-types', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(jobTypeData),
+    });
+    return response.data;
+  }
+
+  async updateJobType(jobTypeId: string, jobTypeData: Partial<JobType>): Promise<JobType> {
+    const response = await this.request<{ success: boolean; data: JobType }>(`/api/job-types/${jobTypeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(jobTypeData),
+    });
+    return response.data;
+  }
+
+  async deleteJobType(jobTypeId: string): Promise<void> {
+    await this.request(`/api/job-types/${jobTypeId}`, {
+      method: 'DELETE',
     });
   }
 
-  // ===== LOT MANAGEMENT =====
-  async createLot(data: CreateLotData) {
-    return this.request('/api/lots/create', {
+  // ============================================================================
+  // ONBOARDING
+  // ============================================================================
+
+  async getPendingOnboarding(): Promise<OnboardingRequest[]> {
+    const response = await this.request<{ success: boolean; data: OnboardingRequest[] }>('/api/onboarding/pending');
+    return response.data || [];
+  }
+
+  async getOnboardingRequest(requestId: string): Promise<OnboardingRequest> {
+    const response = await this.request<{ success: boolean; data: OnboardingRequest }>(`/api/onboarding/${requestId}`);
+    return response.data;
+  }
+
+  async createOnboardingRequest(requestData: Partial<OnboardingRequest>): Promise<OnboardingRequest> {
+    const response = await this.request<{ success: boolean; data: OnboardingRequest }>('/api/onboarding', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(requestData),
     });
+    return response.data;
   }
 
-  async updateLotStatus(lotId: string, status: string) {
-    return this.request(`/api/lots/${lotId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-  }
-
-  async updateLot(lotId: string, data: any) {
-    return this.request(`/api/lots/${lotId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getLotsForApproval() {
-    return this.request('/api/lots/pending-approval');
-  }
-
-  async approveLot(lotId: string, data: ApproveLotData) {
-    return this.request(`/api/lots/${lotId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async rejectLot(lotId: string, data: RejectLotData) {
-    return this.request(`/api/lots/${lotId}/reject`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async completeLot(data: CompleteLotData) {
-    return this.request('/api/lots/complete', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async addBagToLot(lotId: string, bagData: AddBagToLotData) {
-    return this.request(`/api/lots/${lotId}/bags`, {
-      method: 'POST',
-      body: JSON.stringify(bagData),
-    });
-  }
-
-  // ===== RFID OPERATIONS =====
-  async recordRFIDInScan(data: RecordRFIDInScanData) {
-    return this.request('/api/rfid/in-scan', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  // ===== DISPATCH MANAGEMENT =====
-  async dispatchLot(data: DispatchLotData) {
-    return this.request('/api/dispatch/create', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateGPSLocation(lotId: string, location: UpdateGPSLocationData) {
-    return this.request(`/api/dispatch/${lotId}/gps`, {
-      method: 'POST',
-      body: JSON.stringify(location),
-    });
-  }
-
-  // ===== SAMPLE RECORDING =====
-  async recordDryingSample(sample: RecordDryingSampleData) {
-    return this.request('/api/samples/drying', {
-      method: 'POST',
-      body: JSON.stringify(sample),
-    });
-  }
-
-  // ===== QR LABEL GENERATION =====
-  async generateQRLabel(lotId: string) {
-    return this.request(`/api/qr/generate/${lotId}`, {
+  async approveOnboardingRequest(requestId: string): Promise<void> {
+    await this.request(`/api/onboarding/${requestId}/approve`, {
       method: 'POST',
     });
   }
 
-  // ===== SUPERVISOR OPERATIONS =====
-  async getSupervisorLots(supervisorId: string) {
-    return this.request(`/api/supervisor/${supervisorId}/lots`);
-  }
-
-  // ===== PROVISIONS MANAGEMENT =====
-  async getPendingProvisions() {
-    return this.request('/api/provisions/pending');
-  }
-
-  async getProvisions() {
-    return this.request('/api/provisions', { method: 'GET' });
-  }
-
-  async approveProvision(provisionId: string) {
-    return this.request(`/api/provisions/${provisionId}/approve`, {
-      method: 'POST',
-    });
-  }
-
-  async rejectProvision(provisionId: string, reason: string) {
-    return this.request(`/api/provisions/${provisionId}/reject`, {
+  async rejectOnboardingRequest(requestId: string, reason?: string): Promise<void> {
+    await this.request(`/api/onboarding/${requestId}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
   }
 
-  // ===== ONBOARDING MANAGEMENT =====
-  async getPendingOnboarding() {
-    return this.request('/api/onboarding/pending');
+  // ============================================================================
+  // PROVISIONS
+  // ============================================================================
+
+  async getProvisionRequests(): Promise<ProvisionRequest[]> {
+    const response = await this.request<{ success: boolean; data: ProvisionRequest[] }>('/api/provisions');
+    return response.data || [];
   }
 
-  async getOnboardingRequests() {
-    return this.request('/api/onboarding/requests', { method: 'GET' });
+  async getPendingProvisions(): Promise<ProvisionRequest[]> {
+    const response = await this.request<{ success: boolean; data: ProvisionRequest[] }>('/api/provisions/pending');
+    return response.data || [];
   }
 
-  async submitOnboarding(data: SubmitOnboardingData) {
-    return this.request('/api/onboarding/submit', {
+  async getProvisionRequest(requestId: string): Promise<ProvisionRequest> {
+    const response = await this.request<{ success: boolean; data: ProvisionRequest }>(`/api/provisions/${requestId}`);
+    return response.data;
+  }
+
+  async createProvisionRequest(requestData: Partial<ProvisionRequest>): Promise<ProvisionRequest> {
+    const response = await this.request<{ success: boolean; data: ProvisionRequest }>('/api/provisions', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(requestData),
+    });
+    return response.data;
+  }
+
+  async approveProvisionRequest(requestId: string): Promise<void> {
+    await this.request(`/api/provisions/${requestId}/approve`, {
+      method: 'POST',
     });
   }
 
-  // ===== ATTENDANCE MANAGEMENT =====
-  async submitAttendanceOverride(data: SubmitAttendanceOverrideData) {
-    return this.request('/api/attendance/override', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getPendingOverrides() {
-    return this.request('/api/attendance/overrides/pending');
-  }
-
-  async approveOverride(overrideId: string, notes?: string) {
-    return this.request(`/api/attendance/overrides/${overrideId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ notes }),
-    });
-  }
-
-  async rejectOverride(overrideId: string, reason: string) {
-    return this.request(`/api/attendance/overrides/${overrideId}/reject`, {
+  async rejectProvisionRequest(requestId: string, reason?: string): Promise<void> {
+    await this.request(`/api/provisions/${requestId}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
   }
 
-  // ===== BIOMETRIC AUTHENTICATION =====
-  async registerFace(data: RegisterFaceData) {
-    return this.request('/api/biometric/face/register', {
+  // ============================================================================
+  // ATTENDANCE
+  // ============================================================================
+
+  async markAttendance(personId: string, method: string = 'manual'): Promise<void> {
+    await this.request('/api/attendance', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ person_id: personId, method }),
     });
   }
 
-  async authenticateFace(faceDescriptor: number[]) {
-    return this.request('/api/biometric/face/authenticate', {
-      method: 'POST',
-      body: JSON.stringify({ face_descriptor: faceDescriptor }),
-    });
+  async getAttendance(date?: string): Promise<any[]> {
+    const endpoint = date ? `/api/attendance?date=${date}` : '/api/attendance';
+    const response = await this.request<{ success: boolean; data: any[] }>(endpoint);
+    return response.data || [];
   }
 
-  // ===== SYNC OPERATIONS =====
-  async syncAttendanceBatch(records: any[]) {
-    return this.request('/api/sync/attendance/batch', {
-      method: 'POST',
-      body: JSON.stringify({ records }),
-    });
-  }
+  // ============================================================================
+  // HEALTH CHECK
+  // ============================================================================
 
-  async syncGPSBatch(locations: any[]) {
-    return this.request('/api/sync/gps/batch', {
-      method: 'POST',
-      body: JSON.stringify({ locations }),
-    });
-  }
-
-  // ===== YIELD DATA =====
-  async getYieldData(params?: YieldDataParams) {
-    const queryParams = new URLSearchParams(params as any).toString();
-    return this.request(`/api/yields?${queryParams}`);
+  async healthCheck(): Promise<{ status: string; database: string }> {
+    return this.request('/health');
   }
 }
 
-const api = new ApiClient();
+// Export singleton instance
+export const api = new ApiClient();
 export default api;
