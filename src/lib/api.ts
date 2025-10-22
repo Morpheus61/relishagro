@@ -5,6 +5,7 @@ const API_BASE_URL = 'https://relishagrobackend-production.up.railway.app';
 
 export interface LoginResponse {
   success: boolean;
+  authenticated?: boolean;  // ✅ ADDED
   data: {
     token: string;
     user: {
@@ -19,6 +20,18 @@ export interface LoginResponse {
       username: string;
       email: string;
     };
+  };
+  user?: {  // ✅ ADDED - for backward compatibility
+    id: string;
+    staff_id: string;
+    role: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    designation: string;
+    department: string;
+    username: string;
+    email: string;
   };
   message: string;
 }
@@ -93,6 +106,7 @@ export interface ProvisionRequest {
 class ApiClient {
   private baseURL: string;
   private timeout: number;
+  private token: string | null = null;  // ✅ ADDED
 
   constructor() {
     this.baseURL = API_BASE_URL;
@@ -105,9 +119,27 @@ class ApiClient {
     console.log('📱 Mobile Compatible: Yes');
   }
 
+  // ✅ ADDED: Token management
+  setToken(token: string) {
+    this.token = token;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('auth_token', token);
+    }
+  }
+
   private getAuthToken(): string | null {
+    if (this.token) return this.token;
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('auth_token');
+  }
+
+  // ✅ ADDED: Clear auth
+  clearAuth() {
+    this.token = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+    }
   }
 
   private async request<T>(
@@ -127,23 +159,23 @@ class ApiClient {
 
     try {
       const token = this.getAuthToken();
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string> || {}),
+      };
 
-const headers: Record<string, string> = {  // ✅ CHANGED: HeadersInit → Record<string, string>
-  'Content-Type': 'application/json',
-  ...(options.headers as Record<string, string> || {}),
-};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-if (token) {
-  headers['Authorization'] = `Bearer ${token}`;  // ✅ Now this works!
-}
-
-const response = await fetch(url, {
-  ...options,
-  signal: controller.signal,
-  headers,
-  mode: 'cors',
-  credentials: 'omit',
-});
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers,
+        mode: 'cors',
+        credentials: 'omit',
+      });
 
       clearTimeout(timeoutId);
 
@@ -184,10 +216,7 @@ const response = await fetch(url, {
 
   async logout(): Promise<void> {
     console.log('🚪 Logging out');
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
-    }
+    this.clearAuth();
   }
 
   async verifyToken(): Promise<{ valid: boolean; user?: User }> {
@@ -326,6 +355,11 @@ const response = await fetch(url, {
     return response.data;
   }
 
+  // ✅ ADDED: Submit onboarding (alias for create)
+  async submitOnboarding(onboardingData: any): Promise<any> {
+    return this.createOnboardingRequest(onboardingData);
+  }
+
   async approveOnboardingRequest(requestId: string): Promise<void> {
     await this.request(`/api/onboarding/${requestId}/approve`, {
       method: 'POST',
@@ -394,6 +428,54 @@ const response = await fetch(url, {
     const endpoint = date ? `/api/attendance?date=${date}` : '/api/attendance';
     const response = await this.request<{ success: boolean; data: any[] }>(endpoint);
     return response.data || [];
+  }
+
+  // ✅ ADDED: Submit attendance override
+  async submitAttendanceOverride(overrideData: any): Promise<any> {
+    return this.request('/api/attendance/override', {
+      method: 'POST',
+      body: JSON.stringify(overrideData),
+    });
+  }
+
+  // ✅ ADDED: Sync attendance batch
+  async syncAttendanceBatch(attendanceRecords: any[]): Promise<any> {
+    return this.request('/api/attendance/sync', {
+      method: 'POST',
+      body: JSON.stringify({ records: attendanceRecords }),
+    });
+  }
+
+  // ============================================================================
+  // BIOMETRIC / FACE RECOGNITION
+  // ============================================================================
+
+  // ✅ ADDED: Register face
+  async registerFace(faceData: any): Promise<any> {
+    return this.request('/api/face/register', {
+      method: 'POST',
+      body: JSON.stringify(faceData),
+    });
+  }
+
+  // ✅ ADDED: Authenticate face
+  async authenticateFace(faceData: any): Promise<any> {
+    return this.request('/api/face/authenticate', {
+      method: 'POST',
+      body: JSON.stringify(faceData),
+    });
+  }
+
+  // ============================================================================
+  // GPS TRACKING
+  // ============================================================================
+
+  // ✅ ADDED: Sync GPS batch
+  async syncGPSBatch(gpsRecords: any[]): Promise<any> {
+    return this.request('/api/gps/sync', {
+      method: 'POST',
+      body: JSON.stringify({ records: gpsRecords }),
+    });
   }
 
   // ============================================================================
