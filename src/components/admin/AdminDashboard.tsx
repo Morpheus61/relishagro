@@ -1,5 +1,5 @@
 // src/components/admin/AdminDashboard.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -432,109 +432,150 @@ const AdminDashboard: React.FC = () => {
   });
 
   // ======================
-  // MODAL COMPONENTS
+  // ✅ FIXED MODAL COMPONENTS WITH useCallback
   // ======================
 
-  const AddUserModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Add New User</h3>
-          <Button variant="outline" size="sm" onClick={() => setShowAddUserModal(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <Input
-            placeholder="First Name"
-            value={newUser.firstName}
-            onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
-          />
-          <Input
-            placeholder="Last Name"
-            value={newUser.lastName}
-            onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
-          />
-          <Input
-            placeholder="Phone Number"
-            value={newUser.phone}
-            onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-          />
-          <select
-            value={newUser.role}
-            onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
-            <option value="harvestflow_manager">HarvestFlow Manager</option>
-            <option value="flavorcore_manager">FlavorCore Manager</option>
-            <option value="supervisor">Supervisor</option>
-          </select>
-          <Input
-            placeholder="Department"
-            value={newUser.department}
-            onChange={(e) => setNewUser({...newUser, department: e.target.value})}
-          />
-          <Button 
-            className="w-full" 
-            onClick={handleAddUser}
-            disabled={!newUser.firstName || !newUser.lastName || !newUser.phone}
-          >
-            Add User
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
+  const AddUserModal = memo(() => {
+    const handleFirstNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewUser(prev => ({...prev, firstName: e.target.value}));
+    }, []);
 
-  const AddJobTypeModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Add New Job Type</h3>
-          <Button variant="outline" size="sm" onClick={() => setShowAddJobTypeModal(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <Input
-            placeholder="Job Name"
-            value={newJobType.job_name}
-            onChange={(e) => setNewJobType({...newJobType, job_name: e.target.value})}
-          />
-          <Input
-            placeholder="Category"
-            value={newJobType.category}
-            onChange={(e) => setNewJobType({...newJobType, category: e.target.value})}
-          />
-          <select
-            value={newJobType.unit_of_measurement}
-            onChange={(e) => setNewJobType({...newJobType, unit_of_measurement: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="kg">Kilograms (kg)</option>
-            <option value="units">Units</option>
-            <option value="hours">Hours</option>
-            <option value="acres">Acres</option>
-          </select>
-          <Input
-            type="number"
-            placeholder="Expected Output per Worker"
-            value={newJobType.expected_output_per_worker}
-            onChange={(e) => setNewJobType({...newJobType, expected_output_per_worker: Number(e.target.value)})}
-          />
-          <Button 
-            className="w-full" 
-            onClick={handleAddJobType}
-            disabled={!newJobType.job_name || !newJobType.category}
-          >
-            Add Job Type
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
+    const handleLastNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewUser(prev => ({...prev, lastName: e.target.value}));
+    }, []);
+
+    const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewUser(prev => ({...prev, phone: e.target.value}));
+    }, []);
+
+    const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+      setNewUser(prev => ({...prev, role: e.target.value}));
+    }, []);
+
+    const handleDepartmentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewUser(prev => ({...prev, department: e.target.value}));
+    }, []);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Add New User</h3>
+            <Button variant="outline" size="sm" onClick={() => setShowAddUserModal(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <Input
+              placeholder="First Name"
+              value={newUser.firstName}
+              onChange={handleFirstNameChange}
+            />
+            <Input
+              placeholder="Last Name"
+              value={newUser.lastName}
+              onChange={handleLastNameChange}
+            />
+            <Input
+              placeholder="Phone Number"
+              value={newUser.phone}
+              onChange={handlePhoneChange}
+            />
+            <select
+              value={newUser.role}
+              onChange={handleRoleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
+              <option value="harvestflow_manager">HarvestFlow Manager</option>
+              <option value="flavorcore_manager">FlavorCore Manager</option>
+              <option value="supervisor">Supervisor</option>
+            </select>
+            <Input
+              placeholder="Department"
+              value={newUser.department}
+              onChange={handleDepartmentChange}
+            />
+            <Button 
+              className="w-full whitespace-nowrap" 
+              onClick={handleAddUser}
+              disabled={!newUser.firstName || !newUser.lastName || !newUser.phone}
+            >
+              Add User
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  });
+
+  const AddJobTypeModal = memo(() => {
+    const handleJobNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewJobType(prev => ({...prev, job_name: e.target.value}));
+    }, []);
+
+    const handleCategoryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewJobType(prev => ({...prev, category: e.target.value}));
+    }, []);
+
+    const handleUnitChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+      setNewJobType(prev => ({...prev, unit_of_measurement: e.target.value}));
+    }, []);
+
+    const handleOutputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewJobType(prev => ({...prev, expected_output_per_worker: Number(e.target.value)}));
+    }, []);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-md p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Add New Job Type</h3>
+            <Button variant="outline" size="sm" onClick={() => setShowAddJobTypeModal(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <Input
+              placeholder="Job Name"
+              value={newJobType.job_name}
+              onChange={handleJobNameChange}
+              autoFocus
+            />
+            <Input
+              placeholder="Category"
+              value={newJobType.category}
+              onChange={handleCategoryChange}
+            />
+            <select
+              value={newJobType.unit_of_measurement}
+              onChange={handleUnitChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="kg">Kilograms (kg)</option>
+              <option value="units">Units</option>
+              <option value="hours">Hours</option>
+              <option value="acres">Acres</option>
+            </select>
+            <Input
+              type="number"
+              placeholder="Expected Output per Worker"
+              value={newJobType.expected_output_per_worker || ''}
+              onChange={handleOutputChange}
+            />
+            <Button 
+              className="w-full whitespace-nowrap" 
+              onClick={handleAddJobType}
+              disabled={!newJobType.job_name || !newJobType.category}
+            >
+              Add Job Type
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  });
 
   // ======================
   // RENDERERS
@@ -595,12 +636,12 @@ const AdminDashboard: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-4">User</th>
-                <th className="text-left p-4">Phone</th>
-                <th className="text-left p-4">Role</th>
-                <th className="text-left p-4">Status</th>
-                <th className="text-left p-4">Join Date</th>
-                <th className="text-left p-4">Actions</th>
+                <th className="text-left p-4 whitespace-nowrap">User</th>
+                <th className="text-left p-4 whitespace-nowrap">Phone</th>
+                <th className="text-left p-4 whitespace-nowrap">Role</th>
+                <th className="text-left p-4 whitespace-nowrap">Status</th>
+                <th className="text-left p-4 whitespace-nowrap">Join Date</th>
+                <th className="text-left p-4 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -636,9 +677,9 @@ const AdminDashboard: React.FC = () => {
 
   const renderJobTypes = () => (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">Job Types</h3>
-        <Button onClick={() => setShowAddJobTypeModal(true)} className="whitespace-nowrap">
+        <Button onClick={() => setShowAddJobTypeModal(true)} className="whitespace-nowrap w-full sm:w-auto">
           <UserPlus className="h-4 w-4 mr-2" /> Add Job Type
         </Button>
       </div>
@@ -647,11 +688,11 @@ const AdminDashboard: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-4">Name</th>
-                <th className="text-left p-4">Category</th>
-                <th className="text-left p-4">Unit</th>
-                <th className="text-left p-4">Output/Worker</th>
-                <th className="text-left p-4">Created</th>
+                <th className="text-left p-4 whitespace-nowrap">Name</th>
+                <th className="text-left p-4 whitespace-nowrap">Category</th>
+                <th className="text-left p-4 whitespace-nowrap">Unit</th>
+                <th className="text-left p-4 whitespace-nowrap">Output/Worker</th>
+                <th className="text-left p-4 whitespace-nowrap">Created</th>
               </tr>
             </thead>
             <tbody>
@@ -794,7 +835,7 @@ const AdminDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <h1 className="text-xl font-semibold">Admin Dashboard</h1>
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="whitespace-nowrap">
               <RefreshCw className="h-4 w-4 mr-2" /> Refresh
             </Button>
           </div>
