@@ -117,7 +117,7 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
                 key={item.id}
                 variant={activeTab === item.id ? "default" : "outline"}
                 onClick={() => onTabChange(item.id)}
-                className="mr-2 flex-shrink-0 whitespace-nowrap min-w-0 transition-all"
+                className="mr-2 flex-shrink-0 whitespace-nowrap"
                 style={{ minWidth: '120px' }}
               >
                 <span className="truncate px-1">{item.label}</span>
@@ -226,15 +226,47 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // API Base URL
-  const API_BASE = process.env.REACT_APP_API_URL || 'https://relishagrobackend-production.up.railway.app';
+  // ✅ Modal states
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
+  const [showAddJobTypeModal, setShowAddJobTypeModal] = useState(false);
+  const [showAddProvisionModal, setShowAddProvisionModal] = useState(false);
 
-  // Get auth token
+  // ✅ Form states
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'staff'
+  });
+
+  const [newWorker, setNewWorker] = useState({
+    name: '',
+    phone: '',
+    role: 'field_worker',
+    department: 'general'
+  });
+
+  const [newJobType, setNewJobType] = useState({
+    name: '',
+    description: '',
+    department: 'general'
+  });
+
+  const [newProvision, setNewProvision] = useState({
+    item_name: '',
+    quantity: 0,
+    unit: 'kg',
+    supplier: '',
+    cost: 0
+  });
+
+  const API_BASE = 'https://relishagrobackend-production.up.railway.app';
+
   const getAuthToken = () => {
-  return localStorage.getItem('auth_token'); // Match AuthContext
-};
+    return localStorage.getItem('auth_token');
+  };
 
-  // API headers with authentication
   const getHeaders = () => {
     const token = getAuthToken();
     return {
@@ -253,7 +285,17 @@ const FlavorCoreManagerDashboard: React.FC = () => {
         throw new Error(`Failed to fetch users: ${response.status}`);
       }
       const data = await response.json();
-      setUsers(Array.isArray(data) ? data : (data.users || []));
+      const usersArray = Array.isArray(data) ? data : (data.data || data.users || []);
+      setUsers(usersArray.map((u: any) => ({
+        id: u.id || u.staff_id,
+        name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.staff_id,
+        email: u.email || u.email_address || 'N/A',
+        phone: u.phone || u.phone_number || u.contact_number || 'N/A',
+        role: u.role || u.person_type || 'staff',
+        status: (u.status === 'active' || u.is_active) ? 'active' : 'inactive',
+        joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A',
+        lastActive: u.last_active ? new Date(u.last_active).toLocaleDateString() : 'N/A'
+      })));
     } catch (err) {
       console.error('Error fetching users:', err);
       setUsers([]);
@@ -267,7 +309,17 @@ const FlavorCoreManagerDashboard: React.FC = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setWorkers(Array.isArray(data) ? data : (data.workers || []));
+        const workersArray = Array.isArray(data) ? data : (data.data || data.workers || []);
+        setWorkers(workersArray.map((w: any) => ({
+          id: w.id || w.staff_id,
+          name: `${w.first_name || ''} ${w.last_name || ''}`.trim() || w.staff_id,
+          staff_id: w.staff_id,
+          role: w.role || w.person_type || 'field_worker',
+          phone: w.contact_number || w.phone || 'N/A',
+          department: w.department || 'general',
+          status: 'active',
+          created_at: w.created_at || new Date().toISOString()
+        })));
       }
     } catch (err) {
       console.error('Error fetching workers:', err);
@@ -282,7 +334,17 @@ const FlavorCoreManagerDashboard: React.FC = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setProvisions(Array.isArray(data) ? data : (data.provisions || data.requests || []));
+        const provisionsArray = Array.isArray(data) ? data : (data.data || data.provisions || data.requests || []);
+        setProvisions(provisionsArray.map((p: any) => ({
+          id: p.id,
+          item_name: p.item_name || p.name,
+          quantity: p.quantity || 0,
+          unit: p.unit || 'kg',
+          supplier: p.supplier || 'N/A',
+          cost: p.cost || p.price || 0,
+          status: p.status || 'pending',
+          created_at: p.created_at || new Date().toISOString()
+        })));
       }
     } catch (err) {
       console.error('Error fetching provisions:', err);
@@ -297,7 +359,26 @@ const FlavorCoreManagerDashboard: React.FC = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setOnboardingRequests(Array.isArray(data) ? data : (data.requests || []));
+        const requestsArray = Array.isArray(data) ? data : (data.data || data.requests || []);
+        setOnboardingRequests(requestsArray.map((req: any) => ({
+          id: req.id,
+          applicantName: req.applicantName || req.name || 'N/A',
+          email: req.email || 'N/A',
+          phone: req.phone || req.mobile || 'N/A',
+          farmLocation: req.farmLocation || req.location || 'N/A',
+          farmSize: req.farmSize || 0,
+          primaryCrops: req.primaryCrops || [],
+          experienceYears: req.experienceYears || 0,
+          applicationDate: req.applicationDate || req.created_at || new Date().toISOString(),
+          status: req.status || 'pending',
+          documents: req.documents || {
+            idProof: false,
+            landOwnership: false,
+            bankDetails: false,
+            cropCertificates: false
+          },
+          reviewNotes: req.reviewNotes
+        })));
       }
     } catch (err) {
       console.error('Error fetching onboarding requests:', err);
@@ -312,11 +393,147 @@ const FlavorCoreManagerDashboard: React.FC = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setJobTypes(Array.isArray(data) ? data : (data.data || []));
+        const jobTypesArray = Array.isArray(data) ? data : (data.data || []);
+        setJobTypes(jobTypesArray.map((j: any) => ({
+          id: j.id,
+          name: j.name || j.job_name,
+          description: j.description || 'No description',
+          department: j.department || 'general',
+          created_at: j.created_at || new Date().toISOString()
+        })));
       }
     } catch (err) {
       console.error('Error fetching job types:', err);
       setJobTypes([]);
+    }
+  };
+
+  // ✅ Add User Handler
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.phone) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/users`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          name: newUser.name,
+          email: newUser.email,
+          phone_number: newUser.phone,
+          role: newUser.role,
+          staff_id: `FC-${Date.now()}`,
+          status: 'active'
+        })
+      });
+
+      if (response.ok) {
+        await fetchUsers();
+        setShowAddUserModal(false);
+        setNewUser({ name: '', email: '', phone: '', role: 'staff' });
+        alert('User added successfully!');
+      } else {
+        alert('Failed to add user. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error adding user:', err);
+      alert('Failed to add user. Please try again.');
+    }
+  };
+
+  // ✅ Add Worker Handler
+  const handleAddWorker = async () => {
+    if (!newWorker.name || !newWorker.phone) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/workers`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          first_name: newWorker.name.split(' ')[0],
+          last_name: newWorker.name.split(' ').slice(1).join(' ') || '',
+          contact_number: newWorker.phone,
+          person_type: newWorker.role,
+          staff_id: `FC-W-${Date.now()}`,
+          status: 'active'
+        })
+      });
+
+      if (response.ok) {
+        await fetchWorkers();
+        setShowAddWorkerModal(false);
+        setNewWorker({ name: '', phone: '', role: 'field_worker', department: 'general' });
+        alert('Worker added successfully!');
+      } else {
+        alert('Failed to add worker. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error adding worker:', err);
+      alert('Failed to add worker. Please try again.');
+    }
+  };
+
+  // ✅ Add Job Type Handler
+  const handleAddJobType = async () => {
+    if (!newJobType.name || !newJobType.description) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/job-types`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(newJobType)
+      });
+
+      if (response.ok) {
+        await fetchJobTypes();
+        setShowAddJobTypeModal(false);
+        setNewJobType({ name: '', description: '', department: 'general' });
+        alert('Job type added successfully!');
+      } else {
+        alert('Failed to add job type. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error adding job type:', err);
+      alert('Failed to add job type. Please try again.');
+    }
+  };
+
+  // ✅ Add Provision Handler
+  const handleAddProvision = async () => {
+    if (!newProvision.item_name || !newProvision.quantity) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/provisions`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          ...newProvision,
+          status: 'pending'
+        })
+      });
+
+      if (response.ok) {
+        await fetchProvisions();
+        setShowAddProvisionModal(false);
+        setNewProvision({ item_name: '', quantity: 0, unit: 'kg', supplier: '', cost: 0 });
+        alert('Provision added successfully!');
+      } else {
+        alert('Failed to add provision. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error adding provision:', err);
+      alert('Failed to add provision. Please try again.');
     }
   };
 
@@ -356,6 +573,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
               : req
           )
         );
+        alert('Request approved successfully!');
       }
     } catch (err) {
       console.error('Error approving onboarding:', err);
@@ -378,6 +596,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
               : req
           )
         );
+        alert('Request rejected.');
       }
     } catch (err) {
       console.error('Error rejecting onboarding:', err);
@@ -417,6 +636,208 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   const pendingOnboardingCount = onboardingRequests.filter(req => req.status === 'pending').length;
   const totalProvisions = provisions.reduce((sum, p) => sum + p.cost, 0);
 
+  // =====================
+  // MODAL COMPONENTS
+  // =====================
+
+  const AddUserModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Add New User</h3>
+          <Button variant="outline" size="sm" onClick={() => setShowAddUserModal(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-4">
+          <Input
+            placeholder="Full Name"
+            value={newUser.name}
+            onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+          />
+          <Input
+            type="email"
+            placeholder="Email"
+            value={newUser.email}
+            onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+          />
+          <Input
+            placeholder="Phone Number"
+            value={newUser.phone}
+            onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+          />
+          <select
+            value={newUser.role}
+            onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
+          <Button 
+            className="w-full" 
+            onClick={handleAddUser}
+            disabled={!newUser.name || !newUser.email || !newUser.phone}
+          >
+            Add User
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const AddWorkerModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Add New Worker</h3>
+          <Button variant="outline" size="sm" onClick={() => setShowAddWorkerModal(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-4">
+          <Input
+            placeholder="Full Name"
+            value={newWorker.name}
+            onChange={(e) => setNewWorker({...newWorker, name: e.target.value})}
+          />
+          <Input
+            placeholder="Phone Number"
+            value={newWorker.phone}
+            onChange={(e) => setNewWorker({...newWorker, phone: e.target.value})}
+          />
+          <select
+            value={newWorker.role}
+            onChange={(e) => setNewWorker({...newWorker, role: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="field_worker">Field Worker</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="quality_inspector">Quality Inspector</option>
+            <option value="machine_operator">Machine Operator</option>
+          </select>
+          <select
+            value={newWorker.department}
+            onChange={(e) => setNewWorker({...newWorker, department: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="general">General</option>
+            <option value="harvest">Harvest</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="quality_control">Quality Control</option>
+          </select>
+          <Button 
+            className="w-full" 
+            onClick={handleAddWorker}
+            disabled={!newWorker.name || !newWorker.phone}
+          >
+            Add Worker
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const AddJobTypeModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Add New Job Type</h3>
+          <Button variant="outline" size="sm" onClick={() => setShowAddJobTypeModal(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-4">
+          <Input
+            placeholder="Job Type Name"
+            value={newJobType.name}
+            onChange={(e) => setNewJobType({...newJobType, name: e.target.value})}
+          />
+          <Textarea
+            placeholder="Description"
+            value={newJobType.description}
+            onChange={(e) => setNewJobType({...newJobType, description: e.target.value})}
+          />
+          <select
+            value={newJobType.department}
+            onChange={(e) => setNewJobType({...newJobType, department: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="general">General</option>
+            <option value="harvest">Harvest</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="quality_control">Quality Control</option>
+          </select>
+          <Button 
+            className="w-full" 
+            onClick={handleAddJobType}
+            disabled={!newJobType.name || !newJobType.description}
+          >
+            Add Job Type
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const AddProvisionModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Add New Provision</h3>
+          <Button variant="outline" size="sm" onClick={() => setShowAddProvisionModal(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-4">
+          <Input
+            placeholder="Item Name"
+            value={newProvision.item_name}
+            onChange={(e) => setNewProvision({...newProvision, item_name: e.target.value})}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              type="number"
+              placeholder="Quantity"
+              value={newProvision.quantity}
+              onChange={(e) => setNewProvision({...newProvision, quantity: Number(e.target.value)})}
+            />
+            <select
+              value={newProvision.unit}
+              onChange={(e) => setNewProvision({...newProvision, unit: e.target.value})}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="kg">Kilograms</option>
+              <option value="liters">Liters</option>
+              <option value="pieces">Pieces</option>
+              <option value="bags">Bags</option>
+            </select>
+          </div>
+          <Input
+            placeholder="Supplier"
+            value={newProvision.supplier}
+            onChange={(e) => setNewProvision({...newProvision, supplier: e.target.value})}
+          />
+          <Input
+            type="number"
+            placeholder="Cost (₹)"
+            value={newProvision.cost}
+            onChange={(e) => setNewProvision({...newProvision, cost: Number(e.target.value)})}
+          />
+          <Button 
+            className="w-full" 
+            onClick={handleAddProvision}
+            disabled={!newProvision.item_name || !newProvision.quantity}
+          >
+            Add Provision
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
   // Loading state
   if (loading) {
     return (
@@ -433,16 +854,16 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
-        <Card className="border-red-200 bg-red-50 p-6">
-          <div className="flex items-center gap-2 text-red-600">
+        <Card className="border-red-200 bg-red-50 p-6 max-w-md mx-auto">
+          <div className="flex items-center gap-2 text-red-600 mb-4">
             <AlertTriangle className="w-5 h-5" />
             <span className="font-medium">Error Loading Dashboard</span>
           </div>
-          <p className="mt-2 text-red-700">{error}</p>
+          <p className="text-red-700 mb-4">{error}</p>
           <Button 
             onClick={() => window.location.reload()} 
-            className="mt-4"
             variant="outline"
+            className="w-full"
           >
             Retry
           </Button>
@@ -506,6 +927,9 @@ const FlavorCoreManagerDashboard: React.FC = () => {
                 </Badge>
               </div>
             ))}
+            {users.length === 0 && (
+              <p className="text-gray-500 text-center py-4">No users yet</p>
+            )}
           </div>
         </Card>
         <Card className="p-6">
@@ -538,11 +962,11 @@ const FlavorCoreManagerDashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">User Management</h3>
         <div className="flex gap-2">
-          <Button>
+          <Button onClick={() => setShowAddUserModal(true)} className="whitespace-nowrap">
             <UserPlus className="h-4 w-4 mr-2" />
             Add User
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" className="whitespace-nowrap">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -601,13 +1025,13 @@ const FlavorCoreManagerDashboard: React.FC = () => {
                   <td className="p-4">{user.lastActive}</td>
                   <td className="p-4">
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" title="View">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" title="Edit">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" title="More">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </div>
@@ -621,16 +1045,16 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     </div>
   );
 
-  const renderWorkerManagement = () => (
+const renderWorkerManagement = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">Worker Management</h3>
         <div className="flex gap-2">
-          <Button>
+          <Button onClick={() => setShowAddWorkerModal(true)} className="whitespace-nowrap">
             <UserPlus className="h-4 w-4 mr-2" />
             Add Worker
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" className="whitespace-nowrap">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -699,10 +1123,10 @@ const FlavorCoreManagerDashboard: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" title="View">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" title="Edit">
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>
@@ -721,7 +1145,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">Job Types Management</h3>
-        <Button>
+        <Button onClick={() => setShowAddJobTypeModal(true)} className="whitespace-nowrap">
           <Target className="h-4 w-4 mr-2" />
           Add Job Type
         </Button>
@@ -732,7 +1156,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold">{jobType.name}</h4>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" title="Edit">
                   <Edit className="h-4 w-4" />
                 </Button>
               </div>
@@ -749,6 +1173,11 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             </div>
           </Card>
         ))}
+        {jobTypes.length === 0 && (
+          <div className="col-span-full text-center text-gray-500 py-8">
+            No job types yet. Add your first job type!
+          </div>
+        )}
       </div>
     </div>
   );
@@ -757,7 +1186,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">Provisions Management</h3>
-        <Button>
+        <Button onClick={() => setShowAddProvisionModal(true)} className="whitespace-nowrap">
           <Package className="h-4 w-4 mr-2" />
           Add Provision
         </Button>
@@ -826,10 +1255,10 @@ const FlavorCoreManagerDashboard: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" title="View">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" title="Edit">
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>
@@ -876,7 +1305,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
                     <p><MapPin className="inline h-4 w-4 mr-1" />{request.farmLocation}</p>
                     <p><Target className="inline h-4 w-4 mr-1" />{request.farmSize} acres</p>
                     <p><Activity className="inline h-4 w-4 mr-1" />{request.experienceYears} years experience</p>
-                    <p><Star className="inline h-4 w-4 mr-1" />Crops: {request.primaryCrops.join(', ')}</p>
+                    <p><Star className="inline h-4 w-4 mr-1" />Crops: {request.primaryCrops.join(', ') || 'N/A'}</p>
                   </div>
                 </div>
                 <div>
@@ -916,20 +1345,26 @@ const FlavorCoreManagerDashboard: React.FC = () => {
               {request.status === 'pending' && (
                 <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
                   <div className="flex-1">
-                    <Textarea placeholder="Review notes (optional)" className="w-full" />
+                    <Textarea placeholder="Review notes (optional)" className="w-full" id={`notes-${request.id}`} />
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => handleApproveOnboarding(request.id)}
-                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => {
+                        const notes = (document.getElementById(`notes-${request.id}`) as HTMLTextAreaElement)?.value || '';
+                        handleApproveOnboarding(request.id, notes);
+                      }}
+                      className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Approve
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => handleRejectOnboarding(request.id)}
-                      className="border-red-600 text-red-600 hover:bg-red-50"
+                      onClick={() => {
+                        const notes = (document.getElementById(`notes-${request.id}`) as HTMLTextAreaElement)?.value || '';
+                        handleRejectOnboarding(request.id, notes);
+                      }}
+                      className="border-red-600 text-red-600 hover:bg-red-50 whitespace-nowrap"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       Reject
@@ -946,11 +1381,16 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             </div>
           </Card>
         ))}
+        {onboardingRequests.length === 0 && (
+          <Card className="p-8 text-center text-gray-500">
+            No onboarding requests to display
+          </Card>
+        )}
       </div>
     </div>
   );
 
-  const renderYieldAnalytics = () => (
+const renderYieldAnalytics = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold">Yield Analytics</h3>
       <Card className="p-6">
@@ -971,7 +1411,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             </div>
             <Activity className="h-8 w-8 text-blue-600" />
           </div>
-          <Button variant="outline" className="w-full mt-4">
+          <Button variant="outline" className="w-full mt-4 whitespace-nowrap">
             <Download className="h-4 w-4 mr-2" />
             Generate Report
           </Button>
@@ -984,7 +1424,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             </div>
             <Users className="h-8 w-8 text-green-600" />
           </div>
-          <Button variant="outline" className="w-full mt-4">
+          <Button variant="outline" className="w-full mt-4 whitespace-nowrap">
             <Download className="h-4 w-4 mr-2" />
             Generate Report
           </Button>
@@ -997,7 +1437,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             </div>
             <DollarSign className="h-8 w-8 text-yellow-600" />
           </div>
-          <Button variant="outline" className="w-full mt-4">
+          <Button variant="outline" className="w-full mt-4 whitespace-nowrap">
             <Download className="h-4 w-4 mr-2" />
             Generate Report
           </Button>
@@ -1015,7 +1455,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">System Maintenance Mode</label>
-              <Button variant="outline">Toggle Maintenance</Button>
+              <Button variant="outline" className="whitespace-nowrap">Toggle Maintenance</Button>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Auto-approval Threshold</label>
@@ -1023,7 +1463,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Email Notifications</label>
-              <Button variant="outline">Configure Notifications</Button>
+              <Button variant="outline" className="whitespace-nowrap">Configure Notifications</Button>
             </div>
           </div>
         </Card>
@@ -1032,11 +1472,11 @@ const FlavorCoreManagerDashboard: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Admin Password</label>
-              <Button variant="outline">Change Password</Button>
+              <Button variant="outline" className="whitespace-nowrap">Change Password</Button>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Two-Factor Authentication</label>
-              <Button variant="outline">Enable 2FA</Button>
+              <Button variant="outline" className="whitespace-nowrap">Enable 2FA</Button>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Session Timeout</label>
@@ -1101,6 +1541,12 @@ const FlavorCoreManagerDashboard: React.FC = () => {
           {renderContent()}
         </div>
       </div>
+
+      {/* Modals */}
+      {showAddUserModal && <AddUserModal />}
+      {showAddWorkerModal && <AddWorkerModal />}
+      {showAddJobTypeModal && <AddJobTypeModal />}
+      {showAddProvisionModal && <AddProvisionModal />}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+// src/components/admin/AdminDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -99,7 +100,7 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
                 key={item.id}
                 variant={activeTab === item.id ? "default" : "outline"}
                 onClick={() => onTabChange(item.id)}
-                className="mr-2 flex-shrink-0 whitespace-nowrap min-w-0"
+                className="mr-2 flex-shrink-0 whitespace-nowrap"
                 style={{ minWidth: '120px' }}
               >
                 <span className="truncate px-1">{item.label}</span>
@@ -170,10 +171,30 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Use the same base URL as api.ts
+  // ✅ Modal states
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showAddJobTypeModal, setShowAddJobTypeModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // ✅ Form states
+  const [newUser, setNewUser] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    role: 'staff',
+    department: 'general'
+  });
+
+  const [newJobType, setNewJobType] = useState({
+    job_name: '',
+    category: '',
+    unit_of_measurement: 'kg',
+    expected_output_per_worker: 0
+  });
+
   const API_BASE = 'https://relishagrobackend-production.up.railway.app';
 
-  // ✅ FIXED: Use the correct token key 'auth_token'
   const getAuthToken = () => {
     return localStorage.getItem('auth_token');
   };
@@ -191,13 +212,13 @@ const AdminDashboard: React.FC = () => {
       const response = await fetch(`${API_BASE}/api/admin/users`, { headers: getHeaders() });
       if (!response.ok) throw new Error(`Failed: ${response.status}`);
       const data = await response.json();
-      const usersArray = Array.isArray(data) ? data : (data.users || []);
+      const usersArray = Array.isArray(data) ? data : (data.data || data.users || []);
       setUsers(usersArray.map((u: any) => ({
-        id: u.staff_id,
-        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.staff_id,
-        phone: u.phone_number || 'N/A',
-        role: u.role,
-        status: u.is_active ? 'active' : 'inactive',
+        id: u.staff_id || u.id,
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.staff_id || u.name || 'Unknown',
+        phone: u.phone_number || u.contact_number || u.phone || 'N/A',
+        role: u.role || u.person_type || 'staff',
+        status: (u.is_active || u.status === 'active') ? 'active' : 'inactive',
         joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'
       })));
     } catch (err) {
@@ -211,14 +232,14 @@ const AdminDashboard: React.FC = () => {
       const response = await fetch(`${API_BASE}/api/workers`, { headers: getHeaders() });
       if (response.ok) {
         const data = await response.json();
-        const workersArray = Array.isArray(data) ? data : (data.workers || []);
+        const workersArray = Array.isArray(data) ? data : (data.data || data.workers || []);
         setWorkers(workersArray.map((w: any) => ({
-          id: w.staff_id,
-          name: `${w.first_name || ''} ${w.last_name || ''}`.trim() || w.staff_id,
-          staff_id: w.staff_id,
-          role: w.role,
-          phone: w.phone_number || 'N/A',
-          department: w.role || 'General',
+          id: w.staff_id || w.id,
+          name: `${w.first_name || ''} ${w.last_name || ''}`.trim() || w.staff_id || w.name || 'Unknown',
+          staff_id: w.staff_id || w.id,
+          role: w.role || w.person_type || 'staff',
+          phone: w.phone_number || w.contact_number || w.phone || 'N/A',
+          department: w.department || w.role || 'General',
           status: 'active'
         })));
       }
@@ -284,6 +305,66 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // ✅ NEW: Add User Handler
+  const handleAddUser = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/users`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          first_name: newUser.firstName,
+          last_name: newUser.lastName,
+          phone_number: newUser.phone,
+          role: newUser.role,
+          department: newUser.department,
+          staff_id: `${newUser.role.toUpperCase()}-${Date.now()}`,
+          status: 'active'
+        })
+      });
+
+      if (response.ok) {
+        await fetchUsers();
+        setShowAddUserModal(false);
+        setNewUser({ firstName: '', lastName: '', phone: '', role: 'staff', department: 'general' });
+        alert('User added successfully!');
+      } else {
+        alert('Failed to add user. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error adding user:', err);
+      alert('Failed to add user. Please try again.');
+    }
+  };
+
+  // ✅ NEW: Add Job Type Handler
+  const handleAddJobType = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/job-types`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(newJobType)
+      });
+
+      if (response.ok) {
+        await fetchJobTypes();
+        setShowAddJobTypeModal(false);
+        setNewJobType({ job_name: '', category: '', unit_of_measurement: 'kg', expected_output_per_worker: 0 });
+        alert('Job type added successfully!');
+      } else {
+        alert('Failed to add job type. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error adding job type:', err);
+      alert('Failed to add job type. Please try again.');
+    }
+  };
+
+  // ✅ NEW: Edit User Handler
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setShowEditUserModal(true);
+  };
+
   const handleApproveOnboarding = async (requestId: string, notes: string = '') => {
     try {
       const response = await fetch(`${API_BASE}/api/onboarding/approve/${requestId}`, {
@@ -295,6 +376,7 @@ const AdminDashboard: React.FC = () => {
         setOnboardingRequests(prev => 
           prev.map(req => req.id === requestId ? { ...req, status: 'approved', reviewNotes: notes } : req)
         );
+        alert('Request approved successfully!');
       }
     } catch (err) {
       alert('Failed to approve request');
@@ -312,6 +394,7 @@ const AdminDashboard: React.FC = () => {
         setOnboardingRequests(prev => 
           prev.map(req => req.id === requestId ? { ...req, status: 'rejected', reviewNotes: notes } : req)
         );
+        alert('Request rejected.');
       }
     } catch (err) {
       alert('Failed to reject request');
@@ -349,6 +432,111 @@ const AdminDashboard: React.FC = () => {
   });
 
   // ======================
+  // MODAL COMPONENTS
+  // ======================
+
+  const AddUserModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Add New User</h3>
+          <Button variant="outline" size="sm" onClick={() => setShowAddUserModal(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-4">
+          <Input
+            placeholder="First Name"
+            value={newUser.firstName}
+            onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+          />
+          <Input
+            placeholder="Last Name"
+            value={newUser.lastName}
+            onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+          />
+          <Input
+            placeholder="Phone Number"
+            value={newUser.phone}
+            onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+          />
+          <select
+            value={newUser.role}
+            onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+            <option value="harvestflow_manager">HarvestFlow Manager</option>
+            <option value="flavorcore_manager">FlavorCore Manager</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
+          <Input
+            placeholder="Department"
+            value={newUser.department}
+            onChange={(e) => setNewUser({...newUser, department: e.target.value})}
+          />
+          <Button 
+            className="w-full" 
+            onClick={handleAddUser}
+            disabled={!newUser.firstName || !newUser.lastName || !newUser.phone}
+          >
+            Add User
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const AddJobTypeModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Add New Job Type</h3>
+          <Button variant="outline" size="sm" onClick={() => setShowAddJobTypeModal(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-4">
+          <Input
+            placeholder="Job Name"
+            value={newJobType.job_name}
+            onChange={(e) => setNewJobType({...newJobType, job_name: e.target.value})}
+          />
+          <Input
+            placeholder="Category"
+            value={newJobType.category}
+            onChange={(e) => setNewJobType({...newJobType, category: e.target.value})}
+          />
+          <select
+            value={newJobType.unit_of_measurement}
+            onChange={(e) => setNewJobType({...newJobType, unit_of_measurement: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="kg">Kilograms (kg)</option>
+            <option value="units">Units</option>
+            <option value="hours">Hours</option>
+            <option value="acres">Acres</option>
+          </select>
+          <Input
+            type="number"
+            placeholder="Expected Output per Worker"
+            value={newJobType.expected_output_per_worker}
+            onChange={(e) => setNewJobType({...newJobType, expected_output_per_worker: Number(e.target.value)})}
+          />
+          <Button 
+            className="w-full" 
+            onClick={handleAddJobType}
+            disabled={!newJobType.job_name || !newJobType.category}
+          >
+            Add Job Type
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  // ======================
   // RENDERERS
   // ======================
 
@@ -373,6 +561,12 @@ const AdminDashboard: React.FC = () => {
             <AlertTriangle className="h-8 w-8 text-orange-600" />
           </div>
         </Card>
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div><p className="text-sm font-medium text-gray-600">Job Types</p><p className="text-3xl font-bold text-purple-600">{jobTypes.length}</p></div>
+            <Package className="h-8 w-8 text-purple-600" />
+          </div>
+        </Card>
       </div>
     </div>
   );
@@ -381,7 +575,9 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">User Management</h3>
-        <Button><UserPlus className="h-4 w-4 mr-2" /> Add User</Button>
+        <Button onClick={() => setShowAddUserModal(true)} className="whitespace-nowrap">
+          <UserPlus className="h-4 w-4 mr-2" /> Add User
+        </Button>
       </div>
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -421,8 +617,12 @@ const AdminDashboard: React.FC = () => {
                   <td className="p-4">{user.joinDate}</td>
                   <td className="p-4">
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm"><Eye className="h-4 w-4" /></Button>
-                      <Button variant="outline" size="sm"><Edit className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="sm" title="View details">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleEditUser(user)} title="Edit user">
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -438,7 +638,9 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Job Types</h3>
-        <Button><UserPlus className="h-4 w-4 mr-2" /> Add Job Type</Button>
+        <Button onClick={() => setShowAddJobTypeModal(true)} className="whitespace-nowrap">
+          <UserPlus className="h-4 w-4 mr-2" /> Add Job Type
+        </Button>
       </div>
       <Card>
         <div className="overflow-x-auto">
@@ -459,7 +661,7 @@ const AdminDashboard: React.FC = () => {
                   <td className="p-4">{job.category}</td>
                   <td className="p-4">{job.unit_of_measurement}</td>
                   <td className="p-4">{job.expected_output_per_worker}</td>
-                  <td className="p-4">{new Date(job.created_at).toLocaleDateString()}</td>
+                  <td className="p-4">{job.created_at ? new Date(job.created_at).toLocaleDateString() : 'N/A'}</td>
                 </tr>
               ))}
             </tbody>
@@ -495,13 +697,26 @@ const AdminDashboard: React.FC = () => {
               {request.status === 'pending' && (
                 <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
                   <div className="flex-1">
-                    <Textarea placeholder="Review notes (optional)" />
+                    <Textarea placeholder="Review notes (optional)" id={`notes-${request.id}`} />
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={() => handleApproveOnboarding(request.id)} className="bg-green-600 hover:bg-green-700">
+                    <Button 
+                      onClick={() => {
+                        const notes = (document.getElementById(`notes-${request.id}`) as HTMLTextAreaElement)?.value || '';
+                        handleApproveOnboarding(request.id, notes);
+                      }} 
+                      className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                    >
                       <CheckCircle className="h-4 w-4 mr-2" /> Approve
                     </Button>
-                    <Button variant="outline" onClick={() => handleRejectOnboarding(request.id)} className="border-red-600 text-red-600 hover:bg-red-50">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        const notes = (document.getElementById(`notes-${request.id}`) as HTMLTextAreaElement)?.value || '';
+                        handleRejectOnboarding(request.id, notes);
+                      }} 
+                      className="border-red-600 text-red-600 hover:bg-red-50 whitespace-nowrap"
+                    >
                       <XCircle className="h-4 w-4 mr-2" /> Reject
                     </Button>
                   </div>
@@ -515,13 +730,18 @@ const AdminDashboard: React.FC = () => {
             </div>
           </Card>
         ))}
+        {onboardingRequests.length === 0 && (
+          <Card className="p-8 text-center text-gray-500">
+            No onboarding requests to display
+          </Card>
+        )}
       </div>
     </div>
   );
 
   const renderYieldAnalytics = () => {
-  return <YieldAnalytics />;
-};
+    return <YieldAnalytics />;
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -553,6 +773,21 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="p-6 max-w-md">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Error Loading Dashboard</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white shadow-sm border-b">
@@ -569,6 +804,10 @@ const AdminDashboard: React.FC = () => {
         <EnhancedNavigation items={navigationItems} activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="mt-6">{renderContent()}</div>
       </div>
+
+      {/* Modals */}
+      {showAddUserModal && <AddUserModal />}
+      {showAddJobTypeModal && <AddJobTypeModal />}
     </div>
   );
 };

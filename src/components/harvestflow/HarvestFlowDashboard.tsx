@@ -206,12 +206,12 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   const [error, setError] = useState<string | null>(null);
 
   // API Base URL
-  const API_BASE = process.env.REACT_APP_API_URL || 'https://relishagrobackend-production.up.railway.app';
+  const API_BASE = 'https://relishagrobackend-production.up.railway.app';
 
   // Get auth token
   const getAuthToken = () => {
-  return localStorage.getItem('auth_token'); // Match AuthContext
-};
+    return localStorage.getItem('auth_token');
+  };
 
   // API headers with authentication
   const getHeaders = () => {
@@ -240,18 +240,21 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       });
       if (response.ok) {
         const data = await response.json();
-        setWorkers(data.map((worker: any) => ({
-          ...worker,
-          attendance_status: 'present' as const // Default status
+        const workersArray = Array.isArray(data) ? data : (data.data || []);
+        setWorkers(workersArray.map((worker: any) => ({
+          id: worker.id || worker.staff_id,
+          name: `${worker.first_name || ''} ${worker.last_name || ''}`.trim() || worker.staff_id,
+          staff_id: worker.staff_id,
+          role: worker.role || worker.person_type || 'harvesting',
+          phone: worker.contact_number || worker.phone || 'N/A',
+          department: 'harvest',
+          attendance_status: 'present' as const,
+          created_at: worker.created_at || new Date().toISOString()
         })));
       }
     } catch (err) {
       console.error('Error fetching workers:', err);
-      // Fallback data
-      setWorkers([
-        { id: '1', name: 'Raman Kumar', staff_id: 'HF-001', role: 'harvesting', phone: '9876543210', department: 'harvest', attendance_status: 'present', created_at: '2024-01-01' },
-        { id: '2', name: 'Suresh Babu', staff_id: 'HF-002', role: 'harvesting', phone: '9876543211', department: 'harvest', attendance_status: 'present', created_at: '2024-01-01' }
-      ]);
+      setWorkers([]);
     }
   };
 
@@ -262,7 +265,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       });
       if (response.ok) {
         const data = await response.json();
-        setJobs(data);
+        const jobsArray = Array.isArray(data) ? data : (data.data || []);
+        setJobs(jobsArray);
       }
     } catch (err) {
       console.error('Error fetching jobs:', err);
@@ -275,11 +279,17 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       const response = await fetch(`${API_BASE}/api/workers`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify(workerData)
+        body: JSON.stringify({
+          first_name: workerData.name.split(' ')[0],
+          last_name: workerData.name.split(' ').slice(1).join(' ') || '',
+          contact_number: workerData.phone,
+          person_type: workerData.role,
+          staff_id: workerData.staff_id || `HF-${Date.now()}`,
+          status: 'active'
+        })
       });
       if (response.ok) {
-        const newWorker = await response.json();
-        setWorkers(prev => [...prev, { ...newWorker, attendance_status: 'present' }]);
+        await fetchWorkers();
         return true;
       }
       return false;
@@ -297,8 +307,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         body: JSON.stringify(jobData)
       });
       if (response.ok) {
-        const newJob = await response.json();
-        setJobs(prev => [...prev, newJob]);
+        await fetchJobs();
         return true;
       }
       return false;
@@ -314,10 +323,10 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          worker_id: workerId,
+          person_id: workerId,
           date: new Date().toISOString().split('T')[0],
           status,
-          marked_by: currentUser?.staff_id || 'admin'
+          method: 'manual'
         })
       });
       if (response.ok) {
@@ -435,15 +444,23 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       daily_wage: 0,
       weight_based_wage: 0
     });
+    const [submitting, setSubmitting] = useState(false);
 
     const createEmployee = async () => {
+      if (!newEmployee.name || !newEmployee.phone) {
+        alert('Please fill in required fields: Name and Phone');
+        return;
+      }
+
+      setSubmitting(true);
       try {
-        const employeeData = {
-          ...newEmployee,
-          staff_id: `HF-${Date.now()}`,
-          status: 'active'
-        };
-        const success = await createWorker(employeeData);
+        const success = await createWorker({
+          name: newEmployee.name,
+          phone: newEmployee.phone,
+          role: newEmployee.role,
+          staff_id: `HF-${Date.now()}`
+        });
+        
         if (success) {
           setNewEmployee({
             name: '', email: '', phone: '', role: 'field_worker', department: 'harvest',
@@ -456,6 +473,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       } catch (error) {
         console.error('Employee onboarding failed:', error);
         alert('Onboarding failed. Please try again.');
+      } finally {
+        setSubmitting(false);
       }
     };
 
@@ -533,11 +552,11 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           </div>
           <Button 
             onClick={createEmployee}
-            className="w-full mt-6 bg-green-600 hover:bg-green-700 h-12 text-lg"
-            disabled={!newEmployee.name || !newEmployee.phone}
+            className="w-full mt-6 bg-green-600 hover:bg-green-700 h-12 text-lg whitespace-nowrap"
+            disabled={!newEmployee.name || !newEmployee.phone || submitting}
           >
             <UserPlus className="w-5 h-5 mr-2" />
-            Onboard New Employee
+            {submitting ? 'Onboarding...' : 'Onboard New Employee'}
           </Button>
         </Card>
         {/* Current Employees */}
@@ -560,6 +579,11 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 </div>
               </Card>
             ))}
+            {workers.length === 0 && (
+              <div className="col-span-full text-center text-gray-500 py-8">
+                No workers yet. Onboard your first employee!
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -569,8 +593,12 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   // Daily Attendance Tab
   const DailyAttendance = () => {
     const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+    const [marking, setMarking] = useState<string | null>(null);
+
     const handleMarkAttendance = async (workerId: string, status: 'present' | 'absent' | 'late') => {
+      setMarking(workerId);
       const success = await markAttendance(workerId, status);
+      setMarking(null);
       if (!success) {
         alert('Failed to mark attendance. Please try again.');
       }
@@ -601,25 +629,28 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                         <p className="text-sm text-gray-600">{worker.staff_id}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <Button
                         size="sm"
                         onClick={() => handleMarkAttendance(worker.id, 'present')}
-                        className={`flex-1 ${worker.attendance_status === 'present' ? 'bg-green-600' : 'bg-gray-200'}`}
+                        disabled={marking === worker.id}
+                        className={`whitespace-nowrap ${worker.attendance_status === 'present' ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
                       >
                         Present
                       </Button>
                       <Button
                         size="sm"
                         onClick={() => handleMarkAttendance(worker.id, 'late')}
-                        className={`flex-1 ${worker.attendance_status === 'late' ? 'bg-yellow-600' : 'bg-gray-200'}`}
+                        disabled={marking === worker.id}
+                        className={`whitespace-nowrap ${worker.attendance_status === 'late' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
                       >
                         Late
                       </Button>
                       <Button
                         size="sm"
                         onClick={() => handleMarkAttendance(worker.id, 'absent')}
-                        className={`flex-1 ${worker.attendance_status === 'absent' ? 'bg-red-600' : 'bg-gray-200'}`}
+                        disabled={marking === worker.id}
+                        className={`whitespace-nowrap ${worker.attendance_status === 'absent' ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
                       >
                         Absent
                       </Button>
@@ -627,6 +658,11 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                   </div>
                 </Card>
               ))}
+              {workers.length === 0 && (
+                <div className="col-span-full text-center text-gray-500 py-8">
+                  No workers to track attendance. Add workers in the Onboarding tab.
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -645,8 +681,15 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       urgency: 'medium' as 'low' | 'medium' | 'high',
       notes: ''
     });
+    const [submitting, setSubmitting] = useState(false);
 
     const createProcurementRequest = async () => {
+      if (!newRequest.item_name || !newRequest.quantity) {
+        alert('Please fill in Item Name and Quantity');
+        return;
+      }
+
+      setSubmitting(true);
       try {
         const requestData: ProcurementRequest = {
           id: `req-${Date.now()}`,
@@ -663,6 +706,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       } catch (error) {
         console.error('Procurement request failed:', error);
         alert('Request submission failed. Please try again.');
+      } finally {
+        setSubmitting(false);
       }
     };
 
@@ -719,19 +764,19 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <div className="grid grid-cols-3 gap-2">
                   <Button
                     onClick={() => setNewRequest({...newRequest, urgency: 'low'})}
-                    className={`h-12 ${newRequest.urgency === 'low' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                    className={`h-12 whitespace-nowrap ${newRequest.urgency === 'low' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
                   >
                     🟢 Low
                   </Button>
                   <Button
                     onClick={() => setNewRequest({...newRequest, urgency: 'medium'})}
-                    className={`h-12 ${newRequest.urgency === 'medium' ? 'bg-yellow-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                    className={`h-12 whitespace-nowrap ${newRequest.urgency === 'medium' ? 'bg-yellow-600 text-white hover:bg-yellow-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
                   >
                     🟡 Medium
                   </Button>
                   <Button
                     onClick={() => setNewRequest({...newRequest, urgency: 'high'})}
-                    className={`h-12 ${newRequest.urgency === 'high' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                    className={`h-12 whitespace-nowrap ${newRequest.urgency === 'high' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
                   >
                     🔴 High
                   </Button>
@@ -755,11 +800,11 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           </div>
           <Button 
             onClick={createProcurementRequest}
-            className="w-full mt-6 bg-blue-600 hover:bg-blue-700 h-12 text-lg"
-            disabled={!newRequest.item_name || !newRequest.quantity}
+            className="w-full mt-6 bg-blue-600 hover:bg-blue-700 h-12 text-lg whitespace-nowrap"
+            disabled={!newRequest.item_name || !newRequest.quantity || submitting}
           >
             <ShoppingCart className="w-5 h-5 mr-2" />
-            Submit Procurement Request
+            {submitting ? 'Submitting...' : 'Submit Procurement Request'}
           </Button>
         </Card>
         {/* Procurement Requests */}
@@ -799,6 +844,11 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 )}
               </div>
             ))}
+            {procurementRequests.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                No procurement requests yet
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -814,15 +864,22 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       assigned_workers: [] as string[],
       notes: ''
     });
+    const [submitting, setSubmitting] = useState(false);
 
     const handleCreateJob = async () => {
+      if (!newJob.title || !newJob.field_location || newJob.assigned_workers.length === 0) {
+        alert('Please fill in all required fields and assign at least one worker');
+        return;
+      }
+
+      setSubmitting(true);
       try {
-        const jobData = {
+        const success = await createJob({
           ...newJob,
           type: jobType,
           status: 'pending'
-        };
-        const success = await createJob(jobData);
+        });
+        
         if (success) {
           setNewJob({ title: '', field_location: '', assigned_workers: [], notes: '' });
           alert('Job created successfully!');
@@ -832,6 +889,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       } catch (error) {
         console.error('Job creation failed:', error);
         alert('Job creation failed. Please try again.');
+      } finally {
+        setSubmitting(false);
       }
     };
 
@@ -844,21 +903,21 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             <div className="grid grid-cols-2 gap-4">
               <Button
                 onClick={() => setJobType('normal')}
-                className={`h-20 ${jobType === 'normal' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                className={`h-20 ${jobType === 'normal' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
               >
                 <div className="text-center">
                   <ClipboardList className="w-6 h-6 mx-auto mb-1" />
-                  <div className="text-sm font-semibold">Normal Work Day</div>
+                  <div className="text-sm font-semibold whitespace-nowrap">Normal Work Day</div>
                   <div className="text-xs">Weeding, Fertilizing, etc.</div>
                 </div>
               </Button>
               <Button
                 onClick={() => setJobType('harvest')}
-                className={`h-20 ${jobType === 'harvest' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                className={`h-20 ${jobType === 'harvest' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
               >
                 <div className="text-center">
                   <Package className="w-6 h-6 mx-auto mb-1" />
-                  <div className="text-sm font-semibold">Harvest Day</div>
+                  <div className="text-sm font-semibold whitespace-nowrap">Harvest Day</div>
                   <div className="text-xs">Complete Harvest Workflow</div>
                 </div>
               </Button>
@@ -874,7 +933,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
               onChange={(e) => setNewJob({...newJob, field_location: e.target.value})}
             />
             <div>
-              <label className="block text-sm font-medium mb-2">Assign Workers</label>
+              <label className="block text-sm font-medium mb-2">Assign Workers ({newJob.assigned_workers.length} selected)</label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {workers.filter(w => w.attendance_status === 'present').map((worker: Worker) => (
                   <Button
@@ -890,25 +949,30 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                           : [...newJob.assigned_workers, worker.id]
                       });
                     }}
-                    className={newJob.assigned_workers.includes(worker.id) ? 'bg-purple-100' : ''}
+                    className={`whitespace-nowrap ${newJob.assigned_workers.includes(worker.id) ? 'bg-purple-100 border-purple-500' : ''}`}
                   >
                     {worker.name}
                   </Button>
                 ))}
+                {workers.filter(w => w.attendance_status === 'present').length === 0 && (
+                  <div className="col-span-full text-center text-gray-500 py-4">
+                    No present workers available. Mark attendance first.
+                  </div>
+                )}
               </div>
             </div>
             <Button 
               onClick={handleCreateJob}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-              disabled={!newJob.title || !newJob.field_location || newJob.assigned_workers.length === 0}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 whitespace-nowrap"
+              disabled={!newJob.title || !newJob.field_location || newJob.assigned_workers.length === 0 || submitting}
             >
-              Create {jobType === 'harvest' ? 'Harvest' : 'Normal'} Job
+              {submitting ? 'Creating...' : `Create ${jobType === 'harvest' ? 'Harvest' : 'Normal'} Job`}
             </Button>
           </div>
         </Card>
         {/* Active Jobs */}
         <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Today's Active Jobs</h3>
+          <h3 className="text-xl font-bold mb-4">Today's Active Jobs ({jobs.length})</h3>
           <div className="space-y-4">
             {jobs.map(job => (
               <div key={job.id} className={`p-4 rounded-lg border-2 ${job.type === 'harvest' ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}`}>
@@ -918,7 +982,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                     <p className="text-sm text-gray-600">{job.field_location}</p>
                     <p className="text-xs text-gray-500">{job.assigned_workers.length} workers assigned</p>
                   </div>
-                  <Badge className={job.type === 'harvest' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}>
+                  <Badge className={`whitespace-nowrap ${job.type === 'harvest' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}`}>
                     {job.type} - {job.status}
                   </Badge>
                 </div>
@@ -933,7 +997,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
     );
   };
 
-  // Weight & Wage Recording Tab
+  // Weight & Wage Recording Tab - COMPLETE VERSION
   const WageRecording = () => {
     const [recordingMode, setRecordingMode] = useState<'daily_wage' | 'weight_based'>('daily_wage');
     const [selectedJob, setSelectedJob] = useState('');
@@ -942,11 +1006,18 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
     const [weight, setWeight] = useState('');
     const [dailyWageRate, setDailyWageRate] = useState('');
     const [notes, setNotes] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     const harvestJobs = jobs.filter(j => j.type === 'harvest' && j.status === 'in_progress');
     const normalJobs = jobs.filter(j => j.type === 'normal' && j.status === 'in_progress');
 
     const recordWeight = async () => {
+      if (!selectedJob || !selectedWorker || !weight) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      setSubmitting(true);
       try {
         const recordData: WeightRecord = {
           id: `weight-${Date.now()}`,
@@ -965,10 +1036,18 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       } catch (error) {
         console.error('Weight recording failed:', error);
         alert('Weight recording failed. Please try again.');
+      } finally {
+        setSubmitting(false);
       }
     };
 
     const recordDailyWage = async () => {
+      if (!selectedJob || !selectedWorker || !dailyWageRate) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      setSubmitting(true);
       try {
         const recordData: WeightRecord = {
           id: `wage-${Date.now()}`,
@@ -987,6 +1066,8 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       } catch (error) {
         console.error('Daily wage recording failed:', error);
         alert('Daily wage recording failed. Please try again.');
+      } finally {
+        setSubmitting(false);
       }
     };
 
@@ -998,20 +1079,20 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
           <div className="grid grid-cols-2 gap-3">
             <Button
               onClick={() => setRecordingMode('daily_wage')}
-              className={`h-20 text-left ${recordingMode === 'daily_wage' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+              className={`h-20 text-left ${recordingMode === 'daily_wage' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
             >
               <div>
-                <div className="font-semibold">📅 Daily Wage</div>
+                <div className="font-semibold whitespace-nowrap">📅 Daily Wage</div>
                 <div className="text-xs opacity-75">Normal Work Days</div>
                 <div className="text-xs opacity-75">Fixed Rate/Day</div>
               </div>
             </Button>
             <Button
               onClick={() => setRecordingMode('weight_based')}
-              className={`h-20 text-left ${recordingMode === 'weight_based' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+              className={`h-20 text-left ${recordingMode === 'weight_based' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
             >
               <div>
-                <div className="font-semibold">⚖️ Weight Based</div>
+                <div className="font-semibold whitespace-nowrap">⚖️ Weight Based</div>
                 <div className="text-xs opacity-75">Harvest Days Only</div>
                 <div className="text-xs opacity-75">Payment per KG</div>
               </div>
@@ -1068,28 +1149,28 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                 <div className="grid grid-cols-1 gap-2">
                   <Button
                     onClick={() => setWeightType('half_day')}
-                    className={`h-16 text-left ${weightType === 'half_day' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                    className={`h-16 text-left ${weightType === 'half_day' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
                   >
                     <div>
-                      <div className="font-semibold">Half-Day Weight</div>
+                      <div className="font-semibold whitespace-nowrap">Half-Day Weight</div>
                       <div className="text-xs opacity-75">Mid-day harvest recording</div>
                     </div>
                   </Button>
                   <Button
                     onClick={() => setWeightType('end_day')}
-                    className={`h-16 text-left ${weightType === 'end_day' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                    className={`h-16 text-left ${weightType === 'end_day' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
                   >
                     <div>
-                      <div className="font-semibold">End-Day Weight</div>
+                      <div className="font-semibold whitespace-nowrap">End-Day Weight</div>
                       <div className="text-xs opacity-75">Final harvest weight</div>
                     </div>
                   </Button>
                   <Button
                     onClick={() => setWeightType('threshed')}
-                    className={`h-16 text-left ${weightType === 'threshed' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                    className={`h-16 text-left ${weightType === 'threshed' ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
                   >
                     <div>
-                      <div className="font-semibold">Threshed Weight</div>
+                      <div className="font-semibold whitespace-nowrap">Threshed Weight</div>
                       <div className="text-xs opacity-75">Post-processing weight</div>
                     </div>
                   </Button>
@@ -1131,27 +1212,30 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             />
             <Button 
               onClick={recordingMode === 'weight_based' ? recordWeight : recordDailyWage}
-              className={`w-full h-16 text-lg font-semibold ${
+              className={`w-full h-16 text-lg font-semibold whitespace-nowrap ${
                 recordingMode === 'weight_based' 
                   ? 'bg-green-600 hover:bg-green-700' 
                   : 'bg-blue-600 hover:bg-blue-700'
               } text-white`}
               disabled={
                 !selectedJob || !selectedWorker || 
-                (recordingMode === 'weight_based' ? !weight : !dailyWageRate)
+                (recordingMode === 'weight_based' ? !weight : !dailyWageRate) ||
+                submitting
               }
             >
-              {recordingMode === 'weight_based' ? (
-                <><Weight className="w-5 h-5 mr-2" />Record Weight</>
-              ) : (
-                <><Calendar className="w-5 h-5 mr-2" />Record Daily Wage</>
+              {submitting ? 'Recording...' : (
+                recordingMode === 'weight_based' ? (
+                  <><Weight className="w-5 h-5 mr-2" />Record Weight</>
+                ) : (
+                  <><Calendar className="w-5 h-5 mr-2" />Record Daily Wage</>
+                )
               )}
             </Button>
           </div>
         </Card>
         {/* Today's Wage Records */}
         <Card className="p-6">
-          <h3 className="text-xl font-bold mb-4">Today's Wage Records</h3>
+          <h3 className="text-xl font-bold mb-4">Today's Wage Records ({weightRecords.length})</h3>
           <div className="space-y-3">
             {weightRecords.map(record => (
               <div key={record.id} className={`p-3 rounded-lg ${
@@ -1165,15 +1249,15 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
                     </p>
                   </div>
                   <div className="text-right">
-                    {record.weight_type === 'daily_wage' ? (
-                      <>
-                        <p className="text-xl font-bold text-blue-600">₹{record.weight_kg} kg</p>
-                        <p className="text-xs text-gray-500">Weight-based Pay</p>
-                      </>
-                    ) : null}
+                    <p className="text-xl font-bold text-blue-600">{record.weight_kg} kg</p>
                     <p className="text-xs text-gray-500">{new Date(record.timestamp).toLocaleTimeString()}</p>
                   </div>
                 </div>
+                {record.notes && (
+                  <p className="text-sm text-gray-600 mt-2 p-2 bg-white rounded">
+                    📝 {record.notes}
+                  </p>
+                )}
               </div>
             ))}
             {weightRecords.length === 0 && (
@@ -1209,6 +1293,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   useEffect(() => {
     const loadDashboardData = async () => {
       setLoading(true);
+      setError(null);
       try {
         await Promise.all([
           fetchWorkers(),
@@ -1238,16 +1323,16 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
-        <Card className="border-red-200 bg-red-50 p-6">
-          <div className="flex items-center gap-2 text-red-600">
+        <Card className="border-red-200 bg-red-50 p-6 max-w-md mx-auto">
+          <div className="flex items-center gap-2 text-red-600 mb-4">
             <AlertTriangle className="w-5 h-5" />
             <span className="font-medium">Error Loading Dashboard</span>
           </div>
-          <p className="mt-2 text-red-700">{error}</p>
+          <p className="text-red-700 mb-4">{error}</p>
           <Button 
             onClick={() => window.location.reload()} 
-            className="mt-4"
             variant="outline"
+            className="w-full"
           >
             Retry
           </Button>
@@ -1258,7 +1343,6 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
 
   return (
     <div className="min-h-screen bg-gray-50">
-      
       {/* Enhanced Navigation */}
       <div className="bg-white shadow-sm border-b p-4">
         <EnhancedNavigation
@@ -1268,7 +1352,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         />
       </div>
       {/* Content */}
-      <div className="p-4">
+      <div className="p-4 max-w-7xl mx-auto">
         {renderContent()}
       </div>
     </div>
