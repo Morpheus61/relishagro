@@ -1,12 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../lib/api';
 
-// Enhanced debug logging
 const debugLog = (message: string, data?: any) => {
-  console.log(`[AuthContext DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  console.log(`[AuthContext DEBUG] ${message}`, data || '');
 };
 
-// Types - Match your existing structure
 interface User {
   staff_id: string;
   full_name: string;
@@ -35,7 +33,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAuthenticated = !!user;
 
-  // Enhanced auth state debugging
   useEffect(() => {
     debugLog('Auth State Changed', {
       user: user ? { staff_id: user.staff_id, role: user.role } : null,
@@ -44,24 +41,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user, loading, isAuthenticated]);
 
-  // Initialize auth state from localStorage - FIXED KEYS
   useEffect(() => {
     debugLog('AuthProvider initializing...');
     
-    // FIXED: Use the correct keys that api.ts uses
-    const token = localStorage.getItem('auth_token'); // ✅ Changed from 'access_token'
-    const savedUser = localStorage.getItem('user_data'); // ✅ Changed from 'user'
+    const token = localStorage.getItem('auth_token');
+    const savedUser = localStorage.getItem('user_data');
     
     debugLog('Found stored data', { 
       hasToken: !!token, 
-      hasUser: !!savedUser,
-      tokenKey: 'auth_token',
-      userKey: 'user_data'
+      hasUser: !!savedUser
     });
 
     if (token && savedUser) {
       try {
-        // ✅ CHECK IF TOKEN IS EXPIRED
         const payloadBase64 = token.split('.')[1];
         if (!payloadBase64) throw new Error('Invalid token format');
         
@@ -84,20 +76,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         api.setToken(token);
       } catch (error) {
         debugLog('Error parsing stored user data', error);
-        // FIXED: Clear the correct keys
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         api.clearAuth();
       }
     } else {
-      debugLog('No stored authentication found', {
-        availableKeys: Object.keys(localStorage)
-      });
+      debugLog('No stored authentication found');
     }
     setLoading(false);
   }, []);
 
-  // Login function - Uses your api.ts client
   const login = async (staffId: string, password?: string) => {
     try {
       debugLog('Starting login process', { staffId });
@@ -107,21 +95,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.login(staffId);
       debugLog('API login response', response);
       
-      if (response.authenticated && response.user) {
+      // ✅ FIXED: Check correct properties
+      if (response.success && response.data?.token && response.data?.user) {
+        const { token, user: apiUser } = response.data;
+        
+        // Save token
+        api.setToken(token);
+        localStorage.setItem('auth_token', token);
+        
+        // Save user
         const userData: User = {
-          staff_id: response.user.staff_id,
-          full_name: response.user.full_name || response.user.staff_id,
-          role: response.user.role,
-          department: response.user.department,
-          id: response.user.id,
-          designation: response.user.designation
+          staff_id: apiUser.staff_id,
+          full_name: apiUser.full_name || apiUser.staff_id,
+          role: apiUser.role,
+          department: apiUser.department || 'General',
+          id: apiUser.id,
+          designation: apiUser.designation || 'Staff Member'
         };
         
-        debugLog('Setting user data', userData);
+        localStorage.setItem('user_data', JSON.stringify(userData));
         setUser(userData);
-        debugLog('Login successful - React Router will handle navigation');
+        debugLog('Login successful', userData);
       } else {
-        debugLog('Authentication failed', response);
+        debugLog('Authentication failed - invalid response', response);
         throw new Error('Authentication failed');
       }
       
