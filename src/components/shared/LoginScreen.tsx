@@ -160,37 +160,11 @@ export function LoginScreen() {
     setError('');
 
     try {
-      // Mobile/Android connectivity check
-      const isMobile = window.innerWidth <= 768;
+      // ✅ REMOVED THE PROBLEMATIC MOBILE CONNECTIVITY PRE-CHECK
+      // Just proceed directly to login - if there's a real connectivity issue,
+      // the actual login call will fail anyway
       
-      if (isMobile) {
-        debugLog('📱 Mobile device detected - testing backend connectivity...');
-        
-        try {
-          const testResponse = await fetch(`${API_URL}/health`, {
-            method: 'GET',
-            mode: 'cors',
-            cache: 'no-cache'
-          });
-          
-          if (!testResponse.ok) {
-            throw new Error(`Backend returned status ${testResponse.status}`);
-          }
-          
-          debugLog('✅ Backend is accessible from mobile');
-        } catch (connectError: any) {
-          debugLog('❌ Backend connectivity error:', connectError);
-          
-          setError(
-            `Cannot connect to server. ` +
-            `${!navigator.onLine ? 'You appear to be offline. ' : ''}` +
-            `Please check your internet connection and try again. ` +
-            `(Error: ${connectError.message})`
-          );
-          setIsLoading(false);
-          return;
-        }
-      }
+      debugLog('📱 Attempting login for staff_id:', staffId.trim());
       
       // Proceed with actual login
       await login(staffId.trim());
@@ -303,7 +277,7 @@ export function LoginScreen() {
             </label>
             <Input
               type="text"
-              placeholder="Enter your Staff ID"
+              placeholder="Enter your assigned Staff ID (e.g., HF-Regu, Admin-001)"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);
@@ -318,7 +292,7 @@ export function LoginScreen() {
               inputMode="text"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Enter your assigned Staff ID (e.g., HF-Regu, Admin-001)
+              Enter your assigned Staff ID
             </p>
             {error && (
               <div className="bg-red-50 border border-red-200 rounded p-2 mt-2">
@@ -326,7 +300,7 @@ export function LoginScreen() {
               </div>
             )}
           </div>
-          
+
           <Button 
             onClick={handleLogin}
             disabled={!staffId.trim() || isLoading}
