@@ -18,7 +18,7 @@ export function LoginScreen() {
   const [showCacheClear, setShowCacheClear] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isOfflineMode } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -48,6 +48,8 @@ export function LoginScreen() {
         apiUrl: API_URL,
         hasToken: !!localStorage.getItem('auth_token'),
         hasUserData: !!localStorage.getItem('user_data'),
+        hasCachedUsers: !!localStorage.getItem('cached_users'),
+        offlineMode: localStorage.getItem('offline_mode') === 'true',
         localStorageKeys: Object.keys(localStorage),
       },
       tests: {}
@@ -161,10 +163,8 @@ export function LoginScreen() {
       
       debugLog('✅ Login successful');
       
-      // ✅ Wait a moment for state to update
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      // ✅ Force navigation if auto-redirect doesn't work
       navigate('/dashboard', { replace: true });
       
     } catch (err: any) {
@@ -172,20 +172,20 @@ export function LoginScreen() {
       
       let errorMessage = 'Login failed. ';
       
-      if (!navigator.onLine) {
+      if (err.message.includes('You are offline and this Staff ID is not cached')) {
+        errorMessage = '🔴 First-time login requires internet connection. Please connect and try again.';
+      } else if (!navigator.onLine) {
         errorMessage = '🔴 You are offline. Please check your internet connection.';
       } else if (err.message.includes('fetch') || err.message.includes('Network')) {
         errorMessage = '🔴 Network error - Cannot connect to server.';
-      } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-        errorMessage = '🔴 Invalid Staff ID. Please check and try again.';
-      } else if (err.message.includes('Invalid Staff ID format')) {
-        errorMessage = '🔴 ' + err.message;
+      } else if (err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Invalid Staff ID')) {
+        errorMessage = '🔴 Invalid credentials. Please contact your administrator.';
       } else if (err.message.includes('CORS') || err.message.includes('blocked')) {
         errorMessage = '🔴 Security error. Please contact your administrator.';
       } else if (err.message.includes('timeout')) {
         errorMessage = '🔴 Connection timeout. The server is taking too long to respond.';
       } else {
-        errorMessage += err.message || 'Please try again.';
+        errorMessage = '🔴 Authentication failed. Please contact your administrator.';
       }
       
       setError(errorMessage);
@@ -222,9 +222,11 @@ export function LoginScreen() {
       
       const authToken = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('user_data');
+      const cachedUsers = localStorage.getItem('cached_users');
       localStorage.clear();
       if (authToken) localStorage.setItem('auth_token', authToken);
       if (userData) localStorage.setItem('user_data', userData);
+      if (cachedUsers) localStorage.setItem('cached_users', cachedUsers);
       
       debugLog('Cache cleared successfully, reloading...');
       alert('✅ Cache cleared! The page will now reload.');
@@ -247,6 +249,15 @@ export function LoginScreen() {
   return (
     <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        {/* Offline Mode Indicator */}
+        {!navigator.onLine && (
+          <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded text-center">
+            <p className="text-xs text-yellow-800">
+              📡 Offline Mode - Only cached users can login
+            </p>
+          </div>
+        )}
+
         <div className="text-center mb-6">
           <img 
             src={flavorCoreLogo}
@@ -267,7 +278,7 @@ export function LoginScreen() {
             </label>
             <Input
               type="text"
-              placeholder="e.g., Admin-Motty, HF-Regu"
+              placeholder="Enter your Staff ID"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);
@@ -282,7 +293,7 @@ export function LoginScreen() {
               inputMode="text"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Format: Admin-Name, HF-Name, FL-Name, or SUP-Name
+              Contact your administrator if you don't have a Staff ID
             </p>
             {error && (
               <div className="bg-red-50 border border-red-200 rounded p-2 mt-2">
@@ -318,7 +329,7 @@ export function LoginScreen() {
           >
             Having issues? Click here
           </button>
-          
+
           {showCacheClear && (
             <div className="mt-3 space-y-2">
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
@@ -367,6 +378,14 @@ export function LoginScreen() {
                       </p>
                     </div>
                   )}
+
+                  {debugInfo.config.offlineMode && (
+                    <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                      <p className="text-xs text-blue-700">
+                        📡 Offline Mode Active
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="space-y-1 mb-2">
                     <div className="flex items-center justify-between text-xs">
@@ -391,6 +410,12 @@ export function LoginScreen() {
                       <span>Internet:</span>
                       <span className={debugInfo.device.online ? 'text-green-600' : 'text-red-600'}>
                         {debugInfo.device.online ? '✅ Online' : '❌ Offline'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span>Cached Users:</span>
+                      <span className={debugInfo.config.hasCachedUsers ? 'text-green-600' : 'text-gray-600'}>
+                        {debugInfo.config.hasCachedUsers ? '✅ Available' : '⚠️ None'}
                       </span>
                     </div>
                   </div>
