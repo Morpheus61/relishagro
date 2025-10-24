@@ -147,52 +147,55 @@ export function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (!staffId.trim()) {
-      setError('Please enter your Staff ID');
-      return;
-    }
+  if (!staffId.trim()) {
+    setError('Please enter your Staff ID');
+    return;
+  }
 
-    debugLog('Starting login', { staffId: staffId.trim() });
-    setIsLoading(true);
-    setError('');
+  debugLog('Starting login', { staffId: staffId.trim() });
+  setIsLoading(true);
+  setError('');
 
-    try {
-      debugLog('📱 Attempting login for staff_id:', staffId.trim());
-      
-      await login(staffId.trim());
-      
-      debugLog('✅ Login successful');
-      
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      navigate('/dashboard', { replace: true });
-      
-    } catch (err: any) {
-      debugLog('❌ Login error', err);
-      
-      let errorMessage = 'Login failed. ';
-      
-      if (err.message.includes('You are offline and this Staff ID is not cached')) {
-        errorMessage = '🔴 First-time login requires internet connection. Please connect and try again.';
-      } else if (!navigator.onLine) {
-        errorMessage = '🔴 You are offline. Please check your internet connection.';
-      } else if (err.message.includes('fetch') || err.message.includes('Network')) {
-        errorMessage = '🔴 Network error - Cannot connect to server.';
-      } else if (err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Invalid Staff ID')) {
-        errorMessage = '🔴 Invalid credentials. Please contact your administrator.';
-      } else if (err.message.includes('CORS') || err.message.includes('blocked')) {
-        errorMessage = '🔴 Security error. Please contact your administrator.';
-      } else if (err.message.includes('timeout')) {
-        errorMessage = '🔴 Connection timeout. The server is taking too long to respond.';
-      } else {
-        errorMessage = '🔴 Authentication failed. Please contact your administrator.';
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
+  try {
+    debugLog('📱 Attempting login for staff_id:', staffId.trim());
+    
+    // ✅ CRITICAL FIX: Use login method that returns token
+    const result = await login(staffId.trim());
+    
+    debugLog('✅ Login successful', result);
+    
+    // ✅ ADDED: Small delay for state to settle
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // ✅ Navigate to dashboard
+    navigate('/dashboard', { replace: true });
+    
+  } catch (err: any) {
+    debugLog('❌ Login error', err);
+    
+    let errorMessage = 'Login failed. ';
+    
+    if (err.message.includes('You are offline and this Staff ID is not cached')) {
+      errorMessage = '🔴 First-time login requires internet connection. Please connect and try again.';
+    } else if (!navigator.onLine) {
+      errorMessage = '🔴 You are offline. Please check your internet connection.';
+    } else if (err.message.includes('fetch') || err.message.includes('Network')) {
+      errorMessage = '🔴 Network error - Cannot connect to server.';
+    } else if (err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Invalid Staff ID')) {
+      errorMessage = '🔴 Invalid Staff ID. Please check and try again.';
+    } else if (err.message.includes('CORS') || err.message.includes('blocked')) {
+      errorMessage = '🔴 Security error. Please contact your administrator.';
+    } else if (err.message.includes('timeout')) {
+      errorMessage = '🔴 Connection timeout. The server is taking too long to respond.';
+    } else {
+      errorMessage = `🔴 ${err.message || 'Authentication failed. Please try again.'}`;
     }
-  };
+    
+    setError(errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {

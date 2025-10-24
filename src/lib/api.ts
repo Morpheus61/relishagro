@@ -1,11 +1,9 @@
 // src/lib/api.ts
-// TEMPORARY FIX: Direct Railway connection until Vercel proxy is fixed
-
 const API_BASE_URL = 'https://relishagrobackend-production.up.railway.app';
 
 export interface LoginResponse {
   success: boolean;
-  authenticated?: boolean;  // ✅ ADDED
+  authenticated?: boolean;
   data: {
     token: string;
     user: {
@@ -21,7 +19,7 @@ export interface LoginResponse {
       email: string;
     };
   };
-  user?: {  // ✅ ADDED - for backward compatibility
+  user?: {
     id: string;
     staff_id: string;
     role: string;
@@ -106,7 +104,7 @@ export interface ProvisionRequest {
 class ApiClient {
   private baseURL: string;
   private timeout: number;
-  private token: string | null = null;  // ✅ ADDED
+  private token: string | null = null;
 
   constructor() {
     this.baseURL = API_BASE_URL;
@@ -115,31 +113,54 @@ class ApiClient {
     console.log('🔗 API Configuration:');
     console.log('📍 Environment: Production (Direct to Railway)');
     console.log('🌐 Base URL:', this.baseURL);
-    console.log('🚀 Mode: Direct Connection (Bypass Vercel)');
+    console.log('🚀 Mode: Direct Connection');
     console.log('📱 Mobile Compatible: Yes');
+
+    // ✅ ADDED: Load token on initialization
+    this.loadToken();
   }
 
-  // ✅ ADDED: Token management
+  // ✅ ADDED: Load token from storage
+  private loadToken() {
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      if (storedToken) {
+        this.token = storedToken;
+        console.log('✅ Token loaded from storage');
+      }
+    }
+  }
+
+  // ✅ Token management
   setToken(token: string) {
     this.token = token;
     if (typeof window !== 'undefined') {
       localStorage.setItem('auth_token', token);
+      sessionStorage.setItem('auth_token', token); // ✅ ADDED: Backup in session storage
     }
+    console.log('✅ Token stored successfully');
   }
 
   private getAuthToken(): string | null {
     if (this.token) return this.token;
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('auth_token');
+    
+    // ✅ FIXED: Check both storage locations
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+    if (token && !this.token) {
+      this.token = token; // ✅ Cache it
+    }
+    return token;
   }
 
-  // ✅ ADDED: Clear auth
   clearAuth() {
     this.token = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
     }
+    console.log('✅ Auth cleared');
   }
 
   private async request<T>(
@@ -149,7 +170,6 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`;
     
     console.log(`📡 API Request: ${options.method || 'GET'} ${endpoint}`);
-    console.log('🌐 Full URL:', url);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -165,8 +185,12 @@ class ApiClient {
         ...(options.headers as Record<string, string> || {}),
       };
 
+      // ✅ CRITICAL: Always include token if available
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        console.log('🔑 Token included in request');
+      } else {
+        console.warn('⚠️ No token available for request');
       }
 
       const response = await fetch(url, {
@@ -184,6 +208,13 @@ class ApiClient {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ API Error: ${response.status}`, errorText);
+        
+        // ✅ ADDED: Handle 401 specifically
+        if (response.status === 401) {
+          this.clearAuth();
+          throw new Error('Session expired. Please login again.');
+        }
+        
         throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
       }
 
@@ -208,10 +239,22 @@ class ApiClient {
 
   async login(staffId: string): Promise<LoginResponse> {
     console.log('🔐 Starting login for staff_id:', staffId);
-    return this.request<LoginResponse>('/api/auth/login', {
+    
+    const response = await this.request<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ staff_id: staffId }),
     });
+
+    // ✅ CRITICAL: Store token immediately after successful login
+    if (response.success && response.data?.token) {
+      this.setToken(response.data.token);
+      console.log('✅ Login successful, token stored');
+    } else if (response.data?.token) {
+      this.setToken(response.data.token);
+      console.log('✅ Login successful, token stored (alt path)');
+    }
+
+    return response;
   }
 
   async logout(): Promise<void> {
@@ -355,7 +398,6 @@ class ApiClient {
     return response.data;
   }
 
-  // ✅ ADDED: Submit onboarding (alias for create)
   async submitOnboarding(onboardingData: any): Promise<any> {
     return this.createOnboardingRequest(onboardingData);
   }
@@ -414,6 +456,21 @@ class ApiClient {
   }
 
   // ============================================================================
+  // YIELDS
+  // ============================================================================
+
+  async getYields(params?: { start_date?: string; end_date?: string; crop?: string }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    if (params?.crop) queryParams.append('crop', params.crop);
+
+    const endpoint = `/api/yields${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const response = await this.request<{ success: boolean; data: any[] }>(endpoint);
+    return response.data || [];
+  }
+
+  // ============================================================================
   // ATTENDANCE
   // ============================================================================
 
@@ -430,7 +487,6 @@ class ApiClient {
     return response.data || [];
   }
 
-  // ✅ ADDED: Submit attendance override
   async submitAttendanceOverride(overrideData: any): Promise<any> {
     return this.request('/api/attendance/override', {
       method: 'POST',
@@ -438,7 +494,6 @@ class ApiClient {
     });
   }
 
-  // ✅ ADDED: Sync attendance batch
   async syncAttendanceBatch(attendanceRecords: any[]): Promise<any> {
     return this.request('/api/attendance/sync', {
       method: 'POST',
@@ -450,7 +505,6 @@ class ApiClient {
   // BIOMETRIC / FACE RECOGNITION
   // ============================================================================
 
-  // ✅ ADDED: Register face
   async registerFace(faceData: any): Promise<any> {
     return this.request('/api/face/register', {
       method: 'POST',
@@ -458,7 +512,6 @@ class ApiClient {
     });
   }
 
-  // ✅ ADDED: Authenticate face
   async authenticateFace(faceData: any): Promise<any> {
     return this.request('/api/face/authenticate', {
       method: 'POST',
@@ -470,7 +523,6 @@ class ApiClient {
   // GPS TRACKING
   // ============================================================================
 
-  // ✅ ADDED: Sync GPS batch
   async syncGPSBatch(gpsRecords: any[]): Promise<any> {
     return this.request('/api/gps/sync', {
       method: 'POST',
