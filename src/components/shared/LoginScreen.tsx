@@ -277,7 +277,7 @@ export function LoginScreen() {
             </label>
             <Input
               type="text"
-              placeholder="Enter your assigned Staff ID (e.g., HF-Regu, Admin-001)"
+              placeholder="Enter your assigned Staff ID"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);
