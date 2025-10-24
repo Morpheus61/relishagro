@@ -46,11 +46,13 @@ interface NavigationItem {
   id: string;
   label: string;
 }
+
 interface EnhancedNavigationProps {
   items: NavigationItem[];
   activeTab: string;
   onTabChange: (tabId: string) => void;
 }
+
 const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   items,
   activeTab,
@@ -58,15 +60,18 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
+
   const scrollLeft = () => {
     const newPosition = Math.max(0, scrollPosition - 200);
     setScrollPosition(newPosition);
   };
+
   const scrollRight = () => {
     const maxScroll = Math.max(0, (items.length * 120) - 600);
     const newPosition = Math.min(maxScroll, scrollPosition + 200);
     setScrollPosition(newPosition);
   };
+
   return (
     <>
       <div className="md:hidden mb-4">
@@ -97,6 +102,7 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
           </div>
         )}
       </div>
+
       <div className="hidden md:flex items-center mb-6">
         <Button
           variant="outline"
@@ -151,6 +157,7 @@ interface User {
   lastActive: string;
   avatar?: string;
 }
+
 interface YieldData {
   id: string;
   farmerId: string;
@@ -166,6 +173,7 @@ interface YieldData {
   location: string;
   verified: boolean;
 }
+
 interface OnboardingRequest {
   id: string;
   applicantName: string;
@@ -185,6 +193,7 @@ interface OnboardingRequest {
   };
   reviewNotes?: string;
 }
+
 interface Worker {
   id: string;
   name: string;
@@ -195,6 +204,7 @@ interface Worker {
   status: 'active' | 'inactive';
   created_at: string;
 }
+
 interface JobType {
   id: string;
   name: string;
@@ -202,6 +212,7 @@ interface JobType {
   department: string;
   created_at: string;
 }
+
 interface Provision {
   id: string;
   item_name: string;
@@ -226,13 +237,13 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Modal states
+  // Modal states
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
   const [showAddJobTypeModal, setShowAddJobTypeModal] = useState(false);
   const [showAddProvisionModal, setShowAddProvisionModal] = useState(false);
 
-  // ✅ Form states
+  // Form states
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -408,7 +419,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     }
   };
 
-  // ✅ Add User Handler
+  // Add User Handler
   const handleAddUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.phone) {
       alert('Please fill in all required fields');
@@ -443,7 +454,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     }
   };
 
-  // ✅ Add Worker Handler
+  // Add Worker Handler
   const handleAddWorker = async () => {
     if (!newWorker.name || !newWorker.phone) {
       alert('Please fill in all required fields');
@@ -478,7 +489,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     }
   };
 
-  // ✅ Add Job Type Handler
+  // Add Job Type Handler
   const handleAddJobType = async () => {
     if (!newJobType.name || !newJobType.description) {
       alert('Please fill in all required fields');
@@ -506,7 +517,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     }
   };
 
-  // ✅ Add Provision Handler
+  // Add Provision Handler
   const handleAddProvision = async () => {
     if (!newProvision.item_name || !newProvision.quantity) {
       alert('Please fill in all required fields');
@@ -551,7 +562,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   ];
 
   // Filter users based on search and status
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = (users || []).filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedUserStatus === 'all' || user.status === selectedUserStatus;
@@ -627,19 +638,16 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
-  // Calculate statistics
-  const totalUsers = users.length;
-  const activeUsers = users.filter(u => u.status === 'active').length;
-  const pendingUsers = users.filter(u => u.status === 'pending').length;
-  const totalWorkers = workers.length;
-  const activeWorkers = workers.filter((worker: Worker) => worker.status === 'active').length;
-  const pendingOnboardingCount = onboardingRequests.filter(req => req.status === 'pending').length;
-  const totalProvisions = provisions.reduce((sum, p) => sum + p.cost, 0);
+  // Calculate statistics with defensive checks
+  const totalUsers = users?.length || 0;
+  const activeUsers = (users || []).filter(u => u.status === 'active').length;
+  const pendingUsers = (users || []).filter(u => u.status === 'pending').length;
+  const totalWorkers = workers?.length || 0;
+  const activeWorkers = (workers || []).filter((worker: Worker) => worker.status === 'active').length;
+  const pendingOnboardingCount = (onboardingRequests || []).filter(req => req.status === 'pending').length;
+  const totalProvisions = (provisions || []).reduce((sum, p) => sum + p.cost, 0);
 
-  // =====================
   // MODAL COMPONENTS
-  // =====================
-
   const AddUserModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-md p-6">
@@ -912,11 +920,12 @@ const FlavorCoreManagerDashboard: React.FC = () => {
           </div>
         </Card>
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Recent User Activity</h3>
           <div className="space-y-3">
-            {users.slice(0, 5).map(user => (
+            {(users || []).slice(0, 5).map(user => (
               <div key={user.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
                 <div>
                   <p className="font-medium">{user.name}</p>
@@ -927,11 +936,12 @@ const FlavorCoreManagerDashboard: React.FC = () => {
                 </Badge>
               </div>
             ))}
-            {users.length === 0 && (
+            {(!users || users.length === 0) && (
               <p className="text-gray-500 text-center py-4">No users yet</p>
             )}
           </div>
         </Card>
+
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">System Health</h3>
           <div className="space-y-4">
@@ -972,6 +982,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
           </Button>
         </div>
       </div>
+
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -993,6 +1004,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
           <option value="pending">Pending</option>
         </select>
       </div>
+
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1045,7 +1057,7 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     </div>
   );
 
-const renderWorkerManagement = () => (
+  const renderWorkerManagement = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">Worker Management</h3>
@@ -1060,6 +1072,7 @@ const renderWorkerManagement = () => (
           </Button>
         </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-6">
           <div className="flex items-center justify-between">
@@ -1083,12 +1096,13 @@ const renderWorkerManagement = () => (
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Job Types</p>
-              <p className="text-3xl font-bold text-purple-600">{jobTypes.length}</p>
+              <p className="text-3xl font-bold text-purple-600">{jobTypes?.length || 0}</p>
             </div>
             <Target className="h-8 w-8 text-purple-600" />
           </div>
         </Card>
       </div>
+
       <Card>
         <div className="p-6">
           <h4 className="text-lg font-semibold mb-4">Workers List</h4>
@@ -1105,7 +1119,7 @@ const renderWorkerManagement = () => (
                 </tr>
               </thead>
               <tbody>
-                {workers.map((worker: Worker) => (
+                {(workers || []).map((worker: Worker) => (
                   <tr key={worker.id} className="border-b hover:bg-gray-50">
                     <td className="p-4">
                       <div>
@@ -1150,8 +1164,9 @@ const renderWorkerManagement = () => (
           Add Job Type
         </Button>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {jobTypes.map(jobType => (
+        {(jobTypes || []).map(jobType => (
           <Card key={jobType.id} className="p-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1173,7 +1188,7 @@ const renderWorkerManagement = () => (
             </div>
           </Card>
         ))}
-        {jobTypes.length === 0 && (
+        {(!jobTypes || jobTypes.length === 0) && (
           <div className="col-span-full text-center text-gray-500 py-8">
             No job types yet. Add your first job type!
           </div>
@@ -1191,6 +1206,7 @@ const renderWorkerManagement = () => (
           Add Provision
         </Button>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-6">
           <div className="flex items-center justify-between">
@@ -1206,7 +1222,7 @@ const renderWorkerManagement = () => (
             <div>
               <p className="text-sm font-medium text-gray-600">Delivered</p>
               <p className="text-3xl font-bold text-blue-600">
-                {provisions.filter(p => p.status === 'delivered').length}
+                {(provisions || []).filter(p => p.status === 'delivered').length}
               </p>
             </div>
             <CheckCircle className="h-8 w-8 text-blue-600" />
@@ -1217,13 +1233,14 @@ const renderWorkerManagement = () => (
             <div>
               <p className="text-sm font-medium text-gray-600">Pending</p>
               <p className="text-3xl font-bold text-orange-600">
-                {provisions.filter(p => p.status === 'pending').length}
+                {(provisions || []).filter(p => p.status === 'pending').length}
               </p>
             </div>
             <Clock className="h-8 w-8 text-orange-600" />
           </div>
         </Card>
       </div>
+
       <Card>
         <div className="p-6">
           <h4 className="text-lg font-semibold mb-4">Provisions List</h4>
@@ -1240,7 +1257,7 @@ const renderWorkerManagement = () => (
                 </tr>
               </thead>
               <tbody>
-                {provisions.map(provision => (
+                {(provisions || []).map(provision => (
                   <tr key={provision.id} className="border-b hover:bg-gray-50">
                     <td className="p-4">
                       <p className="font-medium">{provision.item_name}</p>
@@ -1281,8 +1298,9 @@ const renderWorkerManagement = () => (
           {pendingOnboardingCount} Pending Reviews
         </Badge>
       </div>
+
       <div className="grid gap-6">
-        {onboardingRequests.map(request => (
+        {(onboardingRequests || []).map(request => (
           <Card key={request.id} className="p-6">
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1298,6 +1316,7 @@ const renderWorkerManagement = () => (
                   {request.status}
                 </Badge>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h5 className="font-medium mb-2">Farm Details</h5>
@@ -1342,6 +1361,7 @@ const renderWorkerManagement = () => (
                   </div>
                 </div>
               </div>
+
               {request.status === 'pending' && (
                 <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
                   <div className="flex-1">
@@ -1372,6 +1392,7 @@ const renderWorkerManagement = () => (
                   </div>
                 </div>
               )}
+
               {request.reviewNotes && (
                 <div className="pt-4 border-t">
                   <h5 className="font-medium mb-2">Review Notes</h5>
@@ -1381,7 +1402,7 @@ const renderWorkerManagement = () => (
             </div>
           </Card>
         ))}
-        {onboardingRequests.length === 0 && (
+        {(!onboardingRequests || onboardingRequests.length === 0) && (
           <Card className="p-8 text-center text-gray-500">
             No onboarding requests to display
           </Card>
@@ -1390,7 +1411,7 @@ const renderWorkerManagement = () => (
     </div>
   );
 
-const renderYieldAnalytics = () => (
+  const renderYieldAnalytics = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold">Yield Analytics</h3>
       <Card className="p-6">
@@ -1531,6 +1552,7 @@ const renderYieldAnalytics = () => (
           </div>
         </div>
       </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <EnhancedNavigation
           items={navigationItems}

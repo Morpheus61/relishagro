@@ -191,6 +191,15 @@ const AdminDashboard: React.FC = () => {
     department: 'general'
   });
 
+  const [editUserForm, setEditUserForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    role: 'staff',
+    department: 'general',
+    status: 'active'
+  });
+
   const [newJobType, setNewJobType] = useState({
     job_name: '',
     category: '',
@@ -311,6 +320,11 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleAddUser = async () => {
+    if (!newUser.firstName || !newUser.lastName || !newUser.phone) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE}/api/admin/users`, {
         method: 'POST',
@@ -341,6 +355,11 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleAddJobType = async () => {
+    if (!newJobType.job_name || !newJobType.category) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE}/api/job-types`, {
         method: 'POST',
@@ -364,7 +383,55 @@ const AdminDashboard: React.FC = () => {
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
+    // Parse the name to get first and last name
+    const nameParts = user.name.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    setEditUserForm({
+      firstName,
+      lastName,
+      phone: user.phone,
+      role: user.role,
+      department: 'general', // Default since we don't have this in the user object
+      status: user.status
+    });
     setShowEditUserModal(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser || !editUserForm.firstName || !editUserForm.lastName || !editUserForm.phone) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          first_name: editUserForm.firstName,
+          last_name: editUserForm.lastName,
+          phone_number: editUserForm.phone,
+          role: editUserForm.role,
+          department: editUserForm.department,
+          status: editUserForm.status
+        })
+      });
+
+      if (response.ok) {
+        await fetchUsers();
+        setShowEditUserModal(false);
+        setSelectedUser(null);
+        setEditUserForm({ firstName: '', lastName: '', phone: '', role: 'staff', department: 'general', status: 'active' });
+        alert('User updated successfully!');
+      } else {
+        alert('Failed to update user. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error updating user:', err);
+      alert('Failed to update user. Please try again.');
+    }
   };
 
   const handleApproveOnboarding = async (requestId: string, notes: string = '') => {
@@ -423,11 +490,14 @@ const AdminDashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
-  const totalUsers = users.length;
-  const activeWorkers = workers.filter(w => w.status === 'active').length;
-  const pendingOnboardingCount = onboardingRequests.filter(req => req.status === 'pending').length;
+  // Calculate statistics with defensive checks
+  const totalUsers = users?.length || 0;
+  const activeWorkers = (workers || []).filter(w => w.status === 'active').length;
+  const pendingOnboardingCount = (onboardingRequests || []).filter(req => req.status === 'pending').length;
+  const totalJobTypes = jobTypes?.length || 0;
 
-  const filteredUsers = users.filter(user => {
+  // Filter users with defensive checks
+  const filteredUsers = (users || []).filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedUserStatus === 'all' || user.status === selectedUserStatus;
     return matchesSearch && matchesStatus;
@@ -509,6 +579,116 @@ const AdminDashboard: React.FC = () => {
     );
   });
 
+  const EditUserModal = memo(() => {
+    const handleFirstNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setEditUserForm(prev => ({...prev, firstName: e.target.value}));
+    }, []);
+
+    const handleLastNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setEditUserForm(prev => ({...prev, lastName: e.target.value}));
+    }, []);
+
+    const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setEditUserForm(prev => ({...prev, phone: e.target.value}));
+    }, []);
+
+    const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+      setEditUserForm(prev => ({...prev, role: e.target.value}));
+    }, []);
+
+    const handleDepartmentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setEditUserForm(prev => ({...prev, department: e.target.value}));
+    }, []);
+
+    const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+      setEditUserForm(prev => ({...prev, status: e.target.value as 'active' | 'inactive'}));
+    }, []);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Edit User</h3>
+            <Button variant="outline" size="sm" onClick={() => {
+              setShowEditUserModal(false);
+              setSelectedUser(null);
+            }}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">User ID</label>
+              <Input
+                value={selectedUser?.id || ''}
+                disabled
+                className="bg-gray-100"
+              />
+            </div>
+            <Input
+              placeholder="First Name"
+              value={editUserForm.firstName}
+              onChange={handleFirstNameChange}
+            />
+            <Input
+              placeholder="Last Name"
+              value={editUserForm.lastName}
+              onChange={handleLastNameChange}
+            />
+            <Input
+              placeholder="Phone Number"
+              value={editUserForm.phone}
+              onChange={handlePhoneChange}
+            />
+            <select
+              value={editUserForm.role}
+              onChange={handleRoleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
+              <option value="harvestflow_manager">HarvestFlow Manager</option>
+              <option value="flavorcore_manager">FlavorCore Manager</option>
+              <option value="supervisor">Supervisor</option>
+            </select>
+            <Input
+              placeholder="Department"
+              value={editUserForm.department}
+              onChange={handleDepartmentChange}
+            />
+            <select
+              value={editUserForm.status}
+              onChange={handleStatusChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1 whitespace-nowrap" 
+                onClick={handleUpdateUser}
+                disabled={!editUserForm.firstName || !editUserForm.lastName || !editUserForm.phone}
+              >
+                Update User
+              </Button>
+              <Button 
+                variant="outline"
+                className="flex-1 whitespace-nowrap" 
+                onClick={() => {
+                  setShowEditUserModal(false);
+                  setSelectedUser(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  });
+
   const AddJobTypeModal = memo(() => {
     const handleJobNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       setNewJobType(prev => ({...prev, job_name: e.target.value}));
@@ -582,25 +762,37 @@ const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-6">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-gray-600">Total Users</p><p className="text-3xl font-bold">{totalUsers}</p></div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Users</p>
+              <p className="text-3xl font-bold">{totalUsers}</p>
+            </div>
             <Users className="h-8 w-8 text-blue-600" />
           </div>
         </Card>
         <Card className="p-6">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-gray-600">Active Workers</p><p className="text-3xl font-bold text-green-600">{activeWorkers}</p></div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Active Workers</p>
+              <p className="text-3xl font-bold text-green-600">{activeWorkers}</p>
+            </div>
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
         </Card>
         <Card className="p-6">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-gray-600">Pending Approvals</p><p className="text-3xl font-bold text-orange-600">{pendingOnboardingCount}</p></div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingOnboardingCount}</p>
+            </div>
             <AlertTriangle className="h-8 w-8 text-orange-600" />
           </div>
         </Card>
         <Card className="p-6">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-gray-600">Job Types</p><p className="text-3xl font-bold text-purple-600">{jobTypes.length}</p></div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Job Types</p>
+              <p className="text-3xl font-bold text-purple-600">{totalJobTypes}</p>
+            </div>
             <Package className="h-8 w-8 text-purple-600" />
           </div>
         </Card>
@@ -694,7 +886,7 @@ const AdminDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {jobTypes.map(job => (
+              {(jobTypes || []).map(job => (
                 <tr key={job.id} className="border-b hover:bg-gray-50">
                   <td className="p-4">{job.job_name}</td>
                   <td className="p-4">{job.category}</td>
@@ -717,7 +909,7 @@ const AdminDashboard: React.FC = () => {
         <Badge className="bg-orange-100 text-orange-800">{pendingOnboardingCount} Pending</Badge>
       </div>
       <div className="grid gap-6">
-        {onboardingRequests.map(request => (
+        {(onboardingRequests || []).map(request => (
           <Card key={request.id} className="p-6">
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -769,7 +961,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           </Card>
         ))}
-        {onboardingRequests.length === 0 && (
+        {(!onboardingRequests || onboardingRequests.length === 0) && (
           <Card className="p-8 text-center text-gray-500">
             No onboarding requests to display
           </Card>
@@ -844,7 +1036,9 @@ const AdminDashboard: React.FC = () => {
         <div className="mt-6">{renderContent()}</div>
       </div>
 
+      {/* Modals */}
       {showAddUserModal && <AddUserModal />}
+      {showEditUserModal && <EditUserModal />}
       {showAddJobTypeModal && <AddJobTypeModal />}
     </div>
   );
