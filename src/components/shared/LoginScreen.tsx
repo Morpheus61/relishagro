@@ -9,7 +9,6 @@ const debugLog = (message: string, data?: any) => {
   console.log(`[LoginScreen] ${message}`, data || '');
 };
 
-// Get API URL
 const API_URL = import.meta.env.VITE_API_URL || 'https://relishagrobackend-production.up.railway.app';
 
 export function LoginScreen() {
@@ -29,7 +28,6 @@ export function LoginScreen() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Mobile diagnostics function
   const runDiagnostics = async () => {
     debugLog('🔍 Running diagnostics...');
     setIsLoading(true);
@@ -55,7 +53,6 @@ export function LoginScreen() {
       tests: {}
     };
 
-    // Test 1: Health endpoint
     try {
       const healthStart = Date.now();
       const healthRes = await fetch(`${API_URL}/health`, { 
@@ -85,7 +82,6 @@ export function LoginScreen() {
       };
     }
 
-    // Test 2: CORS preflight
     try {
       const corsStart = Date.now();
       const corsRes = await fetch(`${API_URL}/api/auth/login`, {
@@ -112,7 +108,6 @@ export function LoginScreen() {
       };
     }
 
-    // Test 3: Auth endpoint reachability
     try {
       const authStart = Date.now();
       const authRes = await fetch(`${API_URL}/api/auth/login`, {
@@ -160,34 +155,37 @@ export function LoginScreen() {
     setError('');
 
     try {
-      // ✅ REMOVED THE PROBLEMATIC MOBILE CONNECTIVITY PRE-CHECK
-      // Just proceed directly to login - if there's a real connectivity issue,
-      // the actual login call will fail anyway
-      
       debugLog('📱 Attempting login for staff_id:', staffId.trim());
       
-      // Proceed with actual login
       await login(staffId.trim());
+      
       debugLog('✅ Login successful');
+      
+      // ✅ Wait a moment for state to update
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // ✅ Force navigation if auto-redirect doesn't work
+      navigate('/dashboard', { replace: true });
       
     } catch (err: any) {
       debugLog('❌ Login error', err);
       
-      // Enhanced error messages
       let errorMessage = 'Login failed. ';
       
       if (!navigator.onLine) {
         errorMessage = '🔴 You are offline. Please check your internet connection.';
       } else if (err.message.includes('fetch') || err.message.includes('Network')) {
-        errorMessage = '🔴 Network error - Cannot connect to server. Please check your internet connection.';
+        errorMessage = '🔴 Network error - Cannot connect to server.';
       } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
         errorMessage = '🔴 Invalid Staff ID. Please check and try again.';
+      } else if (err.message.includes('Invalid Staff ID format')) {
+        errorMessage = '🔴 ' + err.message;
       } else if (err.message.includes('CORS') || err.message.includes('blocked')) {
         errorMessage = '🔴 Security error. Please contact your administrator.';
       } else if (err.message.includes('timeout')) {
         errorMessage = '🔴 Connection timeout. The server is taking too long to respond.';
       } else {
-        errorMessage += err.message || 'Please check your Staff ID and try again.';
+        errorMessage += err.message || 'Please try again.';
       }
       
       setError(errorMessage);
@@ -202,12 +200,10 @@ export function LoginScreen() {
     }
   };
 
-  // Emergency cache clear function
   const clearCacheAndReload = async () => {
     try {
       debugLog('Clearing all caches and service workers...');
       
-      // Unregister all service workers
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const registration of registrations) {
@@ -216,7 +212,6 @@ export function LoginScreen() {
         }
       }
       
-      // Clear all caches
       if ('caches' in window) {
         const cacheNames = await caches.keys();
         for (const cacheName of cacheNames) {
@@ -225,7 +220,6 @@ export function LoginScreen() {
         }
       }
       
-      // Clear localStorage (but keep important data)
       const authToken = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('user_data');
       localStorage.clear();
@@ -241,7 +235,6 @@ export function LoginScreen() {
     }
   };
 
-  // Copy diagnostics to clipboard
   const copyDiagnostics = () => {
     if (debugInfo) {
       const diagnosticsText = JSON.stringify(debugInfo, null, 2);
@@ -254,7 +247,6 @@ export function LoginScreen() {
   return (
     <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        {/* Logo */}
         <div className="text-center mb-6">
           <img 
             src={flavorCoreLogo}
@@ -263,13 +255,11 @@ export function LoginScreen() {
           />
         </div>
 
-        {/* Title */}
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-800">Relish Agro</h2>
           <p className="text-sm text-gray-600">Agricultural Management System</p>
         </div>
 
-        {/* Login Form */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -277,7 +267,7 @@ export function LoginScreen() {
             </label>
             <Input
               type="text"
-              placeholder="Enter your assigned Staff ID"
+              placeholder="e.g., Admin-Motty, HF-Regu"
               value={staffId}
               onChange={(e) => {
                 setStaffId(e.target.value);
@@ -292,7 +282,7 @@ export function LoginScreen() {
               inputMode="text"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Enter your assigned Staff ID
+              Format: Admin-Name, HF-Name, FL-Name, or SUP-Name
             </p>
             {error && (
               <div className="bg-red-50 border border-red-200 rounded p-2 mt-2">
@@ -317,13 +307,11 @@ export function LoginScreen() {
           </Button>
         </div>
 
-        {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
             🔒 Secure Access • Contact Admin for Staff ID
           </p>
           
-          {/* Emergency Tools Button */}
           <button
             onClick={() => setShowCacheClear(!showCacheClear)}
             className="text-xs text-gray-400 hover:text-gray-600 mt-2 underline"
@@ -331,10 +319,8 @@ export function LoginScreen() {
             Having issues? Click here
           </button>
           
-          {/* Tools Panel */}
           {showCacheClear && (
             <div className="mt-3 space-y-2">
-              {/* Cache Clear */}
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                 <p className="text-xs text-yellow-800 mb-2">
                   🧹 Clear cached content:
@@ -347,7 +333,6 @@ export function LoginScreen() {
                 </button>
               </div>
 
-              {/* Diagnostics */}
               <div className="p-3 bg-blue-50 border border-blue-200 rounded">
                 <p className="text-xs text-blue-800 mb-2">
                   🔍 Test connection to server:
@@ -361,7 +346,6 @@ export function LoginScreen() {
                 </button>
               </div>
 
-              {/* Diagnostics Results */}
               {showDebugInfo && debugInfo && (
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded">
                   <div className="flex items-center justify-between mb-2">
@@ -376,7 +360,6 @@ export function LoginScreen() {
                     </button>
                   </div>
                   
-                  {/* Device Info */}
                   {debugInfo.device.isAndroid && (
                     <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded">
                       <p className="text-xs text-green-700">
@@ -385,7 +368,6 @@ export function LoginScreen() {
                     </div>
                   )}
                   
-                  {/* Summary */}
                   <div className="space-y-1 mb-2">
                     <div className="flex items-center justify-between text-xs">
                       <span>Backend Health:</span>
@@ -413,7 +395,6 @@ export function LoginScreen() {
                     </div>
                   </div>
 
-                  {/* Full Details */}
                   <details className="text-xs">
                     <summary className="cursor-pointer text-gray-600 hover:text-gray-800 mb-1">
                       Show full details
@@ -423,7 +404,6 @@ export function LoginScreen() {
                     </pre>
                   </details>
 
-                  {/* Copy Button */}
                   <button
                     onClick={copyDiagnostics}
                     className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 w-full mt-2"
@@ -433,7 +413,6 @@ export function LoginScreen() {
                 </div>
               )}
 
-              {/* API URL Display */}
               <div className="p-2 bg-gray-50 border border-gray-200 rounded">
                 <p className="text-xs text-gray-600">
                   <span className="font-semibold">API:</span> {API_URL}

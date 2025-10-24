@@ -16,7 +16,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (staffId: string, password?: string) => Promise<void>;
+  login: (staffId: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
   isAuthenticated: boolean;
@@ -86,24 +86,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
 
-  const login = async (staffId: string, password?: string) => {
+  const login = async (staffId: string): Promise<void> => {
     try {
       debugLog('Starting login process', { staffId });
       setLoading(true);
       setError(null);
       
+      const validPrefixes = ['Admin-', 'HF-', 'FL-', 'SUP-'];
+      const hasValidPrefix = validPrefixes.some(prefix => staffId.startsWith(prefix));
+      
+      if (!hasValidPrefix) {
+        throw new Error('Invalid Staff ID format. Use: Admin-Name, HF-Name, FL-Name, or SUP-Name');
+      }
+      
       const response = await api.login(staffId);
       debugLog('API login response', response);
       
-      // ✅ FIXED: Check correct properties
       if (response.success && response.data?.token && response.data?.user) {
         const { token, user: apiUser } = response.data;
         
-        // Save token
         api.setToken(token);
         localStorage.setItem('auth_token', token);
         
-        // Save user
         const userData: User = {
           staff_id: apiUser.staff_id,
           full_name: apiUser.full_name || apiUser.staff_id,
@@ -115,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         localStorage.setItem('user_data', JSON.stringify(userData));
         setUser(userData);
+        
         debugLog('Login successful', userData);
       } else {
         debugLog('Authentication failed - invalid response', response);
@@ -123,6 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
     } catch (error) {
       debugLog('Login error', error);
+      setUser(null);
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       setError(errorMessage);
       throw error;
@@ -133,6 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     debugLog('Logging out user');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
     api.clearAuth();
     setUser(null);
     setError(null);

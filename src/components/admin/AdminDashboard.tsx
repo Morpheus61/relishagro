@@ -24,16 +24,56 @@ import {
   X
 } from 'lucide-react';
 
+// Interfaces
+interface User {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  status: 'active' | 'inactive';
+  joinDate: string;
+}
+
+interface OnboardingRequest {
+  id: string;
+  applicantName: string;
+  phone: string;
+  farmLocation: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewNotes?: string;
+}
+
+interface Worker {
+  id: string;
+  name: string;
+  staff_id: string;
+  role: string;
+  phone: string;
+  department: string;
+  status: 'active' | 'inactive';
+}
+
+interface JobType {
+  id: string;
+  job_name: string;
+  category: string;
+  unit_of_measurement: string;
+  expected_output_per_worker: number;
+  created_at: string;
+}
+
 // Enhanced Navigation Component
 interface NavigationItem {
   id: string;
   label: string;
 }
+
 interface EnhancedNavigationProps {
   items: NavigationItem[];
   activeTab: string;
   onTabChange: (tabId: string) => void;
 }
+
 const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   items,
   activeTab,
@@ -41,15 +81,18 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
+
   const scrollLeft = () => {
     const newPosition = Math.max(0, scrollPosition - 200);
     setScrollPosition(newPosition);
   };
+
   const scrollRight = () => {
     const maxScroll = Math.max(0, (items.length * 120) - 600);
     const newPosition = Math.min(maxScroll, scrollPosition + 200);
     setScrollPosition(newPosition);
   };
+
   return (
     <>
       <div className="md:hidden mb-4">
@@ -122,44 +165,6 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   );
 };
 
-// Interfaces
-interface User {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-  status: 'active' | 'inactive';
-  joinDate: string;
-}
-
-interface OnboardingRequest {
-  id: string;
-  applicantName: string;
-  phone: string;
-  farmLocation: string;
-  status: 'pending' | 'approved' | 'rejected';
-  reviewNotes?: string;
-}
-
-interface Worker {
-  id: string;
-  name: string;
-  staff_id: string;
-  role: string;
-  phone: string;
-  department: string;
-  status: 'active' | 'inactive';
-}
-
-interface JobType {
-  id: string;
-  job_name: string;
-  category: string;
-  unit_of_measurement: string;
-  expected_output_per_worker: number;
-  created_at: string;
-}
-
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [users, setUsers] = useState<User[]>([]);
@@ -171,13 +176,13 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Modal states
+  // Modal states
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showAddJobTypeModal, setShowAddJobTypeModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // ✅ Form states
+  // Form states
   const [newUser, setNewUser] = useState({
     firstName: '',
     lastName: '',
@@ -305,7 +310,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ✅ NEW: Add User Handler
   const handleAddUser = async () => {
     try {
       const response = await fetch(`${API_BASE}/api/admin/users`, {
@@ -336,7 +340,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ✅ NEW: Add Job Type Handler
   const handleAddJobType = async () => {
     try {
       const response = await fetch(`${API_BASE}/api/job-types`, {
@@ -359,7 +362,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ✅ NEW: Edit User Handler
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
     setShowEditUserModal(true);
@@ -431,10 +433,7 @@ const AdminDashboard: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // ======================
-  // ✅ FIXED MODAL COMPONENTS WITH useCallback
-  // ======================
-
+  // Modal Components with useCallback
   const AddUserModal = memo(() => {
     const handleFirstNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       setNewUser(prev => ({...prev, firstName: e.target.value}));
@@ -577,10 +576,7 @@ const AdminDashboard: React.FC = () => {
     );
   });
 
-  // ======================
-  // RENDERERS
-  // ======================
-
+  // Render Functions
   const renderOverview = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -616,8 +612,9 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">User Management</h3>
-        <Button onClick={() => setShowAddUserModal(true)} className="whitespace-nowrap">
-          <UserPlus className="h-4 w-4 mr-2" /> Add User
+        <Button onClick={() => setShowAddUserModal(true)} className="whitespace-nowrap w-full sm:w-auto px-4 py-2">
+          <UserPlus className="h-4 w-4 mr-2" /> 
+          <span>Add User</span>
         </Button>
       </div>
       <div className="flex flex-col sm:flex-row gap-4">
@@ -679,8 +676,9 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h3 className="text-lg font-semibold">Job Types</h3>
-        <Button onClick={() => setShowAddJobTypeModal(true)} className="whitespace-nowrap w-full sm:w-auto">
-          <UserPlus className="h-4 w-4 mr-2" /> Add Job Type
+        <Button onClick={() => setShowAddJobTypeModal(true)} className="whitespace-nowrap w-full sm:w-auto px-4 py-2">
+          <UserPlus className="h-4 w-4 mr-2" /> 
+          <span>Add Job Type</span>
         </Button>
       </div>
       <Card>
@@ -846,7 +844,6 @@ const AdminDashboard: React.FC = () => {
         <div className="mt-6">{renderContent()}</div>
       </div>
 
-      {/* Modals */}
       {showAddUserModal && <AddUserModal />}
       {showAddJobTypeModal && <AddJobTypeModal />}
     </div>
