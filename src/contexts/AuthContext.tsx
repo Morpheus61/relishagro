@@ -33,14 +33,8 @@ const openOfflineDB = async (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('RelishAgroDB', 1);
     
-    request.onerror = () => {
-      debugLog('IndexedDB error', request.error);
-      reject(request.error);
-    };
-    
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
     
     request.onupgradeneeded = (event: any) => {
       const db = event.target.result;
@@ -58,7 +52,6 @@ const openOfflineDB = async (): Promise<IDBDatabase> => {
 // ✅ Helper: Check if user exists in offline database
 const checkOfflineUser = async (staffId: string): Promise<User | null> => {
   try {
-    // Check localStorage first (faster)
     const cachedUsers = localStorage.getItem('cached_users');
     if (cachedUsers) {
       const users = JSON.parse(cachedUsers);
@@ -69,15 +62,13 @@ const checkOfflineUser = async (staffId: string): Promise<User | null> => {
       }
     }
     
-    // Check IndexedDB
     try {
       const db = await openOfflineDB();
       const transaction = db.transaction(['users'], 'readonly');
       const store = transaction.objectStore('users');
       
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const request = store.get(staffId);
-        
         request.onsuccess = () => {
           if (request.result) {
             debugLog('✅ Found user in IndexedDB', request.result);
@@ -86,14 +77,10 @@ const checkOfflineUser = async (staffId: string): Promise<User | null> => {
             resolve(null);
           }
         };
-        
-        request.onerror = () => {
-          debugLog('IndexedDB get error', request.error);
-          resolve(null);
-        };
+        request.onerror = () => resolve(null);
       });
     } catch (dbError) {
-      debugLog('IndexedDB not available, using localStorage only', dbError);
+      debugLog('IndexedDB not available, using localStorage only');
       return null;
     }
   } catch (err) {
@@ -105,11 +92,9 @@ const checkOfflineUser = async (staffId: string): Promise<User | null> => {
 // ✅ Helper: Cache user for offline access
 const cacheUserOffline = async (user: User): Promise<void> => {
   try {
-    // Save to localStorage
     const cachedUsers = localStorage.getItem('cached_users');
     const users = cachedUsers ? JSON.parse(cachedUsers) : [];
     
-    // Update or add user
     const existingIndex = users.findIndex((u: any) => u.staff_id === user.staff_id);
     if (existingIndex >= 0) {
       users[existingIndex] = user;
@@ -120,90 +105,56 @@ const cacheUserOffline = async (user: User): Promise<void> => {
     localStorage.setItem('cached_users', JSON.stringify(users));
     debugLog('✅ User cached in localStorage');
     
-    // Save to IndexedDB
     try {
       const db = await openOfflineDB();
       const transaction = db.transaction(['users'], 'readwrite');
       const store = transaction.objectStore('users');
-      
       store.put(user);
-      
-      transaction.oncomplete = () => {
-        debugLog('✅ User cached in IndexedDB');
-      };
-      
-      transaction.onerror = () => {
-        debugLog('IndexedDB cache error', transaction.error);
-      };
+      transaction.oncomplete = () => debugLog('✅ User cached in IndexedDB');
     } catch (dbError) {
-      debugLog('IndexedDB not available for caching', dbError);
+      debugLog('IndexedDB not available for caching');
     }
   } catch (err) {
     debugLog('Error caching user', err);
   }
 };
 
-// ✅ Helper: Background sync (non-blocking)
-const syncInBackground = async (staffId: string): Promise<void> => {
-  if (!navigator.onLine) {
-    debugLog('🔴 Offline - skipping background sync');
-    return;
-  }
+// ✅ FIXED: Simplified direct fetch without AbortController
+const directLoginFetch = async (staffId: string): Promise<any> => {
+  debugLog('🔄 Starting direct login fetch...', { staffId });
   
   try {
-    debugLog('🔄 Background sync attempt...');
-    const response = await api.login(staffId);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 30000);
+    });
     
-    if (response.success && response.data?.token && response.data?.user) {
-      const userData: User = {
-        staff_id: response.data.user.staff_id,
-        full_name: response.data.user.full_name || response.data.user.staff_id,
-        role: response.data.user.role,
-        department: response.data.user.department || 'General',
-        id: response.data.user.id,
-        designation: response.data.user.designation || 'Staff Member'
-      };
-      
-      // Update cached user data
-      await cacheUserOffline(userData);
-      debugLog('✅ Background sync successful');
-    }
-  } catch (err) {
-    debugLog('⚠️ Background sync failed (not critical)', err);
-  }
-};
-
-// ✅ NEW: Direct fetch with custom timeout (fallback method)
-const directLoginFetch = async (staffId: string, timeoutMs: number = 30000): Promise<any> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch('https://relishagrobackend-production.up.railway.app/api/auth/login', {
+    const fetchPromise = fetch('https://relishagrobackend-production.up.railway.app/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({ staff_id: staffId }),
-      signal: controller.signal,
       mode: 'cors',
       credentials: 'omit',
+      cache: 'no-cache',
+    }).then(async (response) => {
+      debugLog('✅ Response received', { status: response.status });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      debugLog('✅ Data parsed successfully');
+      return data;
     });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data;
+    
+    return await Promise.race([fetchPromise, timeoutPromise]);
+    
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      throw new Error('Login request timed out. Please check your internet connection.');
-    }
+    debugLog('❌ Direct fetch error', { message: error.message });
     throw error;
   }
 };
@@ -241,7 +192,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (token && savedUser) {
         try {
-          // Check if it's an offline token
           if (token.startsWith('offline_')) {
             debugLog('Restoring offline session');
             const userData = JSON.parse(savedUser);
@@ -251,7 +201,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          // Check JWT expiration for online tokens
           const payloadBase64 = token.split('.')[1];
           if (!payloadBase64) throw new Error('Invalid token format');
           
@@ -261,8 +210,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (isExpired) {
             debugLog('Token expired - checking offline cache');
-            
-            // Try to restore from offline cache
             const userData = JSON.parse(savedUser);
             const offlineUser = await checkOfflineUser(userData.staff_id);
             
@@ -270,8 +217,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               debugLog('✅ Restored from offline cache after token expiry');
               setUser(offlineUser);
               setIsOfflineMode(true);
-              
-              // Generate new offline token
               const offlineToken = `offline_${offlineUser.staff_id}_${Date.now()}`;
               localStorage.setItem('auth_token', offlineToken);
               localStorage.setItem('offline_mode', 'true');
@@ -314,7 +259,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       setError(null);
       
-      // ✅ STEP 1: Validate Staff ID format
       const validPrefixes = ['Admin-', 'HF-', 'FL-', 'SUP-'];
       const hasValidPrefix = validPrefixes.some(prefix => staffId.startsWith(prefix));
       
@@ -322,11 +266,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Invalid Staff ID format. Use: Admin-Name, HF-Name, FL-Name, or SUP-Name');
       }
       
-      // ✅ STEP 2: Check if user exists in offline database FIRST
       const offlineUser = await checkOfflineUser(staffId);
       
       if (offlineUser) {
-        // ✅ User exists offline - login immediately
         debugLog('✅ Offline login successful', offlineUser);
         
         const userData: User = {
@@ -338,7 +280,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           designation: offlineUser.designation || 'Staff Member'
         };
         
-        // Generate a local token (for offline use)
         const offlineToken = `offline_${staffId}_${Date.now()}`;
         localStorage.setItem('auth_token', offlineToken);
         localStorage.setItem('user_data', JSON.stringify(userData));
@@ -346,42 +287,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setUser(userData);
         setIsOfflineMode(true);
-        setLoading(false); // ✅ CRITICAL: Set loading to false before returning
+        setLoading(false);
         debugLog('✅ Logged in offline mode');
-        
-        // ✅ Try to sync in background (don't wait)
-        syncInBackground(staffId).catch(err => 
-          debugLog('Background sync failed (expected if offline)', err)
-        );
-        
         return;
       }
       
-      // ✅ STEP 3: User not in offline DB - try online authentication
       if (!navigator.onLine) {
         throw new Error('🔴 You are offline and this Staff ID is not cached. Please connect to internet for first-time login.');
       }
       
       debugLog('Attempting online authentication...');
       
-      // ✅ CRITICAL FIX: Try direct fetch with shorter timeout first
-      let response;
-      try {
-        debugLog('🔄 Attempting login with 30-second timeout...');
-        response = await directLoginFetch(staffId, 30000); // 30 seconds
-      } catch (fetchError: any) {
-        debugLog('❌ Direct fetch failed, trying API client...', fetchError.message);
-        
-        // Fallback to API client
-        try {
-          response = await api.login(staffId);
-        } catch (apiError: any) {
-          debugLog('❌ API client also failed', apiError.message);
-          throw new Error('Unable to connect to server. Please check your internet connection and try again.');
-        }
-      }
+      // ✅ Use the fixed direct fetch
+      const response = await directLoginFetch(staffId);
       
-      // ✅ STEP 4: Process successful response
       if (response && response.success && response.data?.token && response.data?.user) {
         const { token, user: apiUser } = response.data;
         
@@ -403,16 +322,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('user_data', JSON.stringify(userData));
         
         debugLog('✅ Caching user for offline access...');
-        
-        // ✅ Cache user in offline database for future offline logins
         await cacheUserOffline(userData);
         
         setUser(userData);
         setIsOfflineMode(false);
-        setLoading(false); // ✅ CRITICAL: Set loading to false
+        setLoading(false);
         debugLog('✅ Login complete (online mode)');
       } else {
-        debugLog('❌ Authentication failed - invalid response', response);
         throw new Error('Invalid credentials. Please check your Staff ID and try again.');
       }
       
@@ -426,7 +342,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       throw error;
     } finally {
-      setLoading(false); // ✅ CRITICAL: Always set loading to false
+      setLoading(false);
     }
   };
 
