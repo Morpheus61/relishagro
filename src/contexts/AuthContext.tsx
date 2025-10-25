@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../lib/api';
 
@@ -172,6 +173,41 @@ const syncInBackground = async (staffId: string): Promise<void> => {
   }
 };
 
+// ✅ NEW: Direct fetch with custom timeout (fallback method)
+const directLoginFetch = async (staffId: string, timeoutMs: number = 30000): Promise<any> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch('https://relishagrobackend-production.up.railway.app/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ staff_id: staffId }),
+      signal: controller.signal,
+      mode: 'cors',
+      credentials: 'omit',
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Login request timed out. Please check your internet connection.');
+    }
+    throw error;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,7 +226,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, loading, isAuthenticated, isOfflineMode]);
 
   useEffect(() => {
-    // ✅ FIX: Wrap async logic in IIFE
     const initializeAuth = async () => {
       debugLog('AuthProvider initializing...');
       
@@ -215,7 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
             return;
           }
-          
+
           // Check JWT expiration for online tokens
           const payloadBase64 = token.split('.')[1];
           if (!payloadBase64) throw new Error('Invalid token format');
@@ -270,7 +305,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     };
 
-    // ✅ Call the async function
     initializeAuth();
   }, []);
 
@@ -312,6 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setUser(userData);
         setIsOfflineMode(true);
+        setLoading(false); // ✅ CRITICAL: Set loading to false before returning
         debugLog('✅ Logged in offline mode');
         
         // ✅ Try to sync in background (don't wait)
@@ -328,10 +363,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       debugLog('Attempting online authentication...');
-      const response = await api.login(staffId);
       
-      if (response.success && response.data?.token && response.data?.user) {
+      // ✅ CRITICAL FIX: Try direct fetch with shorter timeout first
+      let response;
+      try {
+        debugLog('🔄 Attempting login with 30-second timeout...');
+        response = await directLoginFetch(staffId, 30000); // 30 seconds
+      } catch (fetchError: any) {
+        debugLog('❌ Direct fetch failed, trying API client...', fetchError.message);
+        
+        // Fallback to API client
+        try {
+          response = await api.login(staffId);
+        } catch (apiError: any) {
+          debugLog('❌ API client also failed', apiError.message);
+          throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+        }
+      }
+      
+      // ✅ STEP 4: Process successful response
+      if (response && response.success && response.data?.token && response.data?.user) {
         const { token, user: apiUser } = response.data;
+        
+        debugLog('✅ Login successful, storing token...');
         
         api.setToken(token);
         localStorage.setItem('auth_token', token);
@@ -348,25 +402,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         localStorage.setItem('user_data', JSON.stringify(userData));
         
+        debugLog('✅ Caching user for offline access...');
+        
         // ✅ Cache user in offline database for future offline logins
         await cacheUserOffline(userData);
         
         setUser(userData);
         setIsOfflineMode(false);
-        debugLog('✅ Login successful (online mode)');
+        setLoading(false); // ✅ CRITICAL: Set loading to false
+        debugLog('✅ Login complete (online mode)');
       } else {
-        debugLog('Authentication failed - invalid response', response);
-        throw new Error('Authentication failed');
+        debugLog('❌ Authentication failed - invalid response', response);
+        throw new Error('Invalid credentials. Please check your Staff ID and try again.');
       }
       
-    } catch (error) {
-      debugLog('Login error', error);
+    } catch (error: any) {
+      debugLog('❌ Login error', error);
       setUser(null);
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      setIsOfflineMode(false);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
       setError(errorMessage);
+      
       throw error;
     } finally {
-      setLoading(false);
+      setLoading(false); // ✅ CRITICAL: Always set loading to false
     }
   };
 
