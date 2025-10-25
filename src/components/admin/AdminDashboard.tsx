@@ -508,7 +508,17 @@ const AdminDashboard: React.FC = () => {
 
   // ✅ FIXED: AddUserModal with proper event handling
   // ✅ FIXED: AddUserModal with TypeScript corrections
+// ✅ BEST: Proper focus management with useRef
 const AddUserModal = memo(() => {
+  const firstNameRef = React.useRef<HTMLInputElement>(null);
+
+  // Focus only on mount, not on re-renders
+  React.useEffect(() => {
+    if (firstNameRef.current) {
+      firstNameRef.current.focus();
+    }
+  }, []); // Empty dependency array = only on mount
+
   const handleFirstNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     const value = e.target.value;
@@ -588,11 +598,11 @@ const AddUserModal = memo(() => {
             <div>
               <label className="block text-sm font-medium mb-1">First Name *</label>
               <Input
+                ref={firstNameRef}
                 type="text"
                 placeholder="First Name"
                 value={newUser.firstName}
                 onChange={handleFirstNameChange}
-                autoFocus
                 required
               />
             </div>
