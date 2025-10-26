@@ -1,12 +1,13 @@
 // src/components/admin/AdminDashboard.tsx
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Textarea } from '../ui/textarea';
 import YieldAnalytics from '../shared/YieldAnalytics';
-import AddUserModal from './AddUserModal'; // ✅ Import the new modal
+import AddUserModal from './AddUserModal';
 import { 
   Users, 
   Package,
@@ -165,6 +166,317 @@ const EnhancedNavigation: React.FC<EnhancedNavigationProps> = ({
   );
 };
 
+// ✅ EDIT USER MODAL - OUTSIDE COMPONENT
+interface EditUserModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: User | null;
+  onSubmit: (userId: string, userData: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    role: string;
+    department: string;
+    status: string;
+  }) => Promise<void>;
+}
+
+const EditUserModalComponent: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    role: 'staff',
+    department: 'general',
+    status: 'active'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      const nameParts = user.name.split(' ');
+      setFormData({
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+        phone: user.phone,
+        role: user.role,
+        department: 'general',
+        status: user.status
+      });
+    }
+  }, [isOpen, user]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !formData.firstName || !formData.lastName || !formData.phone) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(user.id, formData);
+      onClose();
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      alert('Failed to update user. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen || !user) return null;
+
+  return ReactDOM.createPortal(
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Edit User</h3>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onClose}
+              disabled={isSubmitting}
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">User ID</label>
+              <Input
+                value={user.id}
+                disabled
+                className="bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">First Name *</label>
+              <Input
+                placeholder="First Name"
+                value={formData.firstName}
+                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Last Name *</label>
+              <Input
+                placeholder="Last Name"
+                value={formData.lastName}
+                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Phone Number *</label>
+              <Input
+                placeholder="Phone Number"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Role *</label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isSubmitting}
+              >
+                <option value="staff">Staff</option>
+                <option value="admin">Admin</option>
+                <option value="harvestflow_manager">HarvestFlow Manager</option>
+                <option value="flavorcore_manager">FlavorCore Manager</option>
+                <option value="supervisor">Supervisor</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Department</label>
+              <Input
+                placeholder="Department"
+                value={formData.department}
+                onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Status *</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isSubmitting}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                type="submit"
+                className="flex-1 whitespace-nowrap" 
+                disabled={isSubmitting || !formData.firstName || !formData.lastName || !formData.phone}
+              >
+                {isSubmitting ? 'Updating...' : 'Update User'}
+              </Button>
+              <Button 
+                type="button"
+                variant="outline"
+                className="flex-1 whitespace-nowrap" 
+                onClick={onClose}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// ✅ ADD JOB TYPE MODAL - OUTSIDE COMPONENT
+interface AddJobTypeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (jobData: {
+    job_name: string;
+    category: string;
+    unit_of_measurement: string;
+    expected_output_per_worker: number;
+  }) => Promise<void>;
+}
+
+const AddJobTypeModalComponent: React.FC<AddJobTypeModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    job_name: '',
+    category: '',
+    unit_of_measurement: 'kg',
+    expected_output_per_worker: 0
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ job_name: '', category: '', unit_of_measurement: 'kg', expected_output_per_worker: 0 });
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.job_name || !formData.category) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData);
+      onClose();
+    } catch (error) {
+      console.error('Failed to add job type:', error);
+      alert('Failed to add job type. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <Card className="w-full max-w-md p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Add New Job Type</h3>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Job Name *</label>
+              <Input
+                placeholder="Job Name"
+                value={formData.job_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, job_name: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Category *</label>
+              <Input
+                placeholder="Category"
+                value={formData.category}
+                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Unit of Measurement</label>
+              <select
+                value={formData.unit_of_measurement}
+                onChange={(e) => setFormData(prev => ({ ...prev, unit_of_measurement: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isSubmitting}
+              >
+                <option value="kg">Kilograms (kg)</option>
+                <option value="units">Units</option>
+                <option value="hours">Hours</option>
+                <option value="acres">Acres</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Expected Output per Worker</label>
+              <Input
+                type="number"
+                placeholder="Expected Output per Worker"
+                value={formData.expected_output_per_worker || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, expected_output_per_worker: Number(e.target.value) }))}
+                disabled={isSubmitting}
+              />
+            </div>
+            <Button 
+              type="submit"
+              className="w-full whitespace-nowrap" 
+              disabled={isSubmitting || !formData.job_name || !formData.category}
+            >
+              {isSubmitting ? 'Adding...' : 'Add Job Type'}
+            </Button>
+          </form>
+        </Card>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [users, setUsers] = useState<User[]>([]);
@@ -181,23 +493,6 @@ const AdminDashboard: React.FC = () => {
   const [showAddJobTypeModal, setShowAddJobTypeModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-  // Form states (removed newUser state - now managed in modal)
-  const [editUserForm, setEditUserForm] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    role: 'staff',
-    department: 'general',
-    status: 'active'
-  });
-
-  const [newJobType, setNewJobType] = useState({
-    job_name: '',
-    category: '',
-    unit_of_measurement: 'kg',
-    expected_output_per_worker: 0
-  });
 
   const API_BASE = 'https://relishagrobackend-production.up.railway.app';
 
@@ -311,7 +606,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ✅ UPDATED: handleAddUser now accepts userData and returns Promise
+  // ✅ Handler functions that accept data and return Promise
   const handleAddUser = async (userData: {
     firstName: string;
     lastName: string;
@@ -348,87 +643,72 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (err) {
       console.error('❌ Error adding user:', err);
-      throw err; // Re-throw so modal can handle it
+      throw err;
     }
   };
 
-  const handleAddJobType = async () => {
-    if (!newJobType.job_name || !newJobType.category) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
+  const handleUpdateUser = async (userId: string, userData: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    role: string;
+    department: string;
+    status: string;
+  }): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE}/api/job-types`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(newJobType)
-      });
-
-      if (response.ok) {
-        await fetchJobTypes();
-        setShowAddJobTypeModal(false);
-        setNewJobType({ job_name: '', category: '', unit_of_measurement: 'kg', expected_output_per_worker: 0 });
-        alert('Job type added successfully!');
-      } else {
-        alert('Failed to add job type. Please try again.');
-      }
-    } catch (err) {
-      console.error('Error adding job type:', err);
-      alert('Failed to add job type. Please try again.');
-    }
-  };
-
-  const handleEditUser = (user: User) => {
-    setSelectedUser(user);
-    const nameParts = user.name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-    
-    setEditUserForm({
-      firstName,
-      lastName,
-      phone: user.phone,
-      role: user.role,
-      department: 'general',
-      status: user.status
-    });
-    setShowEditUserModal(true);
-  };
-
-  const handleUpdateUser = async () => {
-    if (!selectedUser || !editUserForm.firstName || !editUserForm.lastName || !editUserForm.phone) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/users/${selectedUser.id}`, {
+      const response = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify({
-          first_name: editUserForm.firstName,
-          last_name: editUserForm.lastName,
-          phone_number: editUserForm.phone,
-          role: editUserForm.role,
-          department: editUserForm.department,
-          status: editUserForm.status
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          phone_number: userData.phone,
+          role: userData.role,
+          department: userData.department,
+          status: userData.status
         })
       });
 
       if (response.ok) {
         await fetchUsers();
-        setShowEditUserModal(false);
-        setSelectedUser(null);
-        setEditUserForm({ firstName: '', lastName: '', phone: '', role: 'staff', department: 'general', status: 'active' });
         alert('User updated successfully!');
       } else {
-        alert('Failed to update user. Please try again.');
+        throw new Error('Failed to update user');
       }
     } catch (err) {
       console.error('Error updating user:', err);
-      alert('Failed to update user. Please try again.');
+      throw err;
     }
+  };
+
+  const handleAddJobType = async (jobData: {
+    job_name: string;
+    category: string;
+    unit_of_measurement: string;
+    expected_output_per_worker: number;
+  }): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/job-types`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(jobData)
+      });
+
+      if (response.ok) {
+        await fetchJobTypes();
+        alert('Job type added successfully!');
+      } else {
+        throw new Error('Failed to add job type');
+      }
+    } catch (err) {
+      console.error('Error adding job type:', err);
+      throw err;
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setShowEditUserModal(true);
   };
 
   const handleApproveOnboarding = async (requestId: string, notes: string = '') => {
@@ -497,187 +777,6 @@ const AdminDashboard: React.FC = () => {
     const matchesStatus = selectedUserStatus === 'all' || user.status === selectedUserStatus;
     return matchesSearch && matchesStatus;
   });
-
-  // ✅ EditUserModal and AddJobTypeModal remain the same
-  const EditUserModal = memo(() => {
-    const handleFirstNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      setEditUserForm(prev => ({...prev, firstName: e.target.value}));
-    }, []);
-
-    const handleLastNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      setEditUserForm(prev => ({...prev, lastName: e.target.value}));
-    }, []);
-
-    const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      setEditUserForm(prev => ({...prev, phone: e.target.value}));
-    }, []);
-
-    const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-      setEditUserForm(prev => ({...prev, role: e.target.value}));
-    }, []);
-
-    const handleDepartmentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      setEditUserForm(prev => ({...prev, department: e.target.value}));
-    }, []);
-
-    const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-      setEditUserForm(prev => ({...prev, status: e.target.value as 'active' | 'inactive'}));
-    }, []);
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Edit User</h3>
-            <Button variant="outline" size="sm" onClick={() => {
-              setShowEditUserModal(false);
-              setSelectedUser(null);
-            }}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">User ID</label>
-              <Input
-                value={selectedUser?.id || ''}
-                disabled
-                className="bg-gray-100"
-              />
-            </div>
-            <Input
-              placeholder="First Name"
-              value={editUserForm.firstName}
-              onChange={handleFirstNameChange}
-            />
-            <Input
-              placeholder="Last Name"
-              value={editUserForm.lastName}
-              onChange={handleLastNameChange}
-            />
-            <Input
-              placeholder="Phone Number"
-              value={editUserForm.phone}
-              onChange={handlePhoneChange}
-            />
-            <select
-              value={editUserForm.role}
-              onChange={handleRoleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="staff">Staff</option>
-              <option value="admin">Admin</option>
-              <option value="harvestflow_manager">HarvestFlow Manager</option>
-              <option value="flavorcore_manager">FlavorCore Manager</option>
-              <option value="supervisor">Supervisor</option>
-            </select>
-            <Input
-              placeholder="Department"
-              value={editUserForm.department}
-              onChange={handleDepartmentChange}
-            />
-            <select
-              value={editUserForm.status}
-              onChange={handleStatusChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <div className="flex gap-2">
-              <Button 
-                className="flex-1 whitespace-nowrap" 
-                onClick={handleUpdateUser}
-                disabled={!editUserForm.firstName || !editUserForm.lastName || !editUserForm.phone}
-              >
-                Update User
-              </Button>
-              <Button 
-                variant="outline"
-                className="flex-1 whitespace-nowrap" 
-                onClick={() => {
-                  setShowEditUserModal(false);
-                  setSelectedUser(null);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
-  });
-
-  EditUserModal.displayName = 'EditUserModal';
-
-  const AddJobTypeModal = memo(() => {
-    const handleJobNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      setNewJobType(prev => ({...prev, job_name: e.target.value}));
-    }, []);
-
-    const handleCategoryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      setNewJobType(prev => ({...prev, category: e.target.value}));
-    }, []);
-
-    const handleUnitChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-      setNewJobType(prev => ({...prev, unit_of_measurement: e.target.value}));
-    }, []);
-
-    const handleOutputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      setNewJobType(prev => ({...prev, expected_output_per_worker: Number(e.target.value)}));
-    }, []);
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <Card className="w-full max-w-md p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Add New Job Type</h3>
-            <Button variant="outline" size="sm" onClick={() => setShowAddJobTypeModal(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="space-y-4">
-            <Input
-              placeholder="Job Name"
-              value={newJobType.job_name}
-              onChange={handleJobNameChange}
-            />
-            <Input
-              placeholder="Category"
-              value={newJobType.category}
-              onChange={handleCategoryChange}
-            />
-            <select
-              value={newJobType.unit_of_measurement}
-              onChange={handleUnitChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="kg">Kilograms (kg)</option>
-              <option value="units">Units</option>
-              <option value="hours">Hours</option>
-              <option value="acres">Acres</option>
-            </select>
-            <Input
-              type="number"
-              placeholder="Expected Output per Worker"
-              value={newJobType.expected_output_per_worker || ''}
-              onChange={handleOutputChange}
-            />
-            <Button 
-              className="w-full whitespace-nowrap" 
-              onClick={handleAddJobType}
-              disabled={!newJobType.job_name || !newJobType.category}
-            >
-              Add Job Type
-            </Button>
-          </div>
-        </Card>
-      </div>
-    );
-  });
-
-  AddJobTypeModal.displayName = 'AddJobTypeModal';
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -958,15 +1057,28 @@ const AdminDashboard: React.FC = () => {
         <div className="mt-6">{renderContent()}</div>
       </div>
 
-      {/* ✅ UPDATED: Use new AddUserModal with proper props */}
+      {/* ✅ ALL MODALS USE REACT PORTAL - NO MORE CURSOR JUMPING */}
       <AddUserModal
         isOpen={showAddUserModal}
         onClose={() => setShowAddUserModal(false)}
         onSubmit={handleAddUser}
       />
       
-      {showEditUserModal && <EditUserModal />}
-      {showAddJobTypeModal && <AddJobTypeModal />}
+      <EditUserModalComponent
+        isOpen={showEditUserModal}
+        onClose={() => {
+          setShowEditUserModal(false);
+          setSelectedUser(null);
+        }}
+        user={selectedUser}
+        onSubmit={handleUpdateUser}
+      />
+
+      <AddJobTypeModalComponent
+        isOpen={showAddJobTypeModal}
+        onClose={() => setShowAddJobTypeModal(false)}
+        onSubmit={handleAddJobType}
+      />
     </div>
   );
 };
