@@ -1,5 +1,6 @@
 // src/components/flavorcore/FlavorCoreManagerDashboard.tsx
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -224,6 +225,361 @@ interface Provision {
   created_at: string;
 }
 
+// ✅ MODAL COMPONENTS (OUTSIDE main component to prevent re-renders)
+interface AddWorkerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (workerData: { name: string; phone: string; role: string; department: string }) => Promise<void>;
+}
+
+const AddWorkerModalComponent: React.FC<AddWorkerModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    role: 'field_worker',
+    department: 'general'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ name: '', phone: '', role: 'field_worker', department: 'general' });
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.phone) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData);
+      onClose();
+    } catch (error) {
+      console.error('Failed to add worker:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <Card className="w-full max-w-md p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Add New Worker</h3>
+            <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Full Name *</label>
+              <Input
+                placeholder="Full Name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Phone Number *</label>
+              <Input
+                placeholder="Phone Number"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Role *</label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                disabled={isSubmitting}
+              >
+                <option value="field_worker">Field Worker</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="quality_inspector">Quality Inspector</option>
+                <option value="machine_operator">Machine Operator</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Department</label>
+              <select
+                value={formData.department}
+                onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                disabled={isSubmitting}
+              >
+                <option value="general">General</option>
+                <option value="harvest">Harvest</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="quality_control">Quality Control</option>
+              </select>
+            </div>
+            <Button 
+              type="submit"
+              className="w-full" 
+              disabled={isSubmitting || !formData.name || !formData.phone}
+            >
+              {isSubmitting ? 'Adding...' : 'Add Worker'}
+            </Button>
+          </form>
+        </Card>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+interface AddJobTypeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (jobData: { name: string; description: string; department: string }) => Promise<void>;
+}
+
+const AddJobTypeModalComponent: React.FC<AddJobTypeModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    department: 'general'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ name: '', description: '', department: 'general' });
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.description) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData);
+      onClose();
+    } catch (error) {
+      console.error('Failed to add job type:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <Card className="w-full max-w-md p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Add New Job Type</h3>
+            <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Job Type Name *</label>
+              <Input
+                placeholder="Job Type Name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description *</label>
+              <Textarea
+                placeholder="Description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Department</label>
+              <select
+                value={formData.department}
+                onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                disabled={isSubmitting}
+              >
+                <option value="general">General</option>
+                <option value="harvest">Harvest</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="quality_control">Quality Control</option>
+              </select>
+            </div>
+            <Button 
+              type="submit"
+              className="w-full" 
+              disabled={isSubmitting || !formData.name || !formData.description}
+            >
+              {isSubmitting ? 'Adding...' : 'Add Job Type'}
+            </Button>
+          </form>
+        </Card>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+interface AddProvisionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (provisionData: { item_name: string; quantity: number; unit: string; supplier: string; cost: number }) => Promise<void>;
+}
+
+const AddProvisionModalComponent: React.FC<AddProvisionModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    item_name: '',
+    quantity: 0,
+    unit: 'kg',
+    supplier: '',
+    cost: 0
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ item_name: '', quantity: 0, unit: 'kg', supplier: '', cost: 0 });
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.item_name || !formData.quantity) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData);
+      onClose();
+    } catch (error) {
+      console.error('Failed to add provision:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <Card className="w-full max-w-md p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Add New Provision</h3>
+            <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Item Name *</label>
+              <Input
+                placeholder="Item Name"
+                value={formData.item_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, item_name: e.target.value }))}
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-sm font-medium mb-1">Quantity *</label>
+                <Input
+                  type="number"
+                  placeholder="Quantity"
+                  value={formData.quantity || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, quantity: Number(e.target.value) }))}
+                  disabled={isSubmitting}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Unit</label>
+                <select
+                  value={formData.unit}
+                  onChange={(e) => setFormData(prev => ({ ...prev, unit: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  disabled={isSubmitting}
+                >
+                  <option value="kg">Kilograms</option>
+                  <option value="liters">Liters</option>
+                  <option value="pieces">Pieces</option>
+                  <option value="bags">Bags</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Supplier</label>
+              <Input
+                placeholder="Supplier"
+                value={formData.supplier}
+                onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Cost (₹)</label>
+              <Input
+                type="number"
+                placeholder="Cost (₹)"
+                value={formData.cost || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, cost: Number(e.target.value) }))}
+                disabled={isSubmitting}
+              />
+            </div>
+            <Button 
+              type="submit"
+              className="w-full" 
+              disabled={isSubmitting || !formData.item_name || !formData.quantity}
+            >
+              {isSubmitting ? 'Adding...' : 'Add Provision'}
+            </Button>
+          </form>
+        </Card>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 const FlavorCoreManagerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [users, setUsers] = useState<User[]>([]);
@@ -237,40 +593,10 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Modal states
-  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  // Modal states (removed showAddUserModal - Admin only)
   const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
   const [showAddJobTypeModal, setShowAddJobTypeModal] = useState(false);
   const [showAddProvisionModal, setShowAddProvisionModal] = useState(false);
-
-  // Form states
-  const [newUser, setNewUser] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    role: 'staff'
-  });
-
-  const [newWorker, setNewWorker] = useState({
-    name: '',
-    phone: '',
-    role: 'field_worker',
-    department: 'general'
-  });
-
-  const [newJobType, setNewJobType] = useState({
-    name: '',
-    description: '',
-    department: 'general'
-  });
-
-  const [newProvision, setNewProvision] = useState({
-    item_name: '',
-    quantity: 0,
-    unit: 'kg',
-    supplier: '',
-    cost: 0
-  });
 
   const API_BASE = 'https://relishagrobackend-production.up.railway.app';
 
@@ -419,57 +745,22 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     }
   };
 
-  // Add User Handler
-  const handleAddUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.phone) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/users`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          name: newUser.name,
-          email: newUser.email,
-          phone_number: newUser.phone,
-          role: newUser.role,
-          staff_id: `FC-${Date.now()}`,
-          status: 'active'
-        })
-      });
-
-      if (response.ok) {
-        await fetchUsers();
-        setShowAddUserModal(false);
-        setNewUser({ name: '', email: '', phone: '', role: 'staff' });
-        alert('User added successfully!');
-      } else {
-        alert('Failed to add user. Please try again.');
-      }
-    } catch (err) {
-      console.error('Error adding user:', err);
-      alert('Failed to add user. Please try again.');
-    }
-  };
-
-  // Add Worker Handler
-  const handleAddWorker = async () => {
-    if (!newWorker.name || !newWorker.phone) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
+  // ✅ UPDATED: Handler functions that accept data and return Promise
+  const handleAddWorker = async (workerData: {
+    name: string;
+    phone: string;
+    role: string;
+    department: string;
+  }): Promise<void> => {
     try {
       const response = await fetch(`${API_BASE}/api/workers`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          first_name: newWorker.name.split(' ')[0],
-          last_name: newWorker.name.split(' ').slice(1).join(' ') || '',
-          contact_number: newWorker.phone,
-          person_type: newWorker.role,
+          first_name: workerData.name.split(' ')[0],
+          last_name: workerData.name.split(' ').slice(1).join(' ') || '',
+          contact_number: workerData.phone,
+          person_type: workerData.role,
           staff_id: `FC-W-${Date.now()}`,
           status: 'active'
         })
@@ -477,97 +768,68 @@ const FlavorCoreManagerDashboard: React.FC = () => {
 
       if (response.ok) {
         await fetchWorkers();
-        setShowAddWorkerModal(false);
-        setNewWorker({ name: '', phone: '', role: 'field_worker', department: 'general' });
         alert('Worker added successfully!');
       } else {
-        alert('Failed to add worker. Please try again.');
+        throw new Error('Failed to add worker');
       }
     } catch (err) {
       console.error('Error adding worker:', err);
-      alert('Failed to add worker. Please try again.');
+      throw err;
     }
   };
 
-  // Add Job Type Handler
-  const handleAddJobType = async () => {
-    if (!newJobType.name || !newJobType.description) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
+  const handleAddJobType = async (jobData: {
+    name: string;
+    description: string;
+    department: string;
+  }): Promise<void> => {
     try {
       const response = await fetch(`${API_BASE}/api/job-types`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify(newJobType)
+        body: JSON.stringify(jobData)
       });
 
       if (response.ok) {
         await fetchJobTypes();
-        setShowAddJobTypeModal(false);
-        setNewJobType({ name: '', description: '', department: 'general' });
         alert('Job type added successfully!');
       } else {
-        alert('Failed to add job type. Please try again.');
+        throw new Error('Failed to add job type');
       }
     } catch (err) {
       console.error('Error adding job type:', err);
-      alert('Failed to add job type. Please try again.');
+      throw err;
     }
   };
 
-  // Add Provision Handler
-  const handleAddProvision = async () => {
-    if (!newProvision.item_name || !newProvision.quantity) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
+  const handleAddProvision = async (provisionData: {
+    item_name: string;
+    quantity: number;
+    unit: string;
+    supplier: string;
+    cost: number;
+  }): Promise<void> => {
     try {
       const response = await fetch(`${API_BASE}/api/provisions`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          ...newProvision,
+          ...provisionData,
           status: 'pending'
         })
       });
 
       if (response.ok) {
         await fetchProvisions();
-        setShowAddProvisionModal(false);
-        setNewProvision({ item_name: '', quantity: 0, unit: 'kg', supplier: '', cost: 0 });
         alert('Provision added successfully!');
       } else {
-        alert('Failed to add provision. Please try again.');
+        throw new Error('Failed to add provision');
       }
     } catch (err) {
       console.error('Error adding provision:', err);
-      alert('Failed to add provision. Please try again.');
+      throw err;
     }
   };
-
-  // Navigation items
-  const navigationItems = [
-    { id: 'overview', label: 'Dashboard Overview' },
-    { id: 'users', label: 'User Management' },
-    { id: 'workers', label: 'Worker Management' },
-    { id: 'jobs', label: 'Job Types' },
-    { id: 'provisions', label: 'Provisions' },
-    { id: 'onboarding', label: 'Onboarding Approvals' },
-    { id: 'yields', label: 'Yield Analytics' },
-    { id: 'reports', label: 'System Reports' },
-    { id: 'settings', label: 'Admin Settings' }
-  ];
-
-  // Filter users based on search and status
-  const filteredUsers = (users || []).filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = selectedUserStatus === 'all' || user.status === selectedUserStatus;
-    return matchesSearch && matchesStatus;
-  });
 
   const handleApproveOnboarding = async (requestId: string, notes: string = '') => {
     try {
@@ -638,6 +900,19 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
+  // Navigation items
+  const navigationItems = [
+    { id: 'overview', label: 'Dashboard Overview' },
+    { id: 'users', label: 'User Management' },
+    { id: 'workers', label: 'Worker Management' },
+    { id: 'jobs', label: 'Job Types' },
+    { id: 'provisions', label: 'Provisions' },
+    { id: 'onboarding', label: 'Onboarding Approvals' },
+    { id: 'yields', label: 'Yield Analytics' },
+    { id: 'reports', label: 'System Reports' },
+    { id: 'settings', label: 'Admin Settings' }
+  ];
+
   // Calculate statistics with defensive checks
   const totalUsers = users?.length || 0;
   const activeUsers = (users || []).filter(u => u.status === 'active').length;
@@ -647,204 +922,13 @@ const FlavorCoreManagerDashboard: React.FC = () => {
   const pendingOnboardingCount = (onboardingRequests || []).filter(req => req.status === 'pending').length;
   const totalProvisions = (provisions || []).reduce((sum, p) => sum + p.cost, 0);
 
-  // MODAL COMPONENTS
-  const AddUserModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Add New User</h3>
-          <Button variant="outline" size="sm" onClick={() => setShowAddUserModal(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <Input
-            placeholder="Full Name"
-            value={newUser.name}
-            onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-          />
-          <Input
-            type="email"
-            placeholder="Email"
-            value={newUser.email}
-            onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-          />
-          <Input
-            placeholder="Phone Number"
-            value={newUser.phone}
-            onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-          />
-          <select
-            value={newUser.role}
-            onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
-            <option value="manager">Manager</option>
-            <option value="supervisor">Supervisor</option>
-          </select>
-          <Button 
-            className="w-full" 
-            onClick={handleAddUser}
-            disabled={!newUser.name || !newUser.email || !newUser.phone}
-          >
-            Add User
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
-
-  const AddWorkerModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Add New Worker</h3>
-          <Button variant="outline" size="sm" onClick={() => setShowAddWorkerModal(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <Input
-            placeholder="Full Name"
-            value={newWorker.name}
-            onChange={(e) => setNewWorker({...newWorker, name: e.target.value})}
-          />
-          <Input
-            placeholder="Phone Number"
-            value={newWorker.phone}
-            onChange={(e) => setNewWorker({...newWorker, phone: e.target.value})}
-          />
-          <select
-            value={newWorker.role}
-            onChange={(e) => setNewWorker({...newWorker, role: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="field_worker">Field Worker</option>
-            <option value="supervisor">Supervisor</option>
-            <option value="quality_inspector">Quality Inspector</option>
-            <option value="machine_operator">Machine Operator</option>
-          </select>
-          <select
-            value={newWorker.department}
-            onChange={(e) => setNewWorker({...newWorker, department: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="general">General</option>
-            <option value="harvest">Harvest</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="quality_control">Quality Control</option>
-          </select>
-          <Button 
-            className="w-full" 
-            onClick={handleAddWorker}
-            disabled={!newWorker.name || !newWorker.phone}
-          >
-            Add Worker
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
-
-  const AddJobTypeModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Add New Job Type</h3>
-          <Button variant="outline" size="sm" onClick={() => setShowAddJobTypeModal(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <Input
-            placeholder="Job Type Name"
-            value={newJobType.name}
-            onChange={(e) => setNewJobType({...newJobType, name: e.target.value})}
-          />
-          <Textarea
-            placeholder="Description"
-            value={newJobType.description}
-            onChange={(e) => setNewJobType({...newJobType, description: e.target.value})}
-          />
-          <select
-            value={newJobType.department}
-            onChange={(e) => setNewJobType({...newJobType, department: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="general">General</option>
-            <option value="harvest">Harvest</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="quality_control">Quality Control</option>
-          </select>
-          <Button 
-            className="w-full" 
-            onClick={handleAddJobType}
-            disabled={!newJobType.name || !newJobType.description}
-          >
-            Add Job Type
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
-
-  const AddProvisionModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Add New Provision</h3>
-          <Button variant="outline" size="sm" onClick={() => setShowAddProvisionModal(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <Input
-            placeholder="Item Name"
-            value={newProvision.item_name}
-            onChange={(e) => setNewProvision({...newProvision, item_name: e.target.value})}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              type="number"
-              placeholder="Quantity"
-              value={newProvision.quantity}
-              onChange={(e) => setNewProvision({...newProvision, quantity: Number(e.target.value)})}
-            />
-            <select
-              value={newProvision.unit}
-              onChange={(e) => setNewProvision({...newProvision, unit: e.target.value})}
-              className="px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="kg">Kilograms</option>
-              <option value="liters">Liters</option>
-              <option value="pieces">Pieces</option>
-              <option value="bags">Bags</option>
-            </select>
-          </div>
-          <Input
-            placeholder="Supplier"
-            value={newProvision.supplier}
-            onChange={(e) => setNewProvision({...newProvision, supplier: e.target.value})}
-          />
-          <Input
-            type="number"
-            placeholder="Cost (₹)"
-            value={newProvision.cost}
-            onChange={(e) => setNewProvision({...newProvision, cost: Number(e.target.value)})}
-          />
-          <Button 
-            className="w-full" 
-            onClick={handleAddProvision}
-            disabled={!newProvision.item_name || !newProvision.quantity}
-          >
-            Add Provision
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
+  // Filter users based on search and status
+  const filteredUsers = (users || []).filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = selectedUserStatus === 'all' || user.status === selectedUserStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   // Loading state
   if (loading) {
@@ -967,20 +1051,23 @@ const FlavorCoreManagerDashboard: React.FC = () => {
     </div>
   );
 
+  // ✅ UPDATED: User Management - VIEW ONLY (No Add/Edit/Delete buttons)
   const renderUserManagement = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h3 className="text-lg font-semibold">User Management</h3>
+        <h3 className="text-lg font-semibold">User Management (View Only)</h3>
         <div className="flex gap-2">
-          <Button onClick={() => setShowAddUserModal(true)} className="whitespace-nowrap">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
           <Button variant="outline" className="whitespace-nowrap">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
         </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+        <p className="text-sm text-blue-800">
+          <strong>Note:</strong> User management (Add/Edit/Delete) is only available to Admin users. You can view user information here.
+        </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -1036,17 +1123,9 @@ const FlavorCoreManagerDashboard: React.FC = () => {
                   <td className="p-4">{user.joinDate}</td>
                   <td className="p-4">{user.lastActive}</td>
                   <td className="p-4">
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" title="View">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" title="Edit">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" title="More">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" title="View">
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -1564,11 +1643,24 @@ const FlavorCoreManagerDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals */}
-      {showAddUserModal && <AddUserModal />}
-      {showAddWorkerModal && <AddWorkerModal />}
-      {showAddJobTypeModal && <AddJobTypeModal />}
-      {showAddProvisionModal && <AddProvisionModal />}
+      {/* ✅ UPDATED: Use portal-based modals with proper props */}
+      <AddWorkerModalComponent
+        isOpen={showAddWorkerModal}
+        onClose={() => setShowAddWorkerModal(false)}
+        onSubmit={handleAddWorker}
+      />
+      
+      <AddJobTypeModalComponent
+        isOpen={showAddJobTypeModal}
+        onClose={() => setShowAddJobTypeModal(false)}
+        onSubmit={handleAddJobType}
+      />
+      
+      <AddProvisionModalComponent
+        isOpen={showAddProvisionModal}
+        onClose={() => setShowAddProvisionModal(false)}
+        onSubmit={handleAddProvision}
+      />
     </div>
   );
 };

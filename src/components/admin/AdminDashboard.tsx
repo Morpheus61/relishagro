@@ -6,6 +6,7 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Textarea } from '../ui/textarea';
 import YieldAnalytics from '../shared/YieldAnalytics';
+import AddUserModal from './AddUserModal'; // ✅ Import the new modal
 import { 
   Users, 
   Package,
@@ -14,7 +15,6 @@ import {
   CheckCircle,
   XCircle,
   Search,
-  Download,
   Eye,
   Edit,
   RefreshCw,
@@ -182,15 +182,7 @@ const AdminDashboard: React.FC = () => {
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Form states
-  const [newUser, setNewUser] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    role: 'staff',
-    department: 'general'
-  });
-
+  // Form states (removed newUser state - now managed in modal)
   const [editUserForm, setEditUserForm] = useState({
     firstName: '',
     lastName: '',
@@ -319,25 +311,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleAddUser = async () => {
-    if (!newUser.firstName || !newUser.lastName || !newUser.phone) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
+  // ✅ UPDATED: handleAddUser now accepts userData and returns Promise
+  const handleAddUser = async (userData: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    role: string;
+    department: string;
+  }): Promise<void> => {
     try {
-      console.log('📤 Submitting new user:', newUser);
+      console.log('📤 Submitting new user:', userData);
       
       const response = await fetch(`${API_BASE}/api/admin/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          first_name: newUser.firstName,
-          last_name: newUser.lastName,
-          phone_number: newUser.phone,
-          role: newUser.role,
-          department: newUser.department,
-          staff_id: `${newUser.role.toUpperCase()}-${Date.now()}`,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          phone_number: userData.phone,
+          role: userData.role,
+          department: userData.department,
+          staff_id: `${userData.role.toUpperCase()}-${Date.now()}`,
           status: 'active'
         })
       });
@@ -346,17 +340,15 @@ const AdminDashboard: React.FC = () => {
 
       if (response.ok) {
         await fetchUsers();
-        setShowAddUserModal(false);
-        setNewUser({ firstName: '', lastName: '', phone: '', role: 'staff', department: 'general' });
         alert('✅ User added successfully!');
       } else {
         const errorText = await response.text();
         console.error('❌ Failed to add user:', errorText);
-        alert('Failed to add user. Please try again.');
+        throw new Error('Failed to add user');
       }
     } catch (err) {
       console.error('❌ Error adding user:', err);
-      alert('Failed to add user. Please try again.');
+      throw err; // Re-throw so modal can handle it
     }
   };
 
@@ -506,166 +498,7 @@ const AdminDashboard: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // ✅ FIXED: AddUserModal with proper event handling
-  // ✅ FIXED: AddUserModal with TypeScript corrections
-// ✅ BEST: Proper focus management with useRef
-const AddUserModal = memo(() => {
-  const firstNameRef = React.useRef<HTMLInputElement>(null);
-
-  // Focus only on mount, not on re-renders
-  React.useEffect(() => {
-    if (firstNameRef.current) {
-      firstNameRef.current.focus();
-    }
-  }, []); // Empty dependency array = only on mount
-
-  const handleFirstNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    const value = e.target.value;
-    setNewUser(prev => ({...prev, firstName: value}));
-  }, []);
-
-  const handleLastNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    const value = e.target.value;
-    setNewUser(prev => ({...prev, lastName: value}));
-  }, []);
-
-  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    const value = e.target.value;
-    setNewUser(prev => ({...prev, phone: value}));
-  }, []);
-
-  const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    e.stopPropagation();
-    const value = e.target.value;
-    setNewUser(prev => ({...prev, role: value}));
-  }, []);
-
-  const handleDepartmentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    const value = e.target.value;
-    setNewUser(prev => ({...prev, department: value}));
-  }, []);
-
-  const handleSubmit = useCallback((e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    if (!newUser.firstName || !newUser.lastName || !newUser.phone) {
-      alert('Please fill in all required fields');
-      return;
-    }
-    
-    handleAddUser();
-  }, [newUser.firstName, newUser.lastName, newUser.phone]);
-
-  const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      setShowAddUserModal(false);
-    }
-  }, []);
-
-  const handleCardClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-  }, []);
-
-  return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={handleBackdropClick}
-    >
-      <div onClick={handleCardClick}>
-        <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Add New User</h3>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                e.stopPropagation();
-                setShowAddUserModal(false);
-              }}
-              type="button"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">First Name *</label>
-              <Input
-                ref={firstNameRef}
-                type="text"
-                placeholder="First Name"
-                value={newUser.firstName}
-                onChange={handleFirstNameChange}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Last Name *</label>
-              <Input
-                type="text"
-                placeholder="Last Name"
-                value={newUser.lastName}
-                onChange={handleLastNameChange}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Phone Number *</label>
-              <Input
-                type="tel"
-                placeholder="Phone Number"
-                value={newUser.phone}
-                onChange={handlePhoneChange}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Role *</label>
-              <select
-                value={newUser.role}
-                onChange={handleRoleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              >
-                <option value="staff">Staff</option>
-                <option value="admin">Admin</option>
-                <option value="harvestflow_manager">HarvestFlow Manager</option>
-                <option value="flavorcore_manager">FlavorCore Manager</option>
-                <option value="supervisor">Supervisor</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Department</label>
-              <Input
-                type="text"
-                placeholder="Department"
-                value={newUser.department}
-                onChange={handleDepartmentChange}
-              />
-            </div>
-            <Button 
-              type="submit"
-              className="w-full whitespace-nowrap"
-              disabled={!newUser.firstName || !newUser.lastName || !newUser.phone}
-            >
-              Add User
-            </Button>
-          </form>
-        </Card>
-      </div>
-    </div>
-  );
-});
-
-AddUserModal.displayName = 'AddUserModal';
-
+  // ✅ EditUserModal and AddJobTypeModal remain the same
   const EditUserModal = memo(() => {
     const handleFirstNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       setEditUserForm(prev => ({...prev, firstName: e.target.value}));
@@ -809,7 +642,6 @@ AddUserModal.displayName = 'AddUserModal';
               placeholder="Job Name"
               value={newJobType.job_name}
               onChange={handleJobNameChange}
-              autoFocus
             />
             <Input
               placeholder="Category"
@@ -1126,7 +958,13 @@ AddUserModal.displayName = 'AddUserModal';
         <div className="mt-6">{renderContent()}</div>
       </div>
 
-      {showAddUserModal && <AddUserModal />}
+      {/* ✅ UPDATED: Use new AddUserModal with proper props */}
+      <AddUserModal
+        isOpen={showAddUserModal}
+        onClose={() => setShowAddUserModal(false)}
+        onSubmit={handleAddUser}
+      />
+      
       {showEditUserModal && <EditUserModal />}
       {showAddJobTypeModal && <AddJobTypeModal />}
     </div>
