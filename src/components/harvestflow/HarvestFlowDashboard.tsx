@@ -236,7 +236,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
 
   // Navigation items configuration
   const navigationItems = [
-    { id: 'dashboard', label: '📊 Dashboard' },
+    { id: 'dashboard', label: '📊 HarvestFlow Dashboard' },
     { id: 'onboarding', label: '👥 Onboarding' },
     { id: 'attendance', label: '📋 Attendance' },
     { id: 'procurement', label: '🛒 Procurement' },
