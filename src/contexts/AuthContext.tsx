@@ -266,70 +266,108 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Invalid Staff ID format. Use: Admin-Name, HF-Name, FL-Name, or SUP-Name');
       }
       
-      const offlineUser = await checkOfflineUser(staffId);
-      
-      if (offlineUser) {
-        debugLog('✅ Offline login successful', offlineUser);
-        
-        const userData: User = {
-          staff_id: offlineUser.staff_id,
-          full_name: offlineUser.full_name || offlineUser.staff_id,
-          role: offlineUser.role,
-          department: offlineUser.department || 'General',
-          id: offlineUser.id,
-          designation: offlineUser.designation || 'Staff Member'
-        };
-        
-        const offlineToken = `offline_${staffId}_${Date.now()}`;
-        localStorage.setItem('auth_token', offlineToken);
-        localStorage.setItem('user_data', JSON.stringify(userData));
-        localStorage.setItem('offline_mode', 'true');
-        
-        setUser(userData);
-        setIsOfflineMode(true);
-        setLoading(false);
-        debugLog('✅ Logged in offline mode');
-        return;
-      }
-      
+      // ✅ CHECK IF ACTUALLY OFFLINE FIRST
       if (!navigator.onLine) {
-        throw new Error('🔴 You are offline and this Staff ID is not cached. Please connect to internet for first-time login.');
+        debugLog('❌ Device is offline - checking cache...');
+        const offlineUser = await checkOfflineUser(staffId);
+        
+        if (offlineUser) {
+          debugLog('✅ Found user in offline cache');
+          
+          const userData: User = {
+            staff_id: offlineUser.staff_id,
+            full_name: offlineUser.full_name || offlineUser.staff_id,
+            role: offlineUser.role,
+            department: offlineUser.department || 'General',
+            id: offlineUser.id,
+            designation: offlineUser.designation || 'Staff Member'
+          };
+          
+          const offlineToken = `offline_${staffId}_${Date.now()}`;
+          localStorage.setItem('auth_token', offlineToken);
+          localStorage.setItem('user_data', JSON.stringify(userData));
+          localStorage.setItem('offline_mode', 'true');
+          
+          setUser(userData);
+          setIsOfflineMode(true);
+          setLoading(false);
+          debugLog('✅ Logged in offline mode');
+          return;
+        } else {
+          throw new Error('🔴 You are offline and this Staff ID is not cached. Please connect to internet for first-time login.');
+        }
       }
       
-      debugLog('Attempting online authentication...');
+      // ✅ DEVICE IS ONLINE - ALWAYS TRY ONLINE LOGIN FIRST
+      debugLog('🌐 Device is online - attempting online authentication...');
       
-      // ✅ Use the fixed direct fetch
-      const response = await directLoginFetch(staffId);
-      
-      if (response && response.success && response.data?.token && response.data?.user) {
-        const { token, user: apiUser } = response.data;
+      try {
+        const response = await directLoginFetch(staffId);
         
-        debugLog('✅ Login successful, storing token...');
+        if (response && response.success && response.data?.token && response.data?.user) {
+          const { token, user: apiUser } = response.data;
+          
+          debugLog('✅ Online login successful, storing token...');
+          
+          api.setToken(token);
+          localStorage.setItem('auth_token', token);
+          localStorage.removeItem('offline_mode');
+          
+          const userData: User = {
+            staff_id: apiUser.staff_id,
+            full_name: apiUser.full_name || apiUser.staff_id,
+            role: apiUser.role,
+            department: apiUser.department || 'General',
+            id: apiUser.id,
+            designation: apiUser.designation || 'Staff Member'
+          };
+          
+          localStorage.setItem('user_data', JSON.stringify(userData));
+          
+          debugLog('✅ Caching user for offline access...');
+          await cacheUserOffline(userData);
+          
+          setUser(userData);
+          setIsOfflineMode(false);
+          setLoading(false);
+          debugLog('✅ Login complete (ONLINE MODE)');
+          return;
+        } else {
+          throw new Error('Invalid credentials from server');
+        }
+      } catch (onlineError: any) {
+        debugLog('❌ Online login failed', onlineError.message);
         
-        api.setToken(token);
-        localStorage.setItem('auth_token', token);
-        localStorage.removeItem('offline_mode');
+        // ✅ ONLINE LOGIN FAILED - TRY OFFLINE AS FALLBACK
+        debugLog('Checking offline cache as fallback...');
+        const offlineUser = await checkOfflineUser(staffId);
         
-        const userData: User = {
-          staff_id: apiUser.staff_id,
-          full_name: apiUser.full_name || apiUser.staff_id,
-          role: apiUser.role,
-          department: apiUser.department || 'General',
-          id: apiUser.id,
-          designation: apiUser.designation || 'Staff Member'
-        };
-        
-        localStorage.setItem('user_data', JSON.stringify(userData));
-        
-        debugLog('✅ Caching user for offline access...');
-        await cacheUserOffline(userData);
-        
-        setUser(userData);
-        setIsOfflineMode(false);
-        setLoading(false);
-        debugLog('✅ Login complete (online mode)');
-      } else {
-        throw new Error('Invalid credentials. Please check your Staff ID and try again.');
+        if (offlineUser) {
+          debugLog('⚠️ Using offline cache due to online login failure');
+          
+          const userData: User = {
+            staff_id: offlineUser.staff_id,
+            full_name: offlineUser.full_name || offlineUser.staff_id,
+            role: offlineUser.role,
+            department: offlineUser.department || 'General',
+            id: offlineUser.id,
+            designation: offlineUser.designation || 'Staff Member'
+          };
+          
+          const offlineToken = `offline_${staffId}_${Date.now()}`;
+          localStorage.setItem('auth_token', offlineToken);
+          localStorage.setItem('user_data', JSON.stringify(userData));
+          localStorage.setItem('offline_mode', 'true');
+          
+          setUser(userData);
+          setIsOfflineMode(true);
+          setLoading(false);
+          debugLog('✅ Logged in offline mode (fallback)');
+          return;
+        } else {
+          // No offline cache available - throw the original error
+          throw new Error('Invalid credentials. Please check your Staff ID and try again.');
+        }
       }
       
     } catch (error: any) {
