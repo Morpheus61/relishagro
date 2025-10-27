@@ -16,7 +16,7 @@ const GlobalHeader: React.FC = () => {
     <div className="bg-white text-gray-800 p-3 shadow-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4">
-  <div className="h-30 w-30 rounded flex items-center justify-center overflow-hidden">
+  <div className="h-20 w-20 rounded flex items-center justify-center overflow-hidden">
     <img 
       src="/flavorcore-logo.png" 
       alt="FlavorCore Logo" 
