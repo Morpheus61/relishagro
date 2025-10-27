@@ -16,11 +16,15 @@ const GlobalHeader: React.FC = () => {
     <div className="bg-white text-gray-800 p-3 shadow-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="h-8 w-8 bg-purple-600 rounded flex items-center justify-center">
-            <span className="text-white text-lg font-bold">🌿</span>
-          </div>
-          <h1 className="text-xl font-bold text-gray-800">Relish Agro Management System</h1>
-        </div>
+  <div className="h-10 w-10 rounded flex items-center justify-center overflow-hidden">
+    <img 
+      src="/flavorcore-logo.png" 
+      alt="FlavorCore Logo" 
+      className="h-full w-full object-contain"
+    />
+  </div>
+  <h1 className="text-xl font-bold text-gray-800">Relish Agro Management System</h1>
+</div>
         <button
           onClick={logout}
           className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
