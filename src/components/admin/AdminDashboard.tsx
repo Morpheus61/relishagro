@@ -502,9 +502,13 @@ const AdminDashboard: React.FC = () => {
 
   const getHeaders = () => {
     const token = getAuthToken();
+    if (!token) {
+      console.error('❌ No auth token found in localStorage');
+      throw new Error('No authentication token');
+    }
     return {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : ''
+      'Authorization': `Bearer ${token}`
     };
   };
 
@@ -552,9 +556,19 @@ const AdminDashboard: React.FC = () => {
 
   const fetchOnboardingRequests = async () => {
     try {
+      console.log('🔄 Fetching onboarding requests...');
       const response = await fetch(`${API_BASE}/api/onboarding/pending`, { headers: getHeaders() });
+      
+      console.log('📥 Onboarding response status:', response.status);
+      
+      if (response.status === 401) {
+        console.error('❌ 401 Unauthorized - Token invalid or expired');
+        throw new Error('Authentication failed. Please login again.');
+      }
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Onboarding data received:', data);
         const requestsArray = Array.isArray(data) ? data : (data.data || []);
         setOnboardingRequests(requestsArray.map((req: any) => {
           if (req.first_name) {
@@ -578,10 +592,14 @@ const AdminDashboard: React.FC = () => {
             };
           }
         }));
+      } else {
+        console.error('❌ Onboarding fetch failed with status:', response.status);
+        throw new Error(`Failed to fetch onboarding requests: ${response.status}`);
       }
     } catch (err) {
-      console.error('Error fetching onboarding:', err);
+      console.error('❌ Error fetching onboarding requests:', err);
       setOnboardingRequests([]);
+      throw err; // Re-throw to be caught by fetchAllData
     }
   };
 
@@ -749,22 +767,45 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchAllData = async () => {
+      // ✅ Verify token exists before making API calls
+      const token = getAuthToken();
+      if (!token) {
+        console.error('❌ No auth token found. User must login first.');
+        setError('Authentication required. Please login again.');
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
+        console.log('🔄 Fetching dashboard data with token:', token.substring(0, 20) + '...');
+        
         await Promise.all([
           fetchUsers(),
           fetchWorkers(),
           fetchJobTypes(),
           fetchOnboardingRequests()
         ]);
+        
+        console.log('✅ All dashboard data fetched successfully');
       } catch (err: any) {
-        setError(`Error loading dashboard: ${err.message}`);
+        console.error('❌ Error loading dashboard:', err);
+        if (err.message.includes('token') || err.message.includes('authentication')) {
+          setError('Session expired. Please login again.');
+          // Optionally redirect to login
+          localStorage.removeItem('auth_token');
+        } else {
+          setError(`Error loading dashboard: ${err.message}`);
+        }
       } finally {
         setLoading(false);
       }
     };
-    fetchAllData();
+    
+    // Small delay to ensure token is set after login redirect
+    const timeoutId = setTimeout(fetchAllData, 100);
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const totalUsers = users?.length || 0;
