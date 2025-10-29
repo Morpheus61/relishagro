@@ -1,4 +1,4 @@
-// src/App.tsx
+// src/App.tsx - COMPLETE VERSION
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -7,8 +7,9 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import HarvestFlowDashboard from './components/harvestflow/HarvestFlowDashboard';
 import FlavorCoreManagerDashboard from './components/flavorcore/FlavorCoreManagerDashboard';
 import SupervisorDashboard from './components/supervisor/SupervisorDashboard';
+import EnhancedOnboardingForm from './components/onboarding/EnhancedOnboardingForm';
+import FaceAttendanceKiosk from './components/attendance/FaceAttendanceKiosk';
 
-// ✅ FIXED: Global Header Component with WHITE background
 const GlobalHeader: React.FC = () => {
   const { logout } = useAuth();
 
@@ -16,15 +17,15 @@ const GlobalHeader: React.FC = () => {
     <div className="bg-white text-gray-800 p-3 shadow-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4">
-  <div className="h-20 w-20 rounded flex items-center justify-center overflow-hidden">
-    <img 
-      src="/flavorcore-logo.png" 
-      alt="FlavorCore Logo" 
-      className="h-full w-full object-contain"
-    />
-  </div>
-  <h1 className="text-xl font-bold text-gray-800">Relish Agro Management System</h1>
-</div>
+          <div className="h-20 w-20 rounded flex items-center justify-center overflow-hidden">
+            <img 
+              src="/flavorcore-logo.png" 
+              alt="FlavorCore Logo" 
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <h1 className="text-xl font-bold text-gray-800">Relish Agro Management System</h1>
+        </div>
         <button
           onClick={logout}
           className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
@@ -36,7 +37,6 @@ const GlobalHeader: React.FC = () => {
   );
 };
 
-// Error Boundary Component
 class ErrorBoundary extends React.Component<{
   children: React.ReactNode;
   fallback: React.ReactNode;
@@ -59,17 +59,7 @@ class ErrorBoundary extends React.Component<{
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-            <div className="mb-6">
-              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h1>
-            <p className="text-gray-600 mb-6">
-              An unexpected error occurred. Please try refreshing the page or contact support.
-            </p>
             <button
               onClick={() => window.location.reload()}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
@@ -85,7 +75,6 @@ class ErrorBoundary extends React.Component<{
   }
 }
 
-// Protected Route Component
 const ProtectedRoute: React.FC<{ 
   children: React.ReactNode;
   requiredRole?: string;
@@ -103,7 +92,6 @@ const ProtectedRoute: React.FC<{
   return <>{children}</>;
 };
 
-// Wrapper for HarvestFlow Dashboard
 const HarvestFlowWrapper: React.FC = () => {
   const { user } = useAuth();
   
@@ -119,7 +107,6 @@ const HarvestFlowWrapper: React.FC = () => {
   return <HarvestFlowDashboard currentUser={userWithName} />;
 };
 
-// Wrapper for Supervisor Dashboard
 const SupervisorWrapper: React.FC = () => {
   const { user } = useAuth();
   
@@ -135,20 +122,12 @@ const SupervisorWrapper: React.FC = () => {
   return <SupervisorDashboard currentUser={userWithName} />;
 };
 
-// Unauthorized Page Component
 const UnauthorizedPage: React.FC = () => {
   const { logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-        <div className="mb-6">
-          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
         <p className="text-gray-600 mb-6">
           You don't have permission to access this resource. Please contact your administrator.
@@ -164,7 +143,6 @@ const UnauthorizedPage: React.FC = () => {
   );
 };
 
-// Dashboard Router Component
 const DashboardRouter: React.FC = () => {
   const { user } = useAuth();
 
@@ -196,21 +174,17 @@ const DashboardRouter: React.FC = () => {
   return getDashboardComponent();
 };
 
-// AppContent - This component is INSIDE the Router
 const AppContent: React.FC = () => {
   const location = useLocation();
 
   return (
     <div className="App">
-      {/* Only show header if NOT on login page */}
       {location.pathname !== '/login' && <GlobalHeader />}
       
       <Routes>
-        {/* Public Routes */}
         <Route path="/login" element={<LoginScreen />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         
-        {/* Protected Dashboard Route */}
         <Route 
           path="/dashboard" 
           element={
@@ -220,9 +194,17 @@ const AppContent: React.FC = () => {
           } 
         />
         
-        {/* Role-specific Protected Routes */}
         <Route 
           path="/admin" 
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/admin/dashboard" 
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminDashboard />
@@ -257,17 +239,31 @@ const AppContent: React.FC = () => {
           } 
         />
         
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route 
+          path="/onboarding/new" 
+          element={
+            <ProtectedRoute>
+              <EnhancedOnboardingForm />
+            </ProtectedRoute>
+          } 
+        />
         
-        {/* Catch all - redirect to login */}
+        <Route 
+          path="/attendance/kiosk" 
+          element={
+            <ProtectedRoute>
+              <FaceAttendanceKiosk />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </div>
   );
 };
 
-// Main App Component
 const App: React.FC = () => {
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>

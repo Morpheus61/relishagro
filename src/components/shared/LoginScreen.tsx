@@ -18,15 +18,36 @@ export function LoginScreen() {
   const [showCacheClear, setShowCacheClear] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
-  const { login, isAuthenticated, isOfflineMode } = useAuth();
+  const { login, isAuthenticated, user, isOfflineMode } = useAuth();
   const navigate = useNavigate();
 
+  // ✅ FIXED: Role-based navigation
   useEffect(() => {
-    if (isAuthenticated) {
-      debugLog('User authenticated, redirecting to dashboard...');
-      navigate('/dashboard', { replace: true });
+    if (isAuthenticated && user) {
+      const staffIdLower = user.staff_id?.toLowerCase() || '';
+      let redirectPath = '/dashboard';
+      
+      if (staffIdLower.startsWith('admin-')) {
+        redirectPath = '/admin/dashboard';
+      } else if (staffIdLower.startsWith('hf-')) {
+        redirectPath = '/harvestflow';
+      } else if (staffIdLower.startsWith('fc-') || staffIdLower.startsWith('fl-')) {
+        redirectPath = '/flavorcore';
+      } else if (staffIdLower.startsWith('sup-')) {
+        redirectPath = '/supervisor';
+      }
+      
+      debugLog('✅ User authenticated, redirecting to:', redirectPath);
+      navigate(redirectPath, { replace: true });
+      
+      // Fallback
+      setTimeout(() => {
+        if (window.location.pathname === '/login') {
+          window.location.href = redirectPath;
+        }
+      }, 100);
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   const runDiagnostics = async () => {
     debugLog('🔍 Running diagnostics...');
@@ -147,55 +168,47 @@ export function LoginScreen() {
   };
 
   const handleLogin = async () => {
-  if (!staffId.trim()) {
-    setError('Please enter your Staff ID');
-    return;
-  }
-
-  debugLog('Starting login', { staffId: staffId.trim() });
-  setIsLoading(true);
-  setError('');
-
-  try {
-    debugLog('📱 Attempting login for staff_id:', staffId.trim());
-    
-    // ✅ CRITICAL FIX: Use login method that returns token
-    const result = await login(staffId.trim());
-    
-    debugLog('✅ Login successful', result);
-    
-    // ✅ ADDED: Small delay for state to settle
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    // ✅ Navigate to dashboard
-    navigate('/dashboard', { replace: true });
-    
-  } catch (err: any) {
-    debugLog('❌ Login error', err);
-    
-    let errorMessage = 'Login failed. ';
-    
-    if (err.message.includes('You are offline and this Staff ID is not cached')) {
-      errorMessage = '🔴 First-time login requires internet connection. Please connect and try again.';
-    } else if (!navigator.onLine) {
-      errorMessage = '🔴 You are offline. Please check your internet connection.';
-    } else if (err.message.includes('fetch') || err.message.includes('Network')) {
-      errorMessage = '🔴 Network error - Cannot connect to server.';
-    } else if (err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Invalid Staff ID')) {
-      errorMessage = '🔴 Invalid Staff ID. Please check and try again.';
-    } else if (err.message.includes('CORS') || err.message.includes('blocked')) {
-      errorMessage = '🔴 Security error. Please contact your administrator.';
-    } else if (err.message.includes('timeout')) {
-      errorMessage = '🔴 Connection timeout. The server is taking too long to respond.';
-    } else {
-      errorMessage = `🔴 ${err.message || 'Authentication failed. Please try again.'}`;
+    if (!staffId.trim()) {
+      setError('Please enter your Staff ID');
+      return;
     }
-    
-    setError(errorMessage);
-  } finally {
-    setIsLoading(false);
-  }
-};
+
+    debugLog('Starting login', { staffId: staffId.trim() });
+    setIsLoading(true);
+    setError('');
+
+    try {
+      debugLog('📱 Attempting login for staff_id:', staffId.trim());
+      
+      await login(staffId.trim());
+      
+      debugLog('✅ Login successful - useEffect will handle navigation');
+      
+    } catch (err: any) {
+      debugLog('❌ Login error', err);
+      
+      let errorMessage = 'Login failed. ';
+      
+      if (err.message.includes('You are offline and this Staff ID is not cached')) {
+        errorMessage = '🔴 First-time login requires internet connection. Please connect and try again.';
+      } else if (!navigator.onLine) {
+        errorMessage = '🔴 You are offline. Please check your internet connection.';
+      } else if (err.message.includes('fetch') || err.message.includes('Network')) {
+        errorMessage = '🔴 Network error - Cannot connect to server.';
+      } else if (err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Invalid Staff ID')) {
+        errorMessage = '🔴 Invalid Staff ID. Please check and try again.';
+      } else if (err.message.includes('CORS') || err.message.includes('blocked')) {
+        errorMessage = '🔴 Security error. Please contact your administrator.';
+      } else if (err.message.includes('timeout')) {
+        errorMessage = '🔴 Connection timeout. The server is taking too long to respond.';
+      } else {
+        errorMessage = `🔴 ${err.message || 'Authentication failed. Please try again.'}`;
+      }
+      
+      setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {
@@ -211,32 +224,31 @@ export function LoginScreen() {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const registration of registrations) {
           await registration.unregister();
-          debugLog('Unregistered service worker');
         }
       }
-      
+
       if ('caches' in window) {
         const cacheNames = await caches.keys();
-        for (const cacheName of cacheNames) {
-          await caches.delete(cacheName);
-          debugLog('Deleted cache:', cacheName);
-        }
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
       }
-      
-      const authToken = localStorage.getItem('auth_token');
-      const userData = localStorage.getItem('user_data');
-      const cachedUsers = localStorage.getItem('cached_users');
+
       localStorage.clear();
-      if (authToken) localStorage.setItem('auth_token', authToken);
-      if (userData) localStorage.setItem('user_data', userData);
-      if (cachedUsers) localStorage.setItem('cached_users', cachedUsers);
-      
-      debugLog('Cache cleared successfully, reloading...');
-      alert('✅ Cache cleared! The page will now reload.');
+      sessionStorage.clear();
+
+      if ('indexedDB' in window) {
+        const dbs = await indexedDB.databases();
+        dbs.forEach((db: any) => {
+          if (db.name) {
+            indexedDB.deleteDatabase(db.name);
+          }
+        });
+      }
+
+      alert('✅ Cache cleared! Page will reload...');
       window.location.reload();
-    } catch (error) {
-      debugLog('Error clearing cache', error);
-      alert('❌ Error clearing cache. Please try manually: DevTools → Application → Clear Storage');
+    } catch (err) {
+      console.error('Cache clear error:', err);
+      alert('❌ Error clearing cache. Try manually in browser settings.');
     }
   };
 
@@ -252,7 +264,6 @@ export function LoginScreen() {
   return (
     <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        {/* Offline Mode Indicator */}
         {!navigator.onLine && (
           <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded text-center">
             <p className="text-xs text-yellow-800">

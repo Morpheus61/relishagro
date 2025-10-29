@@ -1,5 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // ✅ ADD THIS
 import api from '../lib/api';
 
 const debugLog = (message: string, data?: any) => {
@@ -116,6 +117,23 @@ const cacheUserOffline = async (user: User): Promise<void> => {
     }
   } catch (err) {
     debugLog('Error caching user', err);
+  }
+};
+
+// ✅ Helper: Determine redirect path based on role/staff_id
+const getRedirectPath = (user: User): string => {
+  const staffId = user.staff_id?.toLowerCase() || '';
+  
+  if (staffId.startsWith('admin-')) {
+    return '/admin/dashboard';
+  } else if (staffId.startsWith('hf-')) {
+    return '/harvestflow';
+  } else if (staffId.startsWith('fc-')) {
+    return '/flavorcore';
+  } else if (staffId.startsWith('sup-')) {
+    return '/supervisor';
+  } else {
+    return '/dashboard';
   }
 };
 
@@ -292,6 +310,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsOfflineMode(true);
           setLoading(false);
           debugLog('✅ Logged in offline mode');
+          
+          // ✅ NAVIGATION WILL BE HANDLED BY LoginScreen
           return;
         } else {
           throw new Error('🔴 You are offline and this Staff ID is not cached. Please connect to internet for first-time login.');
@@ -331,6 +351,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsOfflineMode(false);
           setLoading(false);
           debugLog('✅ Login complete (ONLINE MODE)');
+          
+          // ✅ NAVIGATION WILL BE HANDLED BY LoginScreen
           return;
         } else {
           throw new Error('Invalid credentials from server');
@@ -363,6 +385,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsOfflineMode(true);
           setLoading(false);
           debugLog('✅ Logged in offline mode (fallback)');
+          
+          // ✅ NAVIGATION WILL BE HANDLED BY LoginScreen
           return;
         } else {
           // No offline cache available - throw the original error
@@ -393,6 +417,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setIsOfflineMode(false);
     setError(null);
+    
+    // ✅ Navigate to login after logout
+    window.location.href = '/login';
   };
 
   const value: AuthContextType = {
@@ -420,3 +447,6 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
+// ✅ EXPORT THIS HELPER FOR USE IN LoginScreen
+export { getRedirectPath };
