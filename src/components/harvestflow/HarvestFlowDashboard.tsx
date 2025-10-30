@@ -29,8 +29,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  X
+  X,
+  Camera,
+  Fingerprint
 } from 'lucide-react';
+
+// Biometric components
+import { CameraCapture } from '../shared/CameraCapture';
+
+// Enhanced Navigation Component
+interface NavigationItem {
+  id: string;
+  label: string;
+}
+
 
 // Enhanced Navigation Component
 interface NavigationItem {
@@ -451,6 +463,7 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
   );
 
   // Employee Onboarding Tab
+  // 🔥 ENHANCED EMPLOYEE ONBOARDING WITH BIOMETRICS
   const EmployeeOnboarding = () => {
     const [newEmployee, setNewEmployee] = useState({
       name: '',
@@ -461,11 +474,20 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
       daily_wage: 0,
       weight_based_wage: 0
     });
+    
+    const [step, setStep] = useState(1);
     const [submitting, setSubmitting] = useState(false);
+    const [faceImage, setFaceImage] = useState<string | null>(null);
+    const [fingerprintData, setFingerprintData] = useState<string | null>(null);
 
     const createEmployee = async () => {
       if (!newEmployee.name || !newEmployee.phone) {
-        alert('Please fill in required fields: Name and Phone');
+        alert('❌ Please fill in required fields: Name and Phone');
+        return;
+      }
+
+      if (!faceImage) {
+        alert('❌ Face capture required! Go back to Step 2.');
         return;
       }
 
@@ -474,8 +496,14 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
         const success = await createWorker({
           name: newEmployee.name,
           phone: newEmployee.phone,
+          email: newEmployee.email,
           role: newEmployee.role,
-          staff_id: `HF-${Date.now()}`
+          department: newEmployee.department,
+          daily_wage: newEmployee.daily_wage,
+          weight_based_wage: newEmployee.weight_based_wage,
+          staff_id: `HF-${Date.now()}`,
+          face_image: faceImage,
+          fingerprint_data: fingerprintData || null
         });
         
         if (success) {
@@ -483,13 +511,16 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
             name: '', email: '', phone: '', role: 'field_worker', department: 'harvest',
             daily_wage: 0, weight_based_wage: 0
           });
-          alert('Employee onboarded successfully!');
+          setFaceImage(null);
+          setFingerprintData(null);
+          setStep(1);
+          alert('✅ Employee onboarded successfully with biometrics!');
         } else {
-          alert('Onboarding failed. Please try again.');
+          alert('❌ Onboarding failed. Please try again.');
         }
       } catch (error) {
         console.error('Employee onboarding failed:', error);
-        alert('Onboarding failed. Please try again.');
+        alert('❌ Onboarding failed. Please try again.');
       } finally {
         setSubmitting(false);
       }
@@ -497,84 +528,266 @@ const HarvestFlowDashboard: React.FC<HarvestFlowDashboardProps> = ({ currentUser
 
     return (
       <div className="space-y-6">
+        {/* Progress Bar */}
+        <Card className="p-4">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <div className={`px-3 py-1 rounded whitespace-nowrap ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+              {step > 1 ? '✓' : '1'} Info
+            </div>
+            <div className="flex-1 h-1 bg-gray-200 min-w-[20px]">
+              <div className={`h-full transition-all ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`} style={{width: `${(step-1)*33}%`}} />
+            </div>
+            <div className={`px-3 py-1 rounded whitespace-nowrap ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+              {step > 2 ? '✓' : '2'} Face
+            </div>
+            <div className="flex-1 h-1 bg-gray-200 min-w-[20px]">
+              <div className={`h-full transition-all ${step >= 3 ? 'bg-blue-600' : 'bg-gray-200'}`} style={{width: `${Math.max(0,(step-2)*50)}%`}} />
+            </div>
+            <div className={`px-3 py-1 rounded whitespace-nowrap ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+              {step > 3 ? '✓' : '3'} Print
+            </div>
+            <div className="flex-1 h-1 bg-gray-200 min-w-[20px]">
+              <div className={`h-full transition-all ${step >= 4 ? 'bg-blue-600' : 'bg-gray-200'}`} style={{width: `${Math.max(0,(step-3)*100)}%`}} />
+            </div>
+            <div className={`px-3 py-1 rounded whitespace-nowrap ${step >= 4 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+              4 Review
+            </div>
+          </div>
+        </Card>
+
         <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <UserPlus className="w-6 h-6 text-green-600" />
-            <h3 className="text-xl font-bold">👥 Employee Onboarding</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h4 className="font-semibold">Personal Information</h4>
-              <Input
-                placeholder="Full Name *"
-                value={newEmployee.name}
-                onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
-              />
-              <Input
-                type="email"
-                placeholder="Email Address *"
-                value={newEmployee.email}
-                onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-              />
-              <Input
-                type="tel"
-                placeholder="Phone Number *"
-                value={newEmployee.phone}
-                onChange={(e) => setNewEmployee({...newEmployee, phone: e.target.value})}
-              />
-              <select 
-                value={newEmployee.role} 
-                onChange={(e) => setNewEmployee({...newEmployee, role: e.target.value})}
-                className="w-full h-12 px-3 border border-gray-300 rounded-lg"
-              >
-                <option value="field_worker">Field Worker</option>
-                <option value="harvesting_specialist">Harvesting Specialist</option>
-                <option value="supervisor">Supervisor</option>
-                <option value="quality_inspector">Quality Inspector</option>
-                <option value="machine_operator">Machine Operator</option>
-              </select>
-            </div>
-            <div className="space-y-4">
-              <h4 className="font-semibold">Employment Details</h4>
-              <select 
-                value={newEmployee.department} 
-                onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
-                className="w-full h-12 px-3 border border-gray-300 rounded-lg"
-              >
-                <option value="harvest">Harvest Operations</option>
-                <option value="field_maintenance">Field Maintenance</option>
-                <option value="quality_control">Quality Control</option>
-                <option value="logistics">Logistics</option>
-              </select>
-              <div>
-                <label className="block text-sm font-medium mb-1">Daily Wage (₹)</label>
-                <Input
-                  type="number"
-                  placeholder="Daily wage rate"
-                  value={newEmployee.daily_wage}
-                  onChange={(e) => setNewEmployee({...newEmployee, daily_wage: Number(e.target.value)})}
-                />
+          {/* STEP 1: Basic Info */}
+          {step === 1 && (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <UserPlus className="w-6 h-6 text-green-600" />
+                <h3 className="text-xl font-bold">Step 1: Employee Information</h3>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Weight-based Wage (₹/kg)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Rate per kg"
-                  value={newEmployee.weight_based_wage}
-                  onChange={(e) => setNewEmployee({...newEmployee, weight_based_wage: Number(e.target.value)})}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-semibold">Personal Information</h4>
+                  <Input
+                    placeholder="Full Name *"
+                    value={newEmployee.name}
+                    onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
+                  />
+                  <Input
+                    type="email"
+                    placeholder="Email Address *"
+                    value={newEmployee.email}
+                    onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                  />
+                  <Input
+                    type="tel"
+                    placeholder="Phone Number *"
+                    value={newEmployee.phone}
+                    onChange={(e) => setNewEmployee({...newEmployee, phone: e.target.value})}
+                  />
+                  <select 
+                    value={newEmployee.role} 
+                    onChange={(e) => setNewEmployee({...newEmployee, role: e.target.value})}
+                    className="w-full h-12 px-3 border border-gray-300 rounded-lg"
+                  >
+                    <option value="field_worker">Field Worker</option>
+                    <option value="harvesting_specialist">Harvesting Specialist</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="quality_inspector">Quality Inspector</option>
+                    <option value="machine_operator">Machine Operator</option>
+                  </select>
+                </div>
+                <div className="space-y-4">
+                  <h4 className="font-semibold">Employment Details</h4>
+                  <select 
+                    value={newEmployee.department} 
+                    onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
+                    className="w-full h-12 px-3 border border-gray-300 rounded-lg"
+                  >
+                    <option value="harvest">Harvest Operations</option>
+                    <option value="field_maintenance">Field Maintenance</option>
+                    <option value="quality_control">Quality Control</option>
+                    <option value="logistics">Logistics</option>
+                  </select>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Daily Wage (₹)</label>
+                    <Input
+                      type="number"
+                      placeholder="Daily wage rate"
+                      value={newEmployee.daily_wage}
+                      onChange={(e) => setNewEmployee({...newEmployee, daily_wage: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Weight-based Wage (₹/kg)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Rate per kg"
+                      value={newEmployee.weight_based_wage}
+                      onChange={(e) => setNewEmployee({...newEmployee, weight_based_wage: Number(e.target.value)})}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <Button 
-            onClick={createEmployee}
-            className="w-full mt-6 bg-green-600 hover:bg-green-700 h-12 text-lg whitespace-nowrap"
-            disabled={!newEmployee.name || !newEmployee.phone || submitting}
-          >
-            <UserPlus className="w-5 h-5 mr-2" />
-            {submitting ? 'Onboarding...' : 'Onboard New Employee'}
-          </Button>
+              <Button 
+                onClick={() => {
+                  if (!newEmployee.name || !newEmployee.phone || !newEmployee.email) {
+                    alert('❌ Please fill in all required fields (Name, Email, Phone)');
+                    return;
+                  }
+                  setStep(2);
+                }}
+                className="w-full mt-6 bg-blue-600 hover:bg-blue-700 h-12"
+              >
+                Next: Capture Face Photo →
+              </Button>
+            </>
+          )}
+
+          {/* STEP 2: Face Capture */}
+          {step === 2 && (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <Camera className="w-6 h-6 text-purple-600" />
+                <h3 className="text-xl font-bold">Step 2: Face Capture</h3>
+              </div>
+              
+              {!faceImage ? (
+                <CameraCapture
+                  onCapture={(base64) => setFaceImage(base64)}
+                  purpose="face"
+                  showInstructions={true}
+                />
+              ) : (
+                <div className="text-center space-y-4">
+                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 inline-block">
+                    <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-3" />
+                    <p className="font-bold text-green-800 mb-3">Face Captured!</p>
+                    <img 
+                      src={`data:image/jpeg;base64,${faceImage}`}
+                      alt="Captured"
+                      className="w-48 h-48 object-cover rounded-lg border-4 border-green-400"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button onClick={() => setFaceImage(null)} variant="outline" className="flex-1">
+                      ← Retake
+                    </Button>
+                    <Button onClick={() => setStep(3)} className="flex-1 bg-purple-600 hover:bg-purple-700">
+                      Next →
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={() => setStep(1)} variant="outline" className="w-full mt-4">
+                ← Back
+              </Button>
+            </>
+          )}
+
+          {/* STEP 3: Fingerprint */}
+          {step === 3 && (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <Fingerprint className="w-6 h-6 text-indigo-600" />
+                <h3 className="text-xl font-bold">Step 3: Fingerprint (Optional)</h3>
+              </div>
+
+              <div className="text-center py-8">
+                <div className="w-32 h-32 mx-auto mb-6 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <Fingerprint className="w-16 h-16 text-indigo-600" />
+                </div>
+                <h4 className="font-bold text-lg mb-2">Fingerprint Scanner Required</h4>
+                <p className="text-gray-600 mb-6">Connect USB scanner (MFS110/MARC11 L1)</p>
+                
+                <div className="space-y-3 max-w-md mx-auto">
+                  <Button 
+                    onClick={() => {
+                      alert('🚧 Connect fingerprint scanner via USB');
+                      setStep(4);
+                    }}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    <Fingerprint className="w-5 h-5 mr-2" />
+                    Capture Fingerprint
+                  </Button>
+                  
+                  <Button onClick={() => setStep(4)} variant="outline" className="w-full">
+                    Skip Fingerprint
+                  </Button>
+                </div>
+              </div>
+
+              <Button onClick={() => setStep(2)} variant="outline" className="w-full mt-4">
+                ← Back
+              </Button>
+            </>
+          )}
+
+          {/* STEP 4: Review */}
+          {step === 4 && (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+                <h3 className="text-xl font-bold">Review & Submit</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold mb-3">Employee Information:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div><span className="text-gray-600">Name:</span> <span className="font-medium">{newEmployee.name}</span></div>
+                    <div><span className="text-gray-600">Email:</span> <span className="font-medium">{newEmployee.email}</span></div>
+                    <div><span className="text-gray-600">Phone:</span> <span className="font-medium">{newEmployee.phone}</span></div>
+                    <div><span className="text-gray-600">Role:</span> <span className="font-medium">{newEmployee.role}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h4 className="font-bold mb-3">Biometric Status:</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {faceImage ? (
+                        <><CheckCircle className="text-green-600" size={20} /> <span className="text-sm">Face: Captured ✓</span></>
+                      ) : (
+                        <><AlertTriangle className="text-red-600" size={20} /> <span className="text-sm">Face: Missing</span></>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {fingerprintData ? (
+                        <><CheckCircle className="text-green-600" size={20} /> <span className="text-sm">Fingerprint: Captured ✓</span></>
+                      ) : (
+                        <><AlertTriangle className="text-yellow-600" size={20} /> <span className="text-sm">Fingerprint: Skipped</span></>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button onClick={() => setStep(3)} variant="outline" className="px-8">
+                    ← Back
+                  </Button>
+                  <Button 
+                    onClick={createEmployee}
+                    disabled={submitting || !faceImage}
+                    className="flex-1 bg-green-600 hover:bg-green-700 h-12 text-lg"
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+                        Onboarding...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-5 h-5 mr-2" />
+                        Complete Onboarding
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </Card>
 
         {/* Current Employees */}
